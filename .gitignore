@@ -1,0 +1,7 @@
+.mvn/repo/
+**/target/
+**/*.log
+
+# mvn hpi:run
+work
+

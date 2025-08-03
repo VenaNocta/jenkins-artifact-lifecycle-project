@@ -1,0 +1,460 @@
+<!--
+
+    Copyright © 2025 VenaNocta (venanocta@gmail.com)
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.jenkins-ci.plugins</groupId>
+		<artifactId>plugin</artifactId>
+		<version>4.78</version>
+	</parent>
+
+	<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
+	<artifactId>artifact-signing-parent</artifactId>
+	<version>0.0.0</version>
+	<packaging>pom</packaging>
+
+	<name>Jenkins Artifact Signing Plugin - Parent</name>
+	<description>Jenkins Plugin providing GPG signing capabilities for archived Artifacts </description>
+	<url>https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
+	<inceptionYear>2025</inceptionYear>
+
+	<modules>
+		<module>sources</module>
+		<module>api</module>
+		<module>plugin</module>
+	</modules>
+
+	<licenses>
+		<license>
+			<name>Apache License, Version 2</name>
+			<url>https://www.apache.org/licenses/LICENSE-2.0</url>
+		</license>
+	</licenses>
+
+	<organization>
+		<name>RunedUniverse</name>
+		<url>https://www.runeduniverse.net</url>
+	</organization>
+
+	<developers>
+		<developer>
+			<id>venanocta</id>
+			<name>VenaNocta</name>
+			<email>venanocta@gmail.com</email>
+			<organization>RunedUniverse</organization>
+			<organizationUrl>https://www.runeduniverse.net</organizationUrl>
+			<timezone>Europe/Vienna</timezone>
+			<roles>
+				<role>Maintainer</role>
+				<role>Developer</role>
+			</roles>
+		</developer>
+	</developers>
+
+	<scm>
+		<url>
+			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
+		<connection>
+			scm:git:https://github.com/RunedUniverse/jenkins-artifact-signing-plugin.git</connection>
+		<developerConnection>
+			scm:git:git@github.com:RunedUniverse/jenkins-artifact-signing-plugin.git</developerConnection>
+	</scm>
+	<issueManagement>
+		<system>GitHub Issues</system>
+		<url>
+			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin/issues</url>
+	</issueManagement>
+
+	<pluginRepositories>
+		<pluginRepository>
+			<id>runeduniverse-development</id>
+			<url>https://nexus.runeduniverse.net/repository/maven-development/</url>
+		</pluginRepository>
+	</pluginRepositories>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.release>11</maven.compiler.release>
+		<root-dir>${basedir}</root-dir>
+		<!-- VERSIONS -->
+		<major-version>0</major-version>
+		<minor-version>0</minor-version>
+		<artifact-version>0</artifact-version>
+		<!-- ARTIFACT VERSIONS -->
+		<jenkins.version>2.426.3</jenkins.version>
+		<lombok-version>1.18.12</lombok-version>
+		<!-- ARTIFACT VERSIONS - COMPILER -->
+		<plugin-revelc-formatter-version>2.23.0</plugin-revelc-formatter-version>
+		<plugin-maven-toolchains-version>3.1.0</plugin-maven-toolchains-version>
+		<plugin-mycila-license-version>4.2.rc1</plugin-mycila-license-version>
+		<plugin-maven-gpg-version>3.0.1</plugin-maven-gpg-version>
+		<maven-jenkins-workflow-version>1.0.0</maven-jenkins-workflow-version>
+	</properties>
+
+	<profiles>
+		<!-- TOOLCHAINS -->
+		<profile>
+			<id>toolchain-openjdk-11</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-toolchains-plugin</artifactId>
+						<configuration>
+							<toolchains>
+								<jdk>
+									<version>openjdk-11</version>
+								</jdk>
+							</toolchains>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<!-- DEV-INSTALL -->
+		<profile>
+			<id>dev-install</id>
+			<build>
+				<defaultGoal>clean dev/install</defaultGoal>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<groupId>org.apache.maven.plugins</groupId>
+							<artifactId>maven-toolchains-plugin</artifactId>
+							<configuration>
+								<toolchains>
+									<jdk>
+										<version>openjdk-11</version>
+									</jdk>
+								</toolchains>
+							</configuration>
+						</plugin>
+					</plugins>
+				</pluginManagement>
+			</build>
+		</profile>
+		<profile>
+			<id>format</id>
+			<build>
+				<defaultGoal>format/validate</defaultGoal>
+			</build>
+		</profile>
+		<!-- PIPELINE -->
+		<profile>
+			<id>install</id>
+			<build>
+				<defaultGoal>
+					clean install
+				</defaultGoal>
+			</build>
+		</profile>
+		<profile>
+			<id>test-junit-jupiter</id>
+			<build>
+				<defaultGoal>junit-jupiter/test</defaultGoal>
+			</build>
+		</profile>
+		<profile>
+			<id>deploy</id>
+			<build>
+				<defaultGoal>
+					deploy/deploy
+				</defaultGoal>
+			</build>
+		</profile>
+		<profile>
+			<id>deploy-signed</id>
+			<build>
+				<defaultGoal>
+					deploy-signed/deploy
+				</defaultGoal>
+			</build>
+		</profile>
+		<!-- REPOSITORIES -->
+		<profile>
+			<id>repo-releases</id>
+			<repositories>
+				<repository>
+					<id>runeduniverse-releases</id>
+					<url>
+						https://nexus.runeduniverse.net/repository/maven-releases/
+					</url>
+				</repository>
+				<repository>
+					<id>repo.jenkins-ci.org</id>
+					<url>https://repo.jenkins-ci.org/public/</url>
+				</repository>
+			</repositories>
+			<pluginRepositories>
+				<pluginRepository>
+					<id>repo.jenkins-ci.org</id>
+					<url>https://repo.jenkins-ci.org/public/</url>
+				</pluginRepository>
+			</pluginRepositories>
+		</profile>
+		<profile>
+			<!-- dev-repo contains: development builds -->
+			<id>repo-development</id>
+			<repositories>
+				<repository>
+					<id>runeduniverse-development</id>
+					<url>
+						https://nexus.runeduniverse.net/repository/maven-development/
+					</url>
+				</repository>
+			</repositories>
+		</profile>
+		<!-- DISTRIBUTION REPOSITORIES -->
+		<profile>
+			<id>dist-repo-releases</id>
+		</profile>
+		<profile>
+			<id>dist-repo-development</id>
+			<distributionManagement>
+				<repository>
+					<id>runeduniverse-development</id>
+					<url>
+						https://nexus.runeduniverse.net/repository/maven-development/
+					</url>
+				</repository>
+			</distributionManagement>
+		</profile>
+		<profile>
+			<id>dist-repo-maven-central</id>
+		</profile>
+		<!-- LICENSES -->
+		<profile>
+			<id>license-check</id>
+			<build>
+				<defaultGoal>license:check</defaultGoal>
+			</build>
+		</profile>
+		<profile>
+			<id>license-apache2-approve</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>com.mycila</groupId>
+						<artifactId>license-maven-plugin</artifactId>
+						<configuration>
+							<dependencyPolicies>
+								<dependencyPolicy>
+									<type>LICENSE_NAME</type>
+									<rule>APPROVE</rule>
+									<value>Apache License, Version 2</value>
+								</dependencyPolicy>
+								<dependencyPolicy>
+									<type>LICENSE_NAME</type>
+									<rule>APPROVE</rule>
+									<value>The Apache Software License, Version
+										2.0</value>
+								</dependencyPolicy>
+								<dependencyPolicy>
+									<type>LICENSE_URL</type>
+									<rule>APPROVE</rule>
+									<value>
+										http://www.apache.org/licenses/LICENSE-2.0</value>
+								</dependencyPolicy>
+								<dependencyPolicy>
+									<type>LICENSE_URL</type>
+									<rule>APPROVE</rule>
+									<value>
+										https://www.apache.org/licenses/LICENSE-2.0</value>
+								</dependencyPolicy>
+								<dependencyPolicy>
+									<type>LICENSE_URL</type>
+									<rule>APPROVE</rule>
+									<value>
+										http://www.apache.org/licenses/LICENSE-2.0.txt</value>
+								</dependencyPolicy>
+								<dependencyPolicy>
+									<type>LICENSE_URL</type>
+									<rule>APPROVE</rule>
+									<value>
+										https://www.apache.org/licenses/LICENSE-2.0.txt</value>
+								</dependencyPolicy>
+							</dependencyPolicies>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.projectlombok</groupId>
+				<artifactId>lombok</artifactId>
+				<version>${lombok-version}</version>
+				<scope>provided</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<resources>
+			<resource>
+				<directory>${basedir}</directory>
+				<targetPath>META-INF</targetPath>
+				<includes>
+					<include>LICENSE</include>
+				</includes>
+			</resource>
+		</resources>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-clean-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-toolchains-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>net.revelc.code.formatter</groupId>
+				<artifactId>formatter-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>com.mycila</groupId>
+				<artifactId>license-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-gpg-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-install-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-deploy-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>net.runeduniverse.tools.maven.workflow</groupId>
+				<artifactId>maven-jenkins-workflow</artifactId>
+			</plugin>
+		</plugins>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-toolchains-plugin</artifactId>
+					<version>${plugin-maven-toolchains-version}</version>
+					<configuration>
+						<toolchains>
+							<jdk>
+								<version>openjdk-11</version>
+							</jdk>
+						</toolchains>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>net.revelc.code.formatter</groupId>
+					<artifactId>formatter-maven-plugin</artifactId>
+					<version>${plugin-revelc-formatter-version}</version>
+					<configuration>
+						<configFile>
+							${root-dir}/.code-formats/runed-code-format-java.xml
+						</configFile>
+						<lineEnding>LF</lineEnding>
+						<skipHtmlFormatting>true</skipHtmlFormatting>
+						<skipJsFormatting>true</skipJsFormatting>
+						<skipCssFormatting>true</skipCssFormatting>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>com.diffplug.spotless</groupId>
+					<artifactId>spotless-maven-plugin</artifactId>
+					<configuration>
+						<!-- Another plugin does that! -->
+						<!-- in case you want to enable it: -->
+						<!-- 1st make sure it doesn't mess with the pom files!!! -->
+						<applySkip>true</applySkip>
+						<checkSkip>true</checkSkip>
+						<java>
+							<eclipse>
+								<file>
+									${root-dir}/.code-formats/runed-code-format-java.xml
+								</file>
+							</eclipse>
+						</java>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>com.mycila</groupId>
+					<artifactId>license-maven-plugin</artifactId>
+					<version>${plugin-mycila-license-version}</version>
+					<configuration>
+						<properties>
+							<year>2025</year>
+							<owner>VenaNocta</owner>
+							<email>venanocta@gmail.com</email>
+						</properties>
+						<mapping>
+							<java>SLASHSTAR_STYLE</java>
+						</mapping>
+						<licenseSets>
+							<licenseSet>
+								<header>${root-dir}/src/license/header.txt</header>
+								<excludes>
+									<exclude>.build/**</exclude>
+									<exclude>**/.mvn/repo/**</exclude>
+									<exclude>**/resources/**</exclude>
+									<exclude>**/license/**</exclude>
+									<exclude>**/target/**</exclude>
+									<exclude>**/work/**</exclude>
+								</excludes>
+							</licenseSet>
+						</licenseSets>
+						<dependencyEnforce>${license-enforce}</dependencyEnforce>
+						<dependencyExceptionMessage>1 or more dependencies got
+							rejected due to invalid licenses! Contact the
+							Maintainer for a solution!</dependencyExceptionMessage>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<configuration>
+						<trimStackTrace>false</trimStackTrace>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-gpg-plugin</artifactId>
+					<version>${plugin-maven-gpg-version}</version>
+				</plugin>
+				<plugin>
+					<groupId>net.runeduniverse.tools.maven.workflow</groupId>
+					<artifactId>maven-jenkins-workflow</artifactId>
+					<version>${maven-jenkins-workflow-version}</version>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+</project>
+
