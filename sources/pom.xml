@@ -42,8 +42,10 @@
 		<!-- ARTIFACT VERSIONS -->
 		<!-- ARTIFACT VERSIONS - TESTING -->
 		<!-- ARTIFACT VERSIONS - BOMs -->
-		<jenkins-tools-bom-version>2857.v01a_0144eb_20b_</jenkins-tools-bom-version>
+		<jenkins-tools-bom-version>2.426.x</jenkins-tools-bom-version>
+		<jenkins-tools-bom-patch>2857.v01a_0144eb_20b_</jenkins-tools-bom-patch>
 		<runeduniverse-utils-bom-version>2.0.0</runeduniverse-utils-bom-version>
+		<bouncycastle-pgp-version>1.77</bouncycastle-pgp-version>
 	</properties>
 
 
@@ -95,8 +97,8 @@
 				<!-- Pick up common dependencies for the selected LTS line: -->
 				<!-- https://github.com/jenkinsci/bom#usage -->
 				<groupId>io.jenkins.tools.bom</groupId>
-				<artifactId>bom-2.426.x</artifactId>
-				<version>${jenkins-tools-bom-version}</version>
+				<artifactId>bom-${jenkins-tools-bom-version}</artifactId>
+				<version>${jenkins-tools-bom-patch}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -108,6 +110,11 @@
 				<version>${runeduniverse-utils-bom-version}</version>
 				<type>pom</type>
 				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcpg-jdk18on</artifactId>
+				<version>${bouncycastle-pgp-version}</version>
 			</dependency>
 
 			<!-- COMPILER -->

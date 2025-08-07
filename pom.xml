@@ -100,8 +100,8 @@
 		<artifact-version>0</artifact-version>
 		<!-- ARTIFACT VERSIONS -->
 		<jenkins.version>2.426.3</jenkins.version>
-		<lombok-version>1.18.12</lombok-version>
 		<!-- ARTIFACT VERSIONS - COMPILER -->
+		<openjdk-min-version>11</openjdk-min-version>
 		<plugin-revelc-formatter-version>2.23.0</plugin-revelc-formatter-version>
 		<plugin-maven-toolchains-version>3.1.0</plugin-maven-toolchains-version>
 		<plugin-mycila-license-version>4.2.rc1</plugin-mycila-license-version>
@@ -112,7 +112,7 @@
 	<profiles>
 		<!-- TOOLCHAINS -->
 		<profile>
-			<id>toolchain-openjdk-11</id>
+			<id>toolchain-openjdk-min</id>
 			<build>
 				<plugins>
 					<plugin>
@@ -121,7 +121,7 @@
 						<configuration>
 							<toolchains>
 								<jdk>
-									<version>openjdk-11</version>
+									<version>openjdk-${openjdk-min-version}</version>
 								</jdk>
 							</toolchains>
 						</configuration>
@@ -142,7 +142,7 @@
 							<configuration>
 								<toolchains>
 									<jdk>
-										<version>openjdk-11</version>
+										<version>openjdk-${openjdk-min-version}</version>
 									</jdk>
 								</toolchains>
 							</configuration>
@@ -299,17 +299,6 @@
 		</profile>
 	</profiles>
 
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.projectlombok</groupId>
-				<artifactId>lombok</artifactId>
-				<version>${lombok-version}</version>
-				<scope>provided</scope>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
-
 	<build>
 		<resources>
 			<resource>
@@ -367,7 +356,7 @@
 					<configuration>
 						<toolchains>
 							<jdk>
-								<version>openjdk-11</version>
+								<version>openjdk-${openjdk-min-version}</version>
 							</jdk>
 						</toolchains>
 					</configuration>
