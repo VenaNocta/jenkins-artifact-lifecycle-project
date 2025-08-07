@@ -36,7 +36,7 @@ public class SignArtifactStepTest {
 		WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-scripted-pipeline");
 
 		String pipelineScript = "node {\n" //
-				+ "sh \"echo 'xxx' > file.jar\"\n" //
+				+ "writeFile file: 'file.jar', text: 'xxx' \n" //
 				+ "archiveArtifacts artifacts: '*', fingerprint: true\n" //
 				+ "signArtifacts artifacts: '*', fingerprint: true\n" //
 				+ "}";

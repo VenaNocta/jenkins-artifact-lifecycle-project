@@ -16,9 +16,15 @@
 package org.jenkinsci.plugins.artifact.signing.steps;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Serializable;
+import java.net.URL;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.Set;
+import java.util.logging.Logger;
 
+import org.apache.http.client.methods.HttpGet;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -33,14 +39,16 @@ import com.google.common.collect.ImmutableSet;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.model.AbstractBuild;
+import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
 import hudson.slaves.WorkspaceList;
+import io.jenkins.plugins.httpclient.RobustHTTPClient;
 import jenkins.model.ArtifactManager;
+import jenkins.model.Jenkins;
 import jenkins.util.VirtualFile;
-import lombok.Getter;
 
 public class SignArtifactStep extends Step implements Serializable {
 
@@ -50,16 +58,22 @@ public class SignArtifactStep extends Step implements Serializable {
 	 * Comma- or space-separated list of patterns of files/directories to be
 	 * archived.
 	 */
-	@Getter
 	private String artifacts = null;
 
-	@Getter
 	private boolean fingerprint;
 
 	@DataBoundConstructor
 	public SignArtifactStep(String artifacts) {
 		if (artifacts != null)
 			this.artifacts = artifacts.trim();
+	}
+
+	public String getArtifacts() {
+		return this.artifacts;
+	}
+
+	public boolean getFingerprint() {
+		return this.fingerprint;
 	}
 
 	@DataBoundSetter
@@ -69,35 +83,87 @@ public class SignArtifactStep extends Step implements Serializable {
 
 	@Override
 	public StepExecution start(StepContext context) throws Exception {
-		return new SignArtifactExecution(context, this);
+		return new SignArtifactStepExecution(context, this);
 	}
 
-	public static class SignArtifactExecution extends SynchronousStepExecution<Void> {
+	public static class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 
 		private static final long serialVersionUID = 1L;
 
 		private SignArtifactStep step;
 
-		protected SignArtifactExecution(StepContext context, SignArtifactStep step) {
+		protected SignArtifactStepExecution(StepContext context, SignArtifactStep step) {
 			super(context);
 			this.step = step;
 		}
 
 		@Override
 		protected Void run() throws Exception {
-			final ArtifactManager artifactManager = getContext().get(Run.class)
-					.pickArtifactManager();
+			final Node buildNode = getContext().get(Node.class);
+			final Label label = Label.get(getLabelExpression());
+			final Node secureNode;
+			if (label.contains(buildNode)) {
+				secureNode = buildNode;
+			} else {
+				secureNode = Jenkins.get();
+			}
+
+			final Run<?, ?> build = getContext().get(Run.class);
+			final FilePath ws = getSecureWorkspace(secureNode, build);
+
+			final ArtifactManager artifactManager = build.pickArtifactManager();
 			final VirtualFile archiveFileRoot = artifactManager.root();
 
 			TaskListener listener = getContext().get(TaskListener.class);
-			Run<?, ?> build = getContext().get(Run.class);
 
-			FilePath ws = getSecureWorkspace(getContext().get(Node.class), build);
 			listener.getLogger()
 					.println("SecWorkspace: " + ws.getRemote());
 			System.out.println("SecWorkspace: " + ws.getRemote());
 
+			final RobustHTTPClient httpClient = new RobustHTTPClient();
+
+			for (String filePath : archiveFileRoot.list(this.step.getArtifacts(), null, true)) {
+				final VirtualFile archivedArtifactFile = archiveFileRoot.child(filePath);
+
+				if (!archivedArtifactFile.isFile())
+					continue;
+
+				final FilePath artifactSignature = ws.child(fullPath(archiveFileRoot, archivedArtifactFile))
+						.withSuffix(".asc");
+				final URL url = archivedArtifactFile.toExternalURL();
+
+				// example call ... well that should be done on the 'secureNode'
+				if (url == null) {
+					try (InputStream dataStream = archivedArtifactFile.open()) {
+						signArtifactFromStream(dataStream, artifactSignature);
+					}
+				} else {
+					httpClient.connect("download",
+							"download " + RobustHTTPClient.sanitize(url) + " to " + secureNode.getDisplayName()
+									+ " for signing",
+							client -> client.execute(new HttpGet(url.toString())), response -> {
+								try (InputStream is = response.getEntity()
+										.getContent()) {
+									signArtifactFromStream(is, artifactSignature);
+								}
+							}, listener);
+				}
+			}
 			return null;
+		}
+
+		protected String fullPath(final VirtualFile root, final VirtualFile file) {
+			Deque<String> path = new LinkedList<>();
+			for (VirtualFile f = file; f != null; f = f.getParent()) {
+				if (root.equals(f))
+					break;
+				path.addFirst(f.getName());
+			}
+			return String.join("/", path);
+		}
+
+		protected void signArtifactFromStream(final InputStream inputStream, final FilePath targetFile) {
+
 		}
 
 		protected FilePath getSecureWorkspace(final Node node, final Run<?, ?> run)
@@ -132,6 +198,10 @@ public class SignArtifactStep extends Step implements Serializable {
 				return node.createPath(run.getRootDir()
 						.getAbsolutePath() + "/secure");
 			return null;
+		}
+
+		private String getLabelExpression() {
+			return "secure";
 		}
 
 		private String getFilePathSuffix() {
