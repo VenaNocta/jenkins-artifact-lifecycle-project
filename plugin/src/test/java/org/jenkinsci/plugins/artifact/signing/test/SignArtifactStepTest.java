@@ -65,7 +65,7 @@ public class SignArtifactStepTest extends APGPTest {
 		String pipelineScript = "node {\n" //
 				+ "writeFile file: 'file.jar', text: 'xxx' \n" //
 				+ "archiveArtifacts artifacts: '*', fingerprint: true\n" //
-				+ "signArtifacts artifacts: '*', fingerprint: true\n" //
+				+ "signArtifacts artifacts: '*', credentialId: '" + ED25519_PRIVATE_KEY_ID + "'\n" //
 				+ "}";
 		job.setDefinition(new CpsFlowDefinition(pipelineScript, true));
 		WorkflowRun completedBuild = jenkins.assertBuildStatusSuccess(job.scheduleBuild2(0));
