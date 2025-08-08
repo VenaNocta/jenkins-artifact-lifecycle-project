@@ -103,10 +103,6 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 		if (StringUtils.isBlank(credentialId))
 			credentialId = "ed25519-pgp-key";
 
-		listener.getLogger()
-				.println("SecWorkspace: " + ws.getRemote());
-		System.out.println("SecWorkspace: " + ws.getRemote());
-
 		final PGPSignatureGeneratorBuilder builder = new PGPSignatureGeneratorBuilder();
 		final Map<String, String> signatures = new ConcurrentHashMap<>();
 
