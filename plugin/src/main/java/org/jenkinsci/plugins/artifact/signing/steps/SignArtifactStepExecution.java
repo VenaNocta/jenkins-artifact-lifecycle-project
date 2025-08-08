@@ -135,7 +135,7 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 			final Launcher launcher = ws.createLauncher(listener);
 			artifactManager.archive(ws, launcher, BuildListenerAdapter.wrap(listener), signatures);
 			if (this.step.getFingerprint()) {
-				final Fingerprinter f = new Fingerprinter("*,**/*");
+				final Fingerprinter f = new Fingerprinter(String.join(",", signatures.keySet()));
 				f.setDefaultExcludes(true);
 				f.setCaseSensitive(true);
 				f.perform(build, ws, env, launcher, listener);
