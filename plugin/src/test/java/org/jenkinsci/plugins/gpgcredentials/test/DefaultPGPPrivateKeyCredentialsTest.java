@@ -23,8 +23,8 @@ import java.nio.file.Files;
 import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
-import org.jenkinsci.plugins.gpgcredentials.DefaultPGPPrivateKeyCredentials;
-import org.jenkinsci.plugins.gpgcredentials.api.PGPPrivateKeyCredentials;
+import org.jenkinsci.plugins.pgpcredentials.DefaultPGPPrivateKeyCredentials;
+import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -64,6 +64,7 @@ public class DefaultPGPPrivateKeyCredentialsTest {
 
 		LOGGER.info("Fingerprint: " + toHex(credentials.getPublicKeyFingerprint()));
 		assertEquals(ED25519_FINGERPRINT, toHex(credentials.getPublicKeyFingerprint()));
+
 	}
 
 	protected SecretBytes getBytesFromFile(File file) throws IOException {

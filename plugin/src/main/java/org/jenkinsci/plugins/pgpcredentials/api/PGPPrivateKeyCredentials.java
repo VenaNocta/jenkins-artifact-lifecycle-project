@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.gpgcredentials.api;
+package org.jenkinsci.plugins.pgpcredentials.api;
 
 import java.io.IOException;
 

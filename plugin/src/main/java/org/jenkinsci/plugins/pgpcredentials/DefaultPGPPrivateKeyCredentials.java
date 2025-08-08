@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.gpgcredentials;
+package org.jenkinsci.plugins.pgpcredentials;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -36,7 +36,8 @@ import org.bouncycastle.openpgp.operator.PGPDigestCalculatorProvider;
 import org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyDecryptorBuilder;
 import org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider;
 import org.jenkinsci.Symbol;
-import org.jenkinsci.plugins.gpgcredentials.api.PGPPrivateKeyCredentials;
+import org.jenkinsci.plugins.gpgcredentials.Messages;
+import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
