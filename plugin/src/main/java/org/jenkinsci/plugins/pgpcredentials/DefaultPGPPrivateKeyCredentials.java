@@ -18,7 +18,9 @@ package org.jenkinsci.plugins.pgpcredentials;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -26,6 +28,7 @@ import java.util.logging.Logger;
 
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPPrivateKey;
+import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.openpgp.PGPSecretKey;
 import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.bouncycastle.openpgp.PGPSecretKeyRingCollection;
@@ -36,7 +39,6 @@ import org.bouncycastle.openpgp.operator.PGPDigestCalculatorProvider;
 import org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyDecryptorBuilder;
 import org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider;
 import org.jenkinsci.Symbol;
-import org.jenkinsci.plugins.gpgcredentials.Messages;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -69,13 +71,22 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 	@GuardedBy("this")
 	private transient PGPPrivateKey privateKey = null;
 
-	@DataBoundConstructor
 	public DefaultPGPPrivateKeyCredentials(@CheckForNull CredentialsScope scope, @CheckForNull String id,
 			@CheckForNull String description, @CheckForNull Secret passphrase, @NonNull SecretBytes armoredKey) {
 		super(scope, id, description);
 		Objects.requireNonNull(armoredKey);
 		this.passphrase = passphrase;
 		this.armoredKey = armoredKey;
+	}
+
+	@DataBoundConstructor
+	public DefaultPGPPrivateKeyCredentials(@CheckForNull CredentialsScope scope, @CheckForNull String id,
+			@CheckForNull String description, @CheckForNull Secret passphrase, @NonNull Secret armoredKey) {
+		super(scope, id, description);
+		Objects.requireNonNull(armoredKey);
+		this.passphrase = passphrase;
+		this.armoredKey = SecretBytes.fromBytes(armoredKey.getPlainText()
+				.getBytes());
 	}
 
 	public Secret getPassphrase() {
@@ -139,6 +150,14 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 	}
 
 	@Override
+	public synchronized PGPPublicKey getPublicKey() throws IOException, InterruptedException {
+		final PGPSecretKey secretKey = getSecretKey();
+		if (secretKey == null)
+			return null;
+		return secretKey.getPublicKey();
+	}
+
+	@Override
 	public synchronized boolean isMasterKey() {
 		final PGPSecretKey secretKey = getSecretKey();
 		if (secretKey == null)
@@ -160,6 +179,14 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 		if (secretKey == null)
 			return new byte[0];
 		return secretKey.getFingerprint();
+	}
+
+	@Override
+	public synchronized Iterator<String> getUserIds() {
+		final PGPSecretKey secretKey = getSecretKey();
+		if (secretKey == null)
+			return Collections.emptyIterator();
+		return secretKey.getUserIDs();
 	}
 
 	@Extension
