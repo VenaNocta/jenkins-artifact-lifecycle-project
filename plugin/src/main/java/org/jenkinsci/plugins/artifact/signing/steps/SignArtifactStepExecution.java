@@ -102,6 +102,8 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 		String credentialId = this.step.getCredentialId();
 		if (StringUtils.isBlank(credentialId))
 			credentialId = "ed25519-pgp-key";
+		listener.getLogger()
+				.println(String.format("Signing Artifacts with PGP-Key (%s)", credentialId));
 
 		final PGPSignatureGeneratorBuilder builder = new PGPSignatureGeneratorBuilder();
 		final Map<String, String> signatures = new ConcurrentHashMap<>();
@@ -130,6 +132,8 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 				artifactSignature.act(new PGPFileSigner(secureNode, listener, builder.build(), archivedArtifactFile));
 			}
 		}
+		listener.getLogger()
+				.println(String.format("%d Artifacts signed", signatures.size()));
 		{
 			// archive signatures
 			final Launcher launcher = ws.createLauncher(listener);
@@ -141,6 +145,8 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 				f.perform(build, ws, env, launcher, listener);
 			}
 		}
+		listener.getLogger()
+				.println("All Signatures successfully archived");
 
 		return null;
 	}
