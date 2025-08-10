@@ -114,6 +114,11 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 			PGPPrivateKeyCredentials cred = CredentialsProvider.findCredentialById(credentialId,
 					PGPPrivateKeyCredentials.class, build, domainRequirements);
 
+			if (cred == null)
+				throw new Exception("PGP Private Key was not found!");
+			if (!cred.isValid())
+				throw new Exception("PGP Private Key is not valid!");
+
 			builder.withCredentials(cred);
 		}
 		{
