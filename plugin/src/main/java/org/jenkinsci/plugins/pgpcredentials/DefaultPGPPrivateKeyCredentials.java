@@ -42,6 +42,7 @@ import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.SecretBytes;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -56,7 +57,9 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 	private static final Logger LOGGER = Logger.getLogger(DefaultPGPPrivateKeyCredentials.class.getName());
 
 	protected final Secret passphrase;
-	protected final Secret armoredKey;
+	// note: armoredKey has to be saved on disk as SecretBytes or it get's corrupted
+	// but the Web requires it to be transferred as Secret for the same reason
+	protected final SecretBytes armoredKey;
 
 	/**
 	 * PGP secret key
@@ -69,13 +72,19 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 	@GuardedBy("this")
 	private transient PGPPrivateKey privateKey = null;
 
-	@DataBoundConstructor
 	public DefaultPGPPrivateKeyCredentials(@CheckForNull CredentialsScope scope, @CheckForNull String id,
-			@CheckForNull String description, @CheckForNull Secret passphrase, @NonNull Secret armoredKey) {
+			@CheckForNull String description, @CheckForNull Secret passphrase, @NonNull SecretBytes armoredKey) {
 		super(scope, id, description);
 		Objects.requireNonNull(armoredKey);
 		this.passphrase = passphrase;
 		this.armoredKey = armoredKey;
+	}
+
+	@DataBoundConstructor
+	public DefaultPGPPrivateKeyCredentials(@CheckForNull CredentialsScope scope, @CheckForNull String id,
+			@CheckForNull String description, @CheckForNull Secret passphrase, @NonNull Secret armoredKey) {
+		this(scope, id, description, passphrase, SecretBytes.fromBytes(armoredKey.getPlainText()
+				.getBytes()));
 	}
 
 	public Secret getPassphrase() {
@@ -83,13 +92,12 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 	}
 
 	public Secret getArmoredKey() {
-		return this.armoredKey;
+		return Secret.fromString(new String(this.armoredKey.getPlainData()));
 	}
 
 	protected synchronized PGPSecretKey getSecretKey() {
 		if (this.secretKey == null) {
-			try (InputStream byteSteam = new ByteArrayInputStream(this.armoredKey.getPlainText()
-					.getBytes())) {
+			try (InputStream byteSteam = new ByteArrayInputStream(this.armoredKey.getPlainData())) {
 				final InputStream decoderStream = PGPUtil.getDecoderStream(byteSteam);
 				final PGPSecretKeyRingCollection collection = new PGPSecretKeyRingCollection(decoderStream,
 						new BcKeyFingerprintCalculator());

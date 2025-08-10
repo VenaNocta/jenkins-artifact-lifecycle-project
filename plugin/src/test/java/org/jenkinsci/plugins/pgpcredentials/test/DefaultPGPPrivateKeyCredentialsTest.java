@@ -15,8 +15,6 @@
  */
 package org.jenkinsci.plugins.pgpcredentials.test;
 
-import static org.junit.Assert.assertEquals;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -27,6 +25,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.jvnet.hudson.test.JenkinsRule;
+
+import static org.junit.Assert.assertEquals;
 
 public class DefaultPGPPrivateKeyCredentialsTest extends APGPTest {
 	private static final Logger LOGGER = Logger.getLogger(DefaultPGPPrivateKeyCredentialsTest.class.getName());

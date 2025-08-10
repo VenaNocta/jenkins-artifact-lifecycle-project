@@ -25,6 +25,8 @@ import org.junit.Rule;
 import org.jvnet.hudson.test.JenkinsRule;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.SecretBytes;
+
 import hudson.util.Secret;
 
 public class APGPTest {
@@ -54,7 +56,7 @@ public class APGPTest {
 
 	protected PGPPrivateKeyCredentials load_privateKeyCredentials(CredentialsScope scope, String id, String desc,
 			String passphrase, File armoredKey) throws IOException {
-		Secret armoredKeyBytes = Secret.fromString(new String(getBytesFromFile(armoredKey)));
+		SecretBytes armoredKeyBytes = SecretBytes.fromBytes(getBytesFromFile(armoredKey));
 		return new DefaultPGPPrivateKeyCredentials(scope, id, desc, Secret.fromString(passphrase), armoredKeyBytes);
 	}
 
