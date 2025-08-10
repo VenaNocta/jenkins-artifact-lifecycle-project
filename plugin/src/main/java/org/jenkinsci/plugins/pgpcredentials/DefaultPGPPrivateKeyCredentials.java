@@ -42,7 +42,6 @@ import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
-import com.cloudbees.plugins.credentials.SecretBytes;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -57,7 +56,7 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 	private static final Logger LOGGER = Logger.getLogger(DefaultPGPPrivateKeyCredentials.class.getName());
 
 	protected final Secret passphrase;
-	protected final SecretBytes armoredKey;
+	protected final Secret armoredKey;
 
 	/**
 	 * PGP secret key
@@ -70,35 +69,27 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 	@GuardedBy("this")
 	private transient PGPPrivateKey privateKey = null;
 
-	public DefaultPGPPrivateKeyCredentials(@CheckForNull CredentialsScope scope, @CheckForNull String id,
-			@CheckForNull String description, @CheckForNull Secret passphrase, @NonNull SecretBytes armoredKey) {
-		super(scope, id, description);
-		Objects.requireNonNull(armoredKey);
-		this.passphrase = passphrase;
-		this.armoredKey = armoredKey;
-	}
-
 	@DataBoundConstructor
 	public DefaultPGPPrivateKeyCredentials(@CheckForNull CredentialsScope scope, @CheckForNull String id,
 			@CheckForNull String description, @CheckForNull Secret passphrase, @NonNull Secret armoredKey) {
 		super(scope, id, description);
 		Objects.requireNonNull(armoredKey);
 		this.passphrase = passphrase;
-		this.armoredKey = SecretBytes.fromBytes(armoredKey.getPlainText()
-				.getBytes());
+		this.armoredKey = armoredKey;
 	}
 
 	public Secret getPassphrase() {
 		return this.passphrase;
 	}
 
-	public SecretBytes getArmoredKey() {
+	public Secret getArmoredKey() {
 		return this.armoredKey;
 	}
 
 	protected synchronized PGPSecretKey getSecretKey() {
 		if (this.secretKey == null) {
-			try (InputStream byteSteam = new ByteArrayInputStream(this.armoredKey.getPlainData())) {
+			try (InputStream byteSteam = new ByteArrayInputStream(this.armoredKey.getPlainText()
+					.getBytes())) {
 				final InputStream decoderStream = PGPUtil.getDecoderStream(byteSteam);
 				final PGPSecretKeyRingCollection collection = new PGPSecretKeyRingCollection(decoderStream,
 						new BcKeyFingerprintCalculator());
@@ -146,6 +137,11 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 			}
 		}
 		return this.privateKey;
+	}
+
+	@Override
+	public boolean isValid() throws IOException, InterruptedException {
+		return getPrivateKey() != null;
 	}
 
 	@Override

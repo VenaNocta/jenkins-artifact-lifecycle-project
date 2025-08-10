@@ -25,6 +25,8 @@ import com.cloudbees.plugins.credentials.common.StandardCredentials;
 
 public interface PGPPrivateKeyCredentials extends StandardCredentials {
 
+	public boolean isValid() throws IOException, InterruptedException;
+
 	public PGPPrivateKey getPrivateKey() throws IOException, InterruptedException;
 
 	public PGPPublicKey getPublicKey() throws IOException, InterruptedException;
