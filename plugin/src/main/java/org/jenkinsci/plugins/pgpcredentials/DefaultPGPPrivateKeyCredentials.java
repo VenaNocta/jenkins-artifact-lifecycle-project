@@ -141,8 +141,8 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 			return null;
 		if (this.privateKey == null) {
 			final PGPDigestCalculatorProvider calcProvider = new BcPGPDigestCalculatorProvider();
-			final String passphrase = this.passphrase == null ? null : this.passphrase.getPlainText();
-			final char[] passphraseBytes = StringUtils.isBlank(passphrase) ? new char[0] : passphrase.toCharArray();
+			final char[] passphraseBytes = this.passphrase.getPlainText()
+					.toCharArray();
 			final PBESecretKeyDecryptor decryptor = new BcPBESecretKeyDecryptorBuilder(calcProvider)
 					.build(passphraseBytes);
 
@@ -150,7 +150,7 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 				this.privateKey = secretKey.extractPrivateKey(decryptor);
 			} catch (PGPException e) {
 				LogRecord lr = new LogRecord(Level.WARNING,
-						"Credentials ID {0}: Could not decrypt PGP PrivateKey, passphrase is probably incorrect");
+						"Credentials ID {0}: Could not decrypt PGP PrivateKey, Passphrase is probably incorrect");
 				lr.setParameters(new Object[] { getId() });
 				lr.setThrown(e);
 				LOGGER.log(lr);
@@ -262,11 +262,11 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 			try {
 				privateKey = secretKey.extractPrivateKey(decryptor);
 			} catch (PGPException e) {
-				return FormValidation.error(e, Messages.DefaultPGPPrivateKeyCredentialsDescriptor_EmptyKeyRing());
+				return FormValidation.error(e, Messages.DefaultPGPPrivateKeyCredentialsDescriptor_DecryptionError());
 			}
 
 			if (privateKey == null)
-				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_EmptyKeyRing());
+				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_DecryptionError());
 
 			return FormValidation.ok(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_TMPL_Fingerprint(),
 					Hex.encodeHexString(secretKey.getFingerprint(), false));
