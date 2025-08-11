@@ -42,8 +42,8 @@
 		<!-- ARTIFACT VERSIONS -->
 		<!-- ARTIFACT VERSIONS - TESTING -->
 		<!-- ARTIFACT VERSIONS - BOMs -->
-		<jenkins-tools-bom-version>2.426.x</jenkins-tools-bom-version>
-		<jenkins-tools-bom-patch>2857.v01a_0144eb_20b_</jenkins-tools-bom-patch>
+		<jenkins-tools-bom-version>2.479.x</jenkins-tools-bom-version>
+		<jenkins-tools-bom-patch>3482.vc10d4f6da_28a_</jenkins-tools-bom-patch>
 		<runeduniverse-utils-bom-version>2.0.0</runeduniverse-utils-bom-version>
 		<bouncycastle-pgp-version>1.81</bouncycastle-pgp-version>
 	</properties>

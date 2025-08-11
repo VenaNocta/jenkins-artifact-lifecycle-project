@@ -23,7 +23,7 @@
 	<parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>4.78</version>
+		<version>5.9</version>
 	</parent>
 
 	<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
@@ -32,7 +32,8 @@
 	<packaging>pom</packaging>
 
 	<name>Jenkins Artifact Signing Plugin - Parent</name>
-	<description>Jenkins Plugin providing GPG signing capabilities for archived Artifacts </description>
+	<description>Jenkins Plugin providing GPG signing capabilities for archived
+		Artifacts </description>
 	<url>https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
 	<inceptionYear>2025</inceptionYear>
 
@@ -92,21 +93,23 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.release>11</maven.compiler.release>
 		<root-dir>${basedir}</root-dir>
 		<!-- VERSIONS -->
 		<major-version>0</major-version>
 		<minor-version>0</minor-version>
 		<artifact-version>0</artifact-version>
 		<!-- ARTIFACT VERSIONS -->
-		<jenkins.version>2.426.3</jenkins.version>
+		<jenkins.version>2.479.1</jenkins.version>
 		<!-- ARTIFACT VERSIONS - COMPILER -->
-		<openjdk-min-version>11</openjdk-min-version>
+		<openjdk-min-version>${maven.compiler.release}</openjdk-min-version>
 		<plugin-revelc-formatter-version>2.23.0</plugin-revelc-formatter-version>
 		<plugin-maven-toolchains-version>3.1.0</plugin-maven-toolchains-version>
 		<plugin-mycila-license-version>4.2.rc1</plugin-mycila-license-version>
-		<plugin-maven-gpg-version>3.0.1</plugin-maven-gpg-version>
 		<maven-jenkins-workflow-version>1.0.0</maven-jenkins-workflow-version>
+		<!-- ARTIFACT VERSIONS - TEST -->
+		<!-- 
+		<jenkins-test-harness.version>2345.v699712948764</jenkins-test-harness.version>
+		-->
 	</properties>
 
 	<profiles>
@@ -327,10 +330,6 @@
 				<artifactId>license-maven-plugin</artifactId>
 			</plugin>
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-gpg-plugin</artifactId>
-			</plugin>
-			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>build-helper-maven-plugin</artifactId>
 			</plugin>
@@ -428,14 +427,13 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-surefire-plugin</artifactId>
+					<version>2.22.2</version>
 					<configuration>
 						<trimStackTrace>false</trimStackTrace>
+						<!-- 
+						<useModulePath>false</useModulePath>
+						-->
 					</configuration>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-gpg-plugin</artifactId>
-					<version>${plugin-maven-gpg-version}</version>
 				</plugin>
 				<plugin>
 					<groupId>net.runeduniverse.tools.maven.workflow</groupId>

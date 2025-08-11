@@ -107,6 +107,7 @@
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>credentials</artifactId>
+			<version>1419.v2337d1ceceef</version><!--$NO-MVN-MAN-VER$-->
 			<exclusions>
 				<exclusion>
 					<groupId>org.jenkins-ci.plugins</groupId>
@@ -154,6 +155,11 @@
 		<!-- COMPILER -->
 		<!-- TEST -->
 		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
 			<groupId>org.jenkins-ci.plugins.workflow</groupId>
 			<artifactId>workflow-cps</artifactId>
 			<scope>test</scope>
@@ -172,6 +178,7 @@
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>ssh-credentials</artifactId>
+			<optional>true</optional>
 		</dependency>
 	</dependencies>
 
@@ -195,4 +202,3 @@
 		</resources>
 	</build>
 </project>
-

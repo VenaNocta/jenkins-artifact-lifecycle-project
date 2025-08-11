@@ -23,18 +23,12 @@ import org.jenkinsci.plugins.pgpcredentials.DefaultPGPPrivateKeyCredentials;
 import org.jenkinsci.plugins.pgpcredentials.DefaultPGPPublicKeyCredentials;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPublicKeyCredentials;
-import org.junit.Rule;
-import org.jvnet.hudson.test.JenkinsRule;
-
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.SecretBytes;
 
 import hudson.util.Secret;
 
-public class APGPTest {
-
-	@Rule
-	public JenkinsRule jenkins = new JenkinsRule();
+public abstract class APGPTest {
 
 	protected static final String ED25519_PASSPHRASE = "TestTeam123";
 	protected static final String ED25519_FINGERPRINT = "04D7FBCB3E1F93D8E99F8EC185788792058B9450";
@@ -62,7 +56,7 @@ public class APGPTest {
 
 	protected PGPPrivateKeyCredentials load_privateKeyCredentials(CredentialsScope scope, String id, String desc,
 			String passphrase, File armoredKey) throws IOException {
-		SecretBytes armoredKeyBytes = SecretBytes.fromBytes(getBytesFromFile(armoredKey));
+		SecretBytes armoredKeyBytes = SecretBytes.fromRawBytes(getBytesFromFile(armoredKey));
 		return new DefaultPGPPrivateKeyCredentials(scope, id, desc, Secret.fromString(passphrase), armoredKeyBytes);
 	}
 
@@ -77,7 +71,7 @@ public class APGPTest {
 
 	protected PGPPublicKeyCredentials load_publicKeyCredentials(CredentialsScope scope, String id, String desc,
 			File armoredKey) throws IOException {
-		SecretBytes armoredKeyBytes = SecretBytes.fromBytes(getBytesFromFile(armoredKey));
+		SecretBytes armoredKeyBytes = SecretBytes.fromRawBytes(getBytesFromFile(armoredKey));
 		return new DefaultPGPPublicKeyCredentials(scope, id, desc, armoredKeyBytes);
 	}
 
