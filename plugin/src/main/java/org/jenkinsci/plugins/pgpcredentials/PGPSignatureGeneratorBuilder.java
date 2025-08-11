@@ -88,13 +88,12 @@ public class PGPSignatureGeneratorBuilder {
 		final PGPContentSignerBuilder signerBuilder = new BcPGPContentSignerBuilder(this.publicKey.getAlgorithm(),
 				this.hashAlgo);
 
-		final PGPSignatureGenerator signatureGenerator = new PGPSignatureGenerator(signerBuilder);
+		final PGPSignatureGenerator signatureGenerator = new PGPSignatureGenerator(signerBuilder, this.publicKey);
 		signatureGenerator.init(this.signatureType, this.privateKey);
 
 		if (PGPSignature.BINARY_DOCUMENT != this.signatureType) {
 			final PGPSignatureSubpacketGenerator spGen = new PGPSignatureSubpacketGenerator();
 
-			// Optional: add signer user ID
 			for (String userId : userIdSet) {
 				spGen.addSignerUserID(false, userId);
 			}

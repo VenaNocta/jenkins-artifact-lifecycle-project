@@ -121,7 +121,7 @@ public class SignArtifactStep extends Step implements Serializable {
 
 		@Override
 		public Set<? extends Class<?>> getRequiredContext() {
-			return ImmutableSet.of(Node.class, Run.class, TaskListener.class, EnvVars.class);
+			return ImmutableSet.of(Node.class, Run.class, EnvVars.class,TaskListener.class);
 		}
 
 		@Override

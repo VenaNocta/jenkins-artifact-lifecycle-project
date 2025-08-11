@@ -44,6 +44,7 @@ import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -67,9 +68,9 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 
 	private static final long serialVersionUID = 1L;
 
-	private SignArtifactStep step;
+	private final SignArtifactStep step;
 
-	protected SignArtifactStepExecution(StepContext context, SignArtifactStep step) {
+	protected SignArtifactStepExecution(@NonNull StepContext context, @NonNull SignArtifactStep step) {
 		super(context);
 		this.step = step;
 	}
