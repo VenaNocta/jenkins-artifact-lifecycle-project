@@ -16,27 +16,12 @@
 package org.jenkinsci.plugins.pgpcredentials.api;
 
 import java.io.IOException;
-import java.util.Iterator;
-
 import org.bouncycastle.openpgp.PGPPrivateKey;
-import org.bouncycastle.openpgp.PGPPublicKey;
 
-import com.cloudbees.plugins.credentials.common.StandardCredentials;
-
-public interface PGPPrivateKeyCredentials extends StandardCredentials {
-
-	public boolean isValid() throws IOException, InterruptedException;
+public interface PGPPrivateKeyCredentials extends PGPPublicKeyCredentials {
 
 	public PGPPrivateKey getPrivateKey() throws IOException, InterruptedException;
 
-	public PGPPublicKey getPublicKey() throws IOException, InterruptedException;
-
-	public boolean isMasterKey() throws IOException, InterruptedException;
-
 	public boolean isSigningKey() throws IOException, InterruptedException;
-
-	public byte[] getPublicKeyFingerprint() throws IOException, InterruptedException;
-
-	public Iterator<String> getUserIds() throws IOException, InterruptedException;
 
 }

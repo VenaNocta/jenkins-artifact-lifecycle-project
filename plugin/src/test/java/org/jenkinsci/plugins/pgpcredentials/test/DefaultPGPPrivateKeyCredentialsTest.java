@@ -46,10 +46,9 @@ public class DefaultPGPPrivateKeyCredentialsTest extends APGPTest {
 	@Test
 	public void loadPrivateKey() throws Exception {
 		PGPPrivateKeyCredentials credentials = load_privateKeyCredentials("ed25519-pgp-key", ED25519_PASSPHRASE,
-				armoredKey);
+				this.armoredKey);
 
 		LOGGER.info("Fingerprint: " + toHex(credentials.getPublicKeyFingerprint()));
 		assertEquals(ED25519_FINGERPRINT, toHex(credentials.getPublicKeyFingerprint()));
-
 	}
 }

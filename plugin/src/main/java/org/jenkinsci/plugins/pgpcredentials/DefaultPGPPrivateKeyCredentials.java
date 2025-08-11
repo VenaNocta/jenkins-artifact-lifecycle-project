@@ -104,7 +104,7 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 				LOOP: for (Iterator<PGPSecretKeyRing> i = collection.getKeyRings(); i.hasNext();) {
 					final PGPSecretKeyRing keyRing = i.next();
 					for (Iterator<PGPSecretKey> j = keyRing.getSecretKeys(); j.hasNext();) {
-						PGPSecretKey k = j.next();
+						final PGPSecretKey k = j.next();
 						if (k != null) {
 							this.secretKey = k;
 							break LOOP;
@@ -112,7 +112,7 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 					}
 				}
 			} catch (IOException | PGPException e) {
-				LogRecord lr = new LogRecord(Level.WARNING,
+				LogRecord lr = new LogRecord(Level.SEVERE,
 						"Credentials ID {0}: Could not load PGP KeyRing from KeyStore");
 				lr.setParameters(new Object[] { getId() });
 				lr.setThrown(e);
@@ -137,7 +137,7 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 			try {
 				this.privateKey = secretKey.extractPrivateKey(decryptor);
 			} catch (PGPException e) {
-				LogRecord lr = new LogRecord(Level.SEVERE,
+				LogRecord lr = new LogRecord(Level.WARNING,
 						"Credentials ID {0}: Could not decrypt PGP PrivateKey, passphrase is probably incorrect");
 				lr.setParameters(new Object[] { getId() });
 				lr.setThrown(e);

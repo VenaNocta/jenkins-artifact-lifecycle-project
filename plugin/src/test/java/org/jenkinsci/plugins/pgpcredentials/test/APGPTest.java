@@ -20,7 +20,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import org.apache.commons.io.FileUtils;
 import org.jenkinsci.plugins.pgpcredentials.DefaultPGPPrivateKeyCredentials;
+import org.jenkinsci.plugins.pgpcredentials.DefaultPGPPublicKeyCredentials;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
+import org.jenkinsci.plugins.pgpcredentials.api.PGPPublicKeyCredentials;
 import org.junit.Rule;
 import org.jvnet.hudson.test.JenkinsRule;
 
@@ -44,6 +46,10 @@ public class APGPTest {
 		FileUtils.copyURLToFile(APGPTest.class.getResource("ed25519.key"), armoredKey);
 	}
 
+	protected void setupFile_ed25519_publicKey(final File armoredKey) throws IOException {
+		FileUtils.copyURLToFile(APGPTest.class.getResource("ed25519.pub"), armoredKey);
+	}
+
 	protected PGPPrivateKeyCredentials load_privateKeyCredentials(String id, String passphrase, File armoredKey)
 			throws IOException {
 		return load_privateKeyCredentials(DEFAULT_SCOPE, id, DEFAULT_DESCRIPTION, passphrase, armoredKey);
@@ -58,6 +64,21 @@ public class APGPTest {
 			String passphrase, File armoredKey) throws IOException {
 		SecretBytes armoredKeyBytes = SecretBytes.fromBytes(getBytesFromFile(armoredKey));
 		return new DefaultPGPPrivateKeyCredentials(scope, id, desc, Secret.fromString(passphrase), armoredKeyBytes);
+	}
+
+	protected PGPPublicKeyCredentials load_publicKeyCredentials(String id, File armoredKey) throws IOException {
+		return load_publicKeyCredentials(DEFAULT_SCOPE, id, DEFAULT_DESCRIPTION, armoredKey);
+	}
+
+	protected PGPPublicKeyCredentials load_publicKeyCredentials(CredentialsScope scope, String id, File armoredKey)
+			throws IOException {
+		return load_publicKeyCredentials(scope, id, DEFAULT_DESCRIPTION, armoredKey);
+	}
+
+	protected PGPPublicKeyCredentials load_publicKeyCredentials(CredentialsScope scope, String id, String desc,
+			File armoredKey) throws IOException {
+		SecretBytes armoredKeyBytes = SecretBytes.fromBytes(getBytesFromFile(armoredKey));
+		return new DefaultPGPPublicKeyCredentials(scope, id, desc, armoredKeyBytes);
 	}
 
 	protected byte[] getBytesFromFile(File file) throws IOException {

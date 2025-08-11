@@ -1,3 +1,4 @@
+
 <!--
 
     Copyright © 2025 VenaNocta (venanocta@gmail.com)
@@ -106,16 +107,38 @@
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>credentials</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.jenkins-ci.plugins</groupId>
+					<artifactId>bouncycastle-api</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>bouncycastle-api</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcpg-jdk18on</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- non packaged dependencies -->
 		<dependency>
 			<groupId>org.bouncycastle</groupId>
 			<artifactId>bcpg-jdk18on</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcprov-jdk18on</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcutil-jdk18on</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- logging utilities-->
