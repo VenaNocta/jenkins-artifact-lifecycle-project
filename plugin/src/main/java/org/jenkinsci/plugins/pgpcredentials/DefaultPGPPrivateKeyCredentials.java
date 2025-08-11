@@ -25,6 +25,9 @@ import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
+import javax.servlet.ServletException;
+
+import org.bouncycastle.bcpg.ArmoredInputException;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPPrivateKey;
 import org.bouncycastle.openpgp.PGPPublicKey;
@@ -39,7 +42,11 @@ import org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyDecryptorBuilder;
 import org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.SecretBytes;
@@ -47,8 +54,11 @@ import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import hudson.util.FormValidation;
 import hudson.util.Secret;
-import io.jenkins.cli.shaded.org.apache.commons.lang.StringUtils;
+
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang.StringUtils;
 import net.jcip.annotations.GuardedBy;
 
 public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials implements PGPPrivateKeyCredentials {
@@ -82,9 +92,11 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 
 	@DataBoundConstructor
 	public DefaultPGPPrivateKeyCredentials(@CheckForNull CredentialsScope scope, @CheckForNull String id,
-			@CheckForNull String description, @CheckForNull Secret passphrase, @NonNull Secret armoredKey) {
-		this(scope, id, description, passphrase, SecretBytes.fromBytes(armoredKey.getPlainText()
-				.getBytes()));
+			@CheckForNull String description, @CheckForNull String passphrase, @NonNull String armoredKey) {
+		this(scope, id, description, Secret.fromString(passphrase),
+				SecretBytes.fromRawBytes(Secret.fromString(armoredKey)
+						.getPlainText()
+						.getBytes()));
 	}
 
 	public Secret getPassphrase() {
@@ -203,6 +215,61 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 		@Override
 		public String getDisplayName() {
 			return Messages.DefaultPGPPrivateKeyCredentialsDescriptor_DisplayName();
+		}
+
+		@Restricted(NoExternalUse.class)
+		@POST
+		public FormValidation doCheckArmoredKey(@QueryParameter final String value,
+				@QueryParameter final String passphrase) throws IOException, ServletException {
+			final String data;
+			if (value == null || StringUtils.isBlank(data = Secret.fromString(value)
+					.getPlainText()))
+				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_KeyValueRequired());
+
+			PGPSecretKey secretKey = null;
+
+			try (InputStream byteSteam = new ByteArrayInputStream(data.getBytes())) {
+				final InputStream decoderStream = PGPUtil.getDecoderStream(byteSteam);
+				final PGPSecretKeyRingCollection collection = new PGPSecretKeyRingCollection(decoderStream,
+						new BcKeyFingerprintCalculator());
+				LOOP: for (Iterator<PGPSecretKeyRing> i = collection.getKeyRings(); i.hasNext();) {
+					final PGPSecretKeyRing keyRing = i.next();
+					for (Iterator<PGPSecretKey> j = keyRing.getSecretKeys(); j.hasNext();) {
+						final PGPSecretKey k = j.next();
+						if (k != null) {
+							secretKey = k;
+							break LOOP;
+						}
+					}
+				}
+			} catch (ArmoredInputException e) {
+				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_InvalidKeyArmor());
+			} catch (IOException | PGPException e) {
+				return FormValidation.error(e, Messages.DefaultPGPPrivateKeyCredentialsDescriptor_KeyLoadingError());
+			}
+			if (secretKey == null)
+				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_EmptyKeyRing());
+
+			PGPPrivateKey privateKey = null;
+
+			final PGPDigestCalculatorProvider calcProvider = new BcPGPDigestCalculatorProvider();
+			final char[] passphraseBytes = Secret.fromString(passphrase)
+					.getPlainText()
+					.toCharArray();
+			final PBESecretKeyDecryptor decryptor = new BcPBESecretKeyDecryptorBuilder(calcProvider)
+					.build(passphraseBytes);
+
+			try {
+				privateKey = secretKey.extractPrivateKey(decryptor);
+			} catch (PGPException e) {
+				return FormValidation.error(e, Messages.DefaultPGPPrivateKeyCredentialsDescriptor_EmptyKeyRing());
+			}
+
+			if (privateKey == null)
+				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_EmptyKeyRing());
+
+			return FormValidation.ok(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_TMPL_Fingerprint(),
+					Hex.encodeHexString(secretKey.getFingerprint(), false));
 		}
 
 	}

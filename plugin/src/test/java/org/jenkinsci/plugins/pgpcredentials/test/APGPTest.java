@@ -18,6 +18,8 @@ package org.jenkinsci.plugins.pgpcredentials.test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 import org.jenkinsci.plugins.pgpcredentials.DefaultPGPPrivateKeyCredentials;
 import org.jenkinsci.plugins.pgpcredentials.DefaultPGPPublicKeyCredentials;
@@ -79,13 +81,7 @@ public abstract class APGPTest {
 		return Files.readAllBytes(file.toPath());
 	}
 
-	public String toHex(byte[] bytes) {
-		StringBuilder builder = new StringBuilder();
-		for (int i = 0; i < bytes.length; i++) {
-			builder.append(Character.forDigit((bytes[i] >> 4) & 0xF, 16));
-			builder.append(Character.forDigit((bytes[i] & 0xF), 16));
-		}
-		return builder.toString()
-				.toUpperCase();
+	protected String toHex(byte[] bytes) {
+		return Hex.encodeHexString(bytes, false);
 	}
 }
