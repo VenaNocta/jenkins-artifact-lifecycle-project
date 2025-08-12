@@ -54,7 +54,7 @@ public class ValidKeySpecification extends DomainSpecification {
 	public static class ValidKeySpecificationDescriptor extends DomainSpecificationDescriptor {
 		@Override
 		public String getDisplayName() {
-			return "Check Key Validity";
+			return Messages.ValidKeySpecification_Desc_DisplayName();
 		}
 	}
 

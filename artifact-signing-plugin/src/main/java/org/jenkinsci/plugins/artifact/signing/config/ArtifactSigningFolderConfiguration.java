@@ -64,7 +64,7 @@ public class ArtifactSigningFolderConfiguration extends AbstractFolderProperty<A
 
 		@Override
 		public String getDisplayName() {
-			return "Artifact Signing Settings";
+			return Messages.FolderConfiguration_DisplayName();
 		}
 
 		public ListBoxModel doFillDefaultCredentialsIdItems(@AncestorInPath Item item) {

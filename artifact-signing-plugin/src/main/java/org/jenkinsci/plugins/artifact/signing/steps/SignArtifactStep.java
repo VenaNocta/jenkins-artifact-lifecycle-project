@@ -116,7 +116,7 @@ public class SignArtifactStep extends Step implements Serializable {
 
 		@Override
 		public String getDisplayName() {
-			return "Sign archived Artifacts";
+			return Messages.SignArtifact_DisplayName();
 		}
 
 		@Override

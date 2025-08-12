@@ -41,9 +41,9 @@
 		<root-dir>..</root-dir>
 		<no-test-jar>false</no-test-jar>
 		<!-- VERSIONS -->
-		<artifact-version>1</artifact-version>
+		<artifact-version>2</artifact-version>
 		<sources-version>0</sources-version>
-		<api-version>1</api-version>
+		<api-version>2</api-version>
 	</properties>
 
 	<licenses>

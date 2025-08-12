@@ -1,8 +1,21 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
-  <f:section title="Artifact Signing Settings">
-    <f:entry title="Default PGP Signing Key" field="defaultCredentialsId">
+  <j:invokeStatic var="title" className="org.jenkinsci.plugins.artifact.signing.config.Messages" method="GlobalConfiguration_DisplayName"/>
+  <j:invokeStatic var="defaultCredentialsIdTitle" className="org.jenkinsci.plugins.artifact.signing.config.Messages" method="GlobalConfiguration_DefaultSigningKey"/>
+  <j:invokeStatic var="advancedSectionTitle" className="org.jenkinsci.plugins.artifact.signing.config.Messages" method="GlobalConfiguration_AdvancedSection"/>
+  <j:invokeStatic var="secureLabelExpressionTitle" className="org.jenkinsci.plugins.artifact.signing.config.Messages" method="GlobalConfiguration_SecureLabelExpression"/>
+  <j:invokeStatic var="secureWorkspaceSuffixTitle" className="org.jenkinsci.plugins.artifact.signing.config.Messages" method="GlobalConfiguration_SecureWorkspaceSuffix"/>
+  <f:section title="${title}">
+    <f:entry title="${defaultCredentialsIdTitle}" field="defaultCredentialsId">
       <c:select />
     </f:entry>
+    <f:optionalBlock name="dynamic" title="${advancedSectionTitle}">
+      <f:entry title="${secureLabelExpressionTitle}" field="secureLabelExpression">
+        <f:textbox />
+      </f:entry>
+      <f:entry title="${secureWorkspaceSuffixTitle}" field="secureWorkspaceSuffix">
+        <f:textbox />
+      </f:entry>
+    </f:optionalBlock>
   </f:section>
 </j:jelly>

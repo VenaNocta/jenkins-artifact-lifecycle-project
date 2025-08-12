@@ -15,6 +15,7 @@
  */
 package org.jenkinsci.plugins.artifact.signing.config;
 
+import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.pgpcredentials.PGPRequirementBuilder;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
@@ -35,13 +36,23 @@ import hudson.security.ACL;
 import hudson.util.ListBoxModel;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
+import net.jcip.annotations.GuardedBy;
 
 @Extension
 @Symbol("globalArtifactSigningConfig")
 public class ArtifactSigningConfiguration extends GlobalConfiguration {
 
+	public static final String DEFAULT_SECURE_LABEL_EXPRESSION = "secure";
+	public static final String DEFAULT_SECURE_WORKSPACE_SUFFIX = "secure";
+
 	@CheckForNull
 	private String defaultCredentialsId;
+
+	@GuardedBy("this")
+	private String secureLabelExpression = DEFAULT_SECURE_LABEL_EXPRESSION;
+
+	@GuardedBy("this")
+	private String secureWorkspaceSuffix = DEFAULT_SECURE_WORKSPACE_SUFFIX;
 
 	public ArtifactSigningConfiguration() {
 		load();
@@ -51,9 +62,37 @@ public class ArtifactSigningConfiguration extends GlobalConfiguration {
 		return Util.fixEmpty(this.defaultCredentialsId);
 	}
 
+	public synchronized String getSecureLabelExpression() {
+		if (StringUtils.isBlank(this.secureLabelExpression))
+			setSecureLabelExpression(null);
+		return this.secureLabelExpression;
+	}
+
+	public synchronized String getSecureWorkspaceSuffix() {
+		if (StringUtils.isBlank(this.secureWorkspaceSuffix))
+			setSecureWorkspaceSuffix(null);
+		return this.secureLabelExpression;
+	}
+
 	@DataBoundSetter
 	public void setDefaultCredentialsId(@CheckForNull final String defaultCredentialsId) {
 		this.defaultCredentialsId = defaultCredentialsId;
+		save();
+	}
+
+	@DataBoundSetter
+	public synchronized void setSecureLabelExpression(String value) {
+		if ((value = StringUtils.trimToNull(value)) == null)
+			value = DEFAULT_SECURE_LABEL_EXPRESSION;
+		this.secureLabelExpression = value;
+		save();
+	}
+
+	@DataBoundSetter
+	public synchronized void setSecureWorkspaceSuffix(String value) {
+		if ((value = StringUtils.trimToNull(value)) == null)
+			value = DEFAULT_SECURE_WORKSPACE_SUFFIX;
+		this.secureWorkspaceSuffix = value;
 		save();
 	}
 

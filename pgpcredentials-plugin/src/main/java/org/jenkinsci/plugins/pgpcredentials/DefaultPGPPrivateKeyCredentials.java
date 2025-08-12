@@ -216,7 +216,7 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 		@NonNull
 		@Override
 		public String getDisplayName() {
-			return Messages.DefaultPGPPrivateKeyCredentialsDescriptor_DisplayName();
+			return Messages.PGPPrivateKeyCredentials_Desc_DisplayName();
 		}
 
 		@Restricted(NoExternalUse.class)
@@ -226,7 +226,7 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 			final String data;
 			if (value == null || StringUtils.isBlank(data = Secret.fromString(value)
 					.getPlainText()))
-				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_KeyValueRequired());
+				return FormValidation.error(Messages.PGPPrivateKeyCredentials_Desc_KeyValueRequired());
 
 			PGPSecretKey secretKey = null;
 
@@ -245,12 +245,12 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 					}
 				}
 			} catch (ArmoredInputException e) {
-				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_InvalidKeyArmor());
+				return FormValidation.error(Messages.PGPPrivateKeyCredentials_Desc_InvalidKeyArmor());
 			} catch (IOException | PGPException e) {
-				return FormValidation.error(e, Messages.DefaultPGPPrivateKeyCredentialsDescriptor_KeyLoadingError());
+				return FormValidation.error(e, Messages.PGPPrivateKeyCredentials_Desc_KeyLoadingError());
 			}
 			if (secretKey == null)
-				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_EmptyKeyRing());
+				return FormValidation.error(Messages.PGPPrivateKeyCredentials_Desc_EmptyKeyRing());
 
 			PGPPrivateKey privateKey = null;
 
@@ -264,13 +264,13 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 			try {
 				privateKey = secretKey.extractPrivateKey(decryptor);
 			} catch (PGPException e) {
-				return FormValidation.error(e, Messages.DefaultPGPPrivateKeyCredentialsDescriptor_DecryptionError());
+				return FormValidation.error(e, Messages.PGPPrivateKeyCredentials_Desc_DecryptionError());
 			}
 
 			if (privateKey == null)
-				return FormValidation.error(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_DecryptionError());
+				return FormValidation.error(Messages.PGPPrivateKeyCredentials_Desc_DecryptionError());
 
-			return FormValidation.ok(Messages.DefaultPGPPrivateKeyCredentialsDescriptor_TMPL_Fingerprint(),
+			return FormValidation.ok(Messages.PGPPrivateKeyCredentials_Desc_FMT_Fingerprint(),
 					Hex.encodeHexString(secretKey.getFingerprint(), false));
 		}
 

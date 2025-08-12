@@ -1,6 +1,7 @@
 <?jelly escape-by-default='true'?> 
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:st="jelly:stapler">
-  <f:entry title="${%require valid keys}" field="value">
+  <j:invokeStatic var="validStateTitle" className="org.jenkinsci.plugins.pgpcredentials.Messages" method="ValidKeySpecification_Desc_ValidState"/>
+  <f:entry title="${validStateTitle}" field="value">
     <f:checkbox/>
   </f:entry>
 </j:jelly>

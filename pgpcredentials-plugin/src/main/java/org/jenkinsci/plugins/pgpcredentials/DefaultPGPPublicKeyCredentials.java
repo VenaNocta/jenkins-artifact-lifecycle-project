@@ -156,7 +156,7 @@ public class DefaultPGPPublicKeyCredentials extends BaseStandardCredentials impl
 		@NonNull
 		@Override
 		public String getDisplayName() {
-			return Messages.DefaultPGPPublicKeyCredentialsDescriptor_DisplayName();
+			return Messages.PGPPublicKeyCredentials_Desc_DisplayName();
 		}
 
 		@Restricted(NoExternalUse.class)
@@ -166,7 +166,7 @@ public class DefaultPGPPublicKeyCredentials extends BaseStandardCredentials impl
 			final String data;
 			if (value == null || StringUtils.isBlank(data = Secret.fromString(value)
 					.getPlainText()))
-				return FormValidation.error(Messages.DefaultPGPPublicKeyCredentialsDescriptor_KeyValueRequired());
+				return FormValidation.error(Messages.PGPPublicKeyCredentials_Desc_KeyValueRequired());
 
 			PGPPublicKey publicKey = null;
 
@@ -185,14 +185,14 @@ public class DefaultPGPPublicKeyCredentials extends BaseStandardCredentials impl
 					}
 				}
 			} catch (ArmoredInputException e) {
-				return FormValidation.error(Messages.DefaultPGPPublicKeyCredentialsDescriptor_InvalidKeyArmor());
+				return FormValidation.error(Messages.PGPPublicKeyCredentials_Desc_InvalidKeyArmor());
 			} catch (IOException | PGPException e) {
-				return FormValidation.error(e, Messages.DefaultPGPPublicKeyCredentialsDescriptor_KeyLoadingError());
+				return FormValidation.error(e, Messages.PGPPublicKeyCredentials_Desc_KeyLoadingError());
 			}
 			if (publicKey == null)
-				return FormValidation.error(Messages.DefaultPGPPublicKeyCredentialsDescriptor_EmptyKeyRing());
+				return FormValidation.error(Messages.PGPPublicKeyCredentials_Desc_EmptyKeyRing());
 
-			return FormValidation.ok(Messages.DefaultPGPPublicKeyCredentialsDescriptor_TMPL_Fingerprint(),
+			return FormValidation.ok(Messages.PGPPublicKeyCredentials_Desc_FMT_Fingerprint(),
 					Hex.encodeHexString(publicKey.getFingerprint(), false));
 		}
 

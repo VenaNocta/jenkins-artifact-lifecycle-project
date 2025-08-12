@@ -1,7 +1,9 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
-  <f:section title="Artifact Signing Settings">
-    <f:entry title="Default PGP Signing Key" field="defaultCredentialsId">
+  <j:invokeStatic var="title" className="org.jenkinsci.plugins.artifact.signing.config.Messages" method="FolderConfiguration_DisplayName"/>
+  <j:invokeStatic var="defaultCredentialsIdTitle" className="org.jenkinsci.plugins.artifact.signing.config.Messages" method="FolderConfiguration_DefaultSigningKey"/>
+  <f:section title="${title}">
+    <f:entry title="${defaultCredentialsIdTitle}" field="defaultCredentialsId">
       <c:select />
     </f:entry>
   </f:section>

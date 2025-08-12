@@ -54,7 +54,7 @@ public class SigningKeySpecification extends DomainSpecification {
 	public static class SigningKeySpecificationDescriptor extends DomainSpecificationDescriptor {
 		@Override
 		public String getDisplayName() {
-			return "PGP Signing Key";
+			return Messages.SigningKeySpecification_Desc_DisplayName();
 		}
 	}
 

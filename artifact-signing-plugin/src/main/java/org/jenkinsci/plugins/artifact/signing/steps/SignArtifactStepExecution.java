@@ -35,6 +35,7 @@ import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPSignature;
 import org.bouncycastle.openpgp.PGPSignatureGenerator;
+import org.jenkinsci.plugins.artifact.signing.config.ArtifactSigningConfiguration;
 import org.jenkinsci.plugins.artifact.signing.config.ArtifactSigningConfigurationProvider;
 import org.jenkinsci.plugins.pgpcredentials.PGPRequirementBuilder;
 import org.jenkinsci.plugins.pgpcredentials.PGPSignatureGeneratorBuilder;
@@ -109,12 +110,12 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 					.get(ArtifactSigningConfigurationProvider::getDefaultCredentialsId, build);
 		if (StringUtils.isBlank(credentialId)) {
 			listener.getLogger()
-					.println("No PGP-Key defined!");
+					.println(Messages.SignArtifact_Exec_ERR_NoKeyDefined());
 			getContext().setResult(Result.FAILURE);
 			return null;
 		}
 		listener.getLogger()
-				.println(String.format("Signing Artifacts with PGP-Key (%s)", credentialId));
+				.println(String.format(Messages.SignArtifact_Exec_FMT_SigningArtifactsWithKey(), credentialId));
 
 		final PGPSignatureGeneratorBuilder builder = new PGPSignatureGeneratorBuilder();
 		final Map<String, String> signatures = new ConcurrentHashMap<>();
@@ -130,13 +131,13 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 
 			if (cred == null) {
 				listener.getLogger()
-						.println("No PGP Private-Key capable of signing was found!");
+						.println(Messages.SignArtifact_Exec_ERR_NoSigningKeyFound());
 				getContext().setResult(Result.FAILURE);
 				return null;
 			}
 			if (!cred.isValid()) {
 				listener.getLogger()
-						.println("PGP Private-Key is not valid!");
+						.println(Messages.SignArtifact_Exec_ERR_SigningKeyInvalid());
 				getContext().setResult(Result.FAILURE);
 				return null;
 			}
@@ -160,7 +161,7 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 			}
 		}
 		listener.getLogger()
-				.println(String.format("%d Artifacts signed", signatures.size()));
+				.println(String.format(Messages.SignArtifact_Exec_FMT_ArtifactsSigned(), signatures.size()));
 		{
 			// archive signatures
 			final Launcher launcher = ws.createLauncher(listener);
@@ -173,7 +174,7 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 			}
 		}
 		listener.getLogger()
-				.println("All Signatures successfully archived");
+				.println(Messages.SignArtifact_Exec_SigningSuccessful());
 
 		return null;
 	}
@@ -229,8 +230,8 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 					}
 				} else {
 					httpClient.connect("download",
-							"download " + RobustHTTPClient.sanitize(url) + " to " + this.secureNode.getDisplayName()
-									+ " for signing",
+							String.format(Messages.SignArtifact_Exec_FMT_ArtifactDownload(),
+									RobustHTTPClient.sanitize(url), this.secureNode.getDisplayName()),
 							client -> client.execute(new HttpGet(url.toString())), response -> {
 								try (InputStream is = response.getEntity()
 										.getContent()) {
@@ -255,7 +256,7 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 			try {
 				signature = this.signatureGenerator.generate();
 			} catch (PGPException e) {
-				this.listener.error("Failed to create PGP-Signature: " + e.getMessage());
+				this.listener.error(Messages.SignArtifact_Exec_ERR_FMT_SigningFailed(), e.getMessage());
 				return false;
 			}
 			signature.encode(outputStream);
@@ -278,13 +279,14 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 			if (pipeline.getParent() instanceof TopLevelItem) {
 				ws = node.getWorkspaceFor((TopLevelItem) pipeline.getParent());
 				if (ws == null) {
-					throw new IOException(node.getDisplayName() + " may be offline");
+					throw new IOException(
+							String.format(Messages.SignArtifact_Exec_ERR_FMT_NodeOffline(), node.getDisplayName()));
 				}
 			}
 			// else: should not happen, but just in case go to fallback
 		}
 		if (ws != null) {
-			ws = ws.withSuffix(getFilePathSuffix() + "secure");
+			ws = ws.withSuffix(getFilePathSuffix() + getSecureWorkspaceSuffix());
 			try (WorkspaceList.Lease lease = node.toComputer()
 					.getWorkspaceList()
 					.acquire(ws)) {
@@ -295,15 +297,21 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 		// as fallback use an equivalent as for the standard archive
 		if (node != null)
 			return node.createPath(run.getRootDir()
-					.getAbsolutePath() + "/secure");
+					.getAbsolutePath() + "/" + getSecureWorkspaceSuffix());
 		return null;
 	}
 
-	private String getLabelExpression() {
-		return "secure";
+	protected String getLabelExpression() {
+		return ArtifactSigningConfiguration.get()
+				.getSecureLabelExpression();
 	}
 
-	private String getFilePathSuffix() {
+	protected String getSecureWorkspaceSuffix() {
+		return ArtifactSigningConfiguration.get()
+				.getSecureWorkspaceSuffix();
+	}
+
+	protected String getFilePathSuffix() {
 		return System.getProperty(WorkspaceList.class.getName(), "@");
 	}
 }
