@@ -84,6 +84,7 @@ public class DefaultPGPPublicKeyCredentials extends BaseStandardCredentials impl
 				.getBytes()));
 	}
 
+	@Restricted(NoExternalUse.class)
 	public Secret getArmoredKey() {
 		return Secret.fromString(new String(this.armoredKey.getPlainData()));
 	}

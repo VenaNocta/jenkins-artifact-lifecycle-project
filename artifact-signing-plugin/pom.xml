@@ -103,6 +103,18 @@
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>apache-httpcomponents-client-4-api</artifactId>
 		</dependency>
+		
+		<!-- OPTIONAL -->
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>cloudbees-folder</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>branch-api</artifactId>
+			<optional>true</optional>
+		</dependency>
 
 		<!-- non packaged dependencies -->
 

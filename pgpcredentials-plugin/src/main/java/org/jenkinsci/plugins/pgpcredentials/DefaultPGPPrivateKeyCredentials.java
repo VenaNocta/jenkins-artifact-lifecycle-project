@@ -99,10 +99,12 @@ public class DefaultPGPPrivateKeyCredentials extends BaseStandardCredentials imp
 						.getBytes()));
 	}
 
+	@Restricted(NoExternalUse.class)
 	public Secret getPassphrase() {
 		return this.passphrase;
 	}
 
+	@Restricted(NoExternalUse.class)
 	public Secret getArmoredKey() {
 		return Secret.fromString(new String(this.armoredKey.getPlainData()));
 	}

@@ -17,12 +17,15 @@ package org.jenkinsci.plugins.pgpcredentials.api;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 
 import org.bouncycastle.openpgp.PGPPublicKey;
 
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
+import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+import com.cloudbees.plugins.credentials.domains.DomainRestrictedCredentials;
 
-public interface PGPPublicKeyCredentials extends StandardCredentials {
+public interface PGPPublicKeyCredentials extends StandardCredentials, DomainRestrictedCredentials {
 
 	public boolean isValid() throws IOException, InterruptedException;
 
@@ -34,4 +37,24 @@ public interface PGPPublicKeyCredentials extends StandardCredentials {
 
 	public Iterator<String> getUserIds() throws IOException, InterruptedException;
 
+	public default boolean matches(final List<DomainRequirement> domainRequirements) {
+		for (DomainRequirement req : domainRequirements) {
+			if (match(req))
+				continue;
+			return false;
+		}
+		return true;
+	}
+
+	public default boolean match(final DomainRequirement domainRequirement) {
+		if (domainRequirement instanceof PGPValidKeyRequirement) {
+			final PGPValidKeyRequirement req = (PGPValidKeyRequirement) domainRequirement;
+			try {
+				return isValid() == req.valid();
+			} catch (IOException | InterruptedException e) {
+				return false;
+			}
+		}
+		return true;
+	}
 }

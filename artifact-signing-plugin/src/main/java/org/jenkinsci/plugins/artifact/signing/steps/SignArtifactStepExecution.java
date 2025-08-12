@@ -35,6 +35,7 @@ import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPSignature;
 import org.bouncycastle.openpgp.PGPSignatureGenerator;
+import org.jenkinsci.plugins.pgpcredentials.PGPRequirementBuilder;
 import org.jenkinsci.plugins.pgpcredentials.PGPSignatureGeneratorBuilder;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -111,7 +112,10 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 
 		{
 			// prepare PGP signature-generator
-			final List<DomainRequirement> domainRequirements = List.of();
+			final List<DomainRequirement> domainRequirements = PGPRequirementBuilder.create()
+					.requireValid()
+					.requireSigningCapability()
+					.build();
 			PGPPrivateKeyCredentials cred = CredentialsProvider.findCredentialById(credentialId,
 					PGPPrivateKeyCredentials.class, build, domainRequirements);
 

@@ -18,10 +18,25 @@ package org.jenkinsci.plugins.pgpcredentials.api;
 import java.io.IOException;
 import org.bouncycastle.openpgp.PGPPrivateKey;
 
+import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+
 public interface PGPPrivateKeyCredentials extends PGPPublicKeyCredentials {
 
 	public PGPPrivateKey getPrivateKey() throws IOException, InterruptedException;
 
 	public boolean isSigningKey() throws IOException, InterruptedException;
+
+	@Override
+	public default boolean match(final DomainRequirement domainRequirement) {
+		if (domainRequirement instanceof PGPSigningKeyRequirement) {
+			final PGPSigningKeyRequirement req = (PGPSigningKeyRequirement) domainRequirement;
+			try {
+				return isSigningKey() == req.canSign();
+			} catch (IOException | InterruptedException e) {
+				return false;
+			}
+		}
+		return PGPPublicKeyCredentials.super.match(domainRequirement);
+	}
 
 }
