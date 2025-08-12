@@ -35,6 +35,7 @@ import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPSignature;
 import org.bouncycastle.openpgp.PGPSignatureGenerator;
+import org.jenkinsci.plugins.artifact.signing.config.ArtifactSigningConfiguration;
 import org.jenkinsci.plugins.pgpcredentials.PGPRequirementBuilder;
 import org.jenkinsci.plugins.pgpcredentials.PGPSignatureGeneratorBuilder;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
@@ -52,6 +53,7 @@ import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.Label;
 import hudson.model.Node;
+import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
@@ -103,7 +105,14 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 
 		String credentialId = this.step.getCredentialId();
 		if (StringUtils.isBlank(credentialId))
-			credentialId = "ed25519-pgp-key";
+			credentialId = ArtifactSigningConfiguration.get()
+					.getDefaultCredentialsId();
+		if (StringUtils.isBlank(credentialId)) {
+			listener.getLogger()
+					.println("No PGP-Key defined!");
+			getContext().setResult(Result.ABORTED);
+			return null;
+		}
 		listener.getLogger()
 				.println(String.format("Signing Artifacts with PGP-Key (%s)", credentialId));
 
@@ -116,13 +125,21 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 					.requireValid()
 					.requireSigningCapability()
 					.build();
-			PGPPrivateKeyCredentials cred = CredentialsProvider.findCredentialById(credentialId,
+			final PGPPrivateKeyCredentials cred = CredentialsProvider.findCredentialById(credentialId,
 					PGPPrivateKeyCredentials.class, build, domainRequirements);
 
-			if (cred == null)
-				throw new Exception("PGP Private Key was not found!");
-			if (!cred.isValid())
-				throw new Exception("PGP Private Key is not valid!");
+			if (cred == null) {
+				listener.getLogger()
+						.println("No PGP Private-Key capable of signing was found!");
+				getContext().setResult(Result.ABORTED);
+				return null;
+			}
+			if (!cred.isValid()) {
+				listener.getLogger()
+						.println("PGP Private-Key is not valid!");
+				getContext().setResult(Result.ABORTED);
+				return null;
+			}
 
 			builder.withCredentials(cred);
 		}
