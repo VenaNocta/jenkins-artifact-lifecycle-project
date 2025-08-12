@@ -15,6 +15,8 @@
  */
 package org.jenkinsci.plugins.pgpcredentials;
 
+import org.kohsuke.stapler.DataBoundConstructor;
+
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.domains.DomainSpecification;
 import com.cloudbees.plugins.credentials.domains.DomainSpecificationDescriptor;
@@ -28,11 +30,12 @@ public class SigningKeySpecification extends DomainSpecification {
 
 	private final boolean canSign;
 
+	@DataBoundConstructor
 	public SigningKeySpecification(final boolean canSign) {
 		this.canSign = canSign;
 	}
 
-	public boolean canSign() {
+	public boolean getCanSign() {
 		return this.canSign;
 	}
 
@@ -40,7 +43,7 @@ public class SigningKeySpecification extends DomainSpecification {
 	@NonNull
 	public Result test(@NonNull final DomainRequirement scope) {
 		if (scope instanceof SigningKeyRequirement req) {
-			if (canSign() == req.canSign())
+			if (getCanSign() == req.canSign())
 				return Result.POSITIVE;
 			return Result.NEGATIVE;
 		}
@@ -51,7 +54,7 @@ public class SigningKeySpecification extends DomainSpecification {
 	public static class SigningKeySpecificationDescriptor extends DomainSpecificationDescriptor {
 		@Override
 		public String getDisplayName() {
-			return "Signing Key";
+			return "PGP Signing Key";
 		}
 	}
 

@@ -35,7 +35,7 @@ import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPSignature;
 import org.bouncycastle.openpgp.PGPSignatureGenerator;
-import org.jenkinsci.plugins.artifact.signing.config.ArtifactSigningConfiguration;
+import org.jenkinsci.plugins.artifact.signing.config.ArtifactSigningConfigurationProvider;
 import org.jenkinsci.plugins.pgpcredentials.PGPRequirementBuilder;
 import org.jenkinsci.plugins.pgpcredentials.PGPSignatureGeneratorBuilder;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
@@ -105,12 +105,12 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 
 		String credentialId = this.step.getCredentialId();
 		if (StringUtils.isBlank(credentialId))
-			credentialId = ArtifactSigningConfiguration.get()
-					.getDefaultCredentialsId();
+			credentialId = ArtifactSigningConfigurationProvider
+					.get(ArtifactSigningConfigurationProvider::getDefaultCredentialsId, build);
 		if (StringUtils.isBlank(credentialId)) {
 			listener.getLogger()
 					.println("No PGP-Key defined!");
-			getContext().setResult(Result.ABORTED);
+			getContext().setResult(Result.FAILURE);
 			return null;
 		}
 		listener.getLogger()
@@ -131,13 +131,13 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 			if (cred == null) {
 				listener.getLogger()
 						.println("No PGP Private-Key capable of signing was found!");
-				getContext().setResult(Result.ABORTED);
+				getContext().setResult(Result.FAILURE);
 				return null;
 			}
 			if (!cred.isValid()) {
 				listener.getLogger()
 						.println("PGP Private-Key is not valid!");
-				getContext().setResult(Result.ABORTED);
+				getContext().setResult(Result.FAILURE);
 				return null;
 			}
 

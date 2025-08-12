@@ -15,6 +15,8 @@
  */
 package org.jenkinsci.plugins.pgpcredentials;
 
+import org.kohsuke.stapler.DataBoundConstructor;
+
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.domains.DomainSpecification;
 import com.cloudbees.plugins.credentials.domains.DomainSpecificationDescriptor;
@@ -26,21 +28,22 @@ public class ValidKeySpecification extends DomainSpecification {
 
 	private static final long serialVersionUID = 1L;
 
-	private final boolean valid;
+	private final boolean value;
 
-	public ValidKeySpecification(final boolean valid) {
-		this.valid = valid;
+	@DataBoundConstructor
+	public ValidKeySpecification(final boolean value) {
+		this.value = value;
 	}
 
-	public boolean valid() {
-		return this.valid;
+	public boolean getValue() {
+		return this.value;
 	}
 
 	@Override
 	@NonNull
 	public Result test(@NonNull final DomainRequirement scope) {
 		if (scope instanceof ValidKeyRequirement req) {
-			if (valid() == req.valid())
+			if (getValue() == req.valid())
 				return Result.POSITIVE;
 			return Result.NEGATIVE;
 		}

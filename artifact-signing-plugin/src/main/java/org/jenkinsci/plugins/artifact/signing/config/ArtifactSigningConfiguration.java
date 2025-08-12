@@ -22,12 +22,16 @@ import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.google.inject.Inject;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.Item;
+import hudson.model.Run;
+import hudson.security.ACL;
 import hudson.util.ListBoxModel;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
@@ -59,7 +63,7 @@ public class ArtifactSigningConfiguration extends GlobalConfiguration {
 			return new StandardListBoxModel();
 		}
 		return new StandardListBoxModel().includeEmptyValue()
-				.include(item, PGPPrivateKeyCredentials.class, PGPRequirementBuilder.create()
+				.includeAs(ACL.SYSTEM2, item, PGPPrivateKeyCredentials.class, PGPRequirementBuilder.create()
 						.requireSigningCapability()
 						.build());
 	}
@@ -68,6 +72,21 @@ public class ArtifactSigningConfiguration extends GlobalConfiguration {
 	public static ArtifactSigningConfiguration get() {
 		return GlobalConfiguration.all()
 				.getInstance(ArtifactSigningConfiguration.class);
+	}
+
+	// provides the global fallback values
+	@Extension(ordinal = -10000)
+	public static final class GlobalArtifactSigningConfigurationProvider
+			implements ArtifactSigningConfigurationProvider {
+
+		@Inject
+		private ArtifactSigningConfiguration cnf;
+
+		@Override
+		public String getDefaultCredentialsId(@Nullable final Run<?, ?> run) {
+			return this.cnf.getDefaultCredentialsId();
+		}
+
 	}
 
 }
