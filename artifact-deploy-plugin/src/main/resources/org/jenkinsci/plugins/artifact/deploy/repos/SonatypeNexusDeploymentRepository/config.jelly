@@ -1,0 +1,15 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials" xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+  <f:entry title="${%ID}" field="id">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="${%URL}" field="url">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="${%Repository}" field="repo">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="${%Upload Credentials}" field="credentialsId">
+    <c:select />
+  </f:entry>
+</j:jelly>
