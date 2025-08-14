@@ -15,14 +15,23 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.repos;
 
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.AbstractArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
+import com.cloudbees.plugins.credentials.ContextInPath;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -30,26 +39,43 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.Item;
+import hudson.model.ModelObject;
 import hudson.security.ACL;
+import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
+
+import static org.jenkinsci.plugins.artifact.deploy.config.ConfigUtils.convertURL;
+import static org.jenkinsci.plugins.artifact.deploy.config.ConfigUtils.appendPath;;
 
 public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymentRepository {
 
 	private static final long serialVersionUID = 1L;
 
-	@NonNull
+	public static final String DEFAULT_PROTOCOL = "https";
+	public static final List<String> PROTOCOLS = List.of("http", "https");
+
+	@CheckForNull
 	private URL url;
-	@NonNull
+	@CheckForNull
 	private String repo;
 	@CheckForNull
 	private String credentialsId;
 
-	@DataBoundConstructor
-	public SonatypeNexusDeploymentRepository(@NonNull String id, @NonNull URL url, @NonNull String repo,
-			@CheckForNull String credentialsId) {
-		super(id);
+	public SonatypeNexusDeploymentRepository(@NonNull String id, @CheckForNull String description, //
+			@CheckForNull URL url, @CheckForNull String repo, @CheckForNull String credentialsId) {
+		super(id, description);
 		this.url = url;
+		this.repo = repo;
+		this.credentialsId = credentialsId;
+	}
+
+	@DataBoundConstructor
+	public SonatypeNexusDeploymentRepository(@NonNull String id, @CheckForNull String description, //
+			@CheckForNull String url, @CheckForNull String repo, @CheckForNull String credentialsId) {
+		super(id, description);
+		this.url = convertURL(url, DEFAULT_PROTOCOL, PROTOCOLS);
 		this.repo = repo;
 		this.credentialsId = credentialsId;
 	}
@@ -67,8 +93,8 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 	}
 
 	@DataBoundSetter
-	public void setUrl(@NonNull final URL url) {
-		this.url = url;
+	public void setUrl(@NonNull String url) {
+		this.url = convertURL(url, DEFAULT_PROTOCOL, PROTOCOLS);
 	}
 
 	@DataBoundSetter
@@ -87,6 +113,69 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 		@Override
 		public String getDisplayName() {
 			return "Sonatype Nexus Repository";
+		}
+
+		@Restricted(NoExternalUse.class)
+		@POST
+		public FormValidation doCheckUrl(@ContextInPath ModelObject context, @QueryParameter String value) {
+			value = StringUtils.trimToNull(value);
+			if (value == null)
+				return FormValidation.error("URL is required");
+			value = StringUtils.stripStart(value, "://");
+			final URI uri;
+			try {
+				uri = new URI(value);
+			} catch (URISyntaxException e) {
+				return FormValidation.error("Invalid URL");
+			}
+			final String scheme = uri.getScheme();
+			if (scheme == null)
+				return FormValidation.warning("Protocol must be 'https' (default) or 'http'");
+			if (!List.of("http", "https")
+					.contains(scheme))
+				return FormValidation.error("Protocol unsupported; allowed Protocols: 'https' (default) or 'http'");
+			return FormValidation.ok();
+		}
+
+		@Restricted(NoExternalUse.class)
+		@POST
+		public FormValidation doCheckRepo(@ContextInPath ModelObject context, @QueryParameter String value) {
+			value = StringUtils.trimToNull(value);
+			if (value == null)
+				return FormValidation.error("Repository is required");
+			return FormValidation.ok();
+		}
+
+		public ListBoxModel doFillRepoItems(@AncestorInPath Item item, @QueryParameter String url,
+				@QueryParameter String repo, @QueryParameter String credentialsId) {
+			repo = StringUtils.trimToNull(repo);
+
+			final ListBoxModel dropdown = new ListBoxModel();
+			dropdown.add("- none -", "");
+
+			URL repoURL = convertURL(url, DEFAULT_PROTOCOL, PROTOCOLS);
+			try {
+				repoURL = appendPath(repoURL, "");
+			} catch (MalformedURLException | URISyntaxException e) {
+				repoURL = null;
+				e.printStackTrace();
+			}
+			// invalid url => empty dropdown
+			if (repoURL == null) {
+				if(repo!=null)
+				dropdown.add(new Option(repo + " (unavailable)", repo, true));
+				return dropdown;
+			}
+
+			boolean found = repo == null;
+			for (String repoId : List.of("repoA", "repoB", "repoC")) {
+				final boolean f = !found && repo.equals(repoId);
+				dropdown.add(new Option(repoId, repoId, f));
+				found = found | f;
+			}
+			if (!found)
+				dropdown.add(new Option(repo + " (unavailable)", repo, true));
+			return dropdown;
 		}
 
 		public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item item) {

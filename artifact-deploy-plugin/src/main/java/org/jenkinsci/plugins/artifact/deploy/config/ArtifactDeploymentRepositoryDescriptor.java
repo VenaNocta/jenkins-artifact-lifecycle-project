@@ -25,8 +25,11 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
+import com.cloudbees.plugins.credentials.ContextInPath;
+
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Descriptor;
+import hudson.model.ModelObject;
 import hudson.util.FormValidation;
 
 public abstract class ArtifactDeploymentRepositoryDescriptor extends Descriptor<ArtifactDeploymentRepository>
@@ -40,10 +43,22 @@ public abstract class ArtifactDeploymentRepositoryDescriptor extends Descriptor<
 
 	@Restricted(NoExternalUse.class)
 	@POST
-	public FormValidation doCheckId(@QueryParameter String value) {
+	public FormValidation doCheckId(@ContextInPath ModelObject context, @QueryParameter String value,
+			@QueryParameter String currentId) {
 		value = StringUtils.trimToNull(value);
+		// generated id
 		if (value == null)
 			return FormValidation.ok("ID will be generated!");
+		// unchanged
+		if (value.equals(StringUtils.trimToEmpty(currentId)))
+			return FormValidation.ok();
+		// check invalid chars
+		if (!value.matches("[a-zA-Z0-9_.-<>]+"))
+			return FormValidation.error("Invalid characters");
+		// check duplicates
+		if (ArtifactDeploymentConfiguration.get()
+				.getRepo(value) != null)
+			return FormValidation.error("ID already in use!");
 		return FormValidation.ok();
 	}
 

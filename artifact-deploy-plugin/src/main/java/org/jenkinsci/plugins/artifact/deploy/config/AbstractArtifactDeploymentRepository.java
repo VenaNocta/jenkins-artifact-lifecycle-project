@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.artifact.deploy.config;
 import org.jenkinsci.plugins.artifact.deploy.config.api.ArtifactDeploymentRepository;
 import org.kohsuke.stapler.DataBoundSetter;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Descriptor;
@@ -28,18 +29,34 @@ public abstract class AbstractArtifactDeploymentRepository implements ArtifactDe
 	private static final long serialVersionUID = 1L;
 
 	protected String id;
+	protected String description;
 
 	protected AbstractArtifactDeploymentRepository(@NonNull final String id) {
+		this(id, null);
+	}
+
+	protected AbstractArtifactDeploymentRepository(@NonNull final String id, @CheckForNull final String description) {
 		this.id = id;
+		this.description = description;
 	}
 
 	public String getId() {
 		return this.id;
 	}
 
+	public String getDescription() {
+		return this.description;
+	}
+
+	@Override
 	@DataBoundSetter
-	public void setId(@NonNull String id) {
+	public void setId(String id) {
 		this.id = id;
+	}
+
+	@DataBoundSetter
+	public void setDescription(@NonNull String description) {
+		this.description = description;
 	}
 
 	@Override
