@@ -1,7 +1,7 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials" xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
   <st:include page="id-and-description" class="${descriptor.clazz}"/>
-  <f:entry title="${%Server}" field="url">
+  <f:entry title="${%Server}" field="uri">
     <f:textbox />
   </f:entry>
   <f:entry title="${%Repository}" field="repo">

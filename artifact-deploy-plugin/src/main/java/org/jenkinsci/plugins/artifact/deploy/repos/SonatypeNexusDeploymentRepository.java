@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -30,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.AbstractArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
@@ -42,6 +43,8 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 import com.cloudbees.plugins.credentials.ContextInPath;
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -69,31 +72,31 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 	public static final List<String> PROTOCOLS = List.of("http", "https");
 
 	@CheckForNull
-	private URL url;
+	private URI uri;
 	@CheckForNull
 	private String repo;
 	@CheckForNull
 	private String credentialsId;
 
 	public SonatypeNexusDeploymentRepository(@NonNull String id, @CheckForNull String description, //
-			@CheckForNull URL url, @CheckForNull String repo, @CheckForNull String credentialsId) {
+			@CheckForNull URI uri, @CheckForNull String repo, @CheckForNull String credentialsId) {
 		super(id, description);
-		this.url = url;
+		this.uri = uri;
 		this.repo = repo;
 		this.credentialsId = credentialsId;
 	}
 
 	@DataBoundConstructor
 	public SonatypeNexusDeploymentRepository(@NonNull String id, @CheckForNull String description, //
-			@CheckForNull String url, @CheckForNull String repo, @CheckForNull String credentialsId) {
+			@CheckForNull String uri, @CheckForNull String repo, @CheckForNull String credentialsId) {
 		super(id, description);
-		setUrl(url);
+		setUri(uri);
 		this.repo = repo;
 		this.credentialsId = credentialsId;
 	}
 
-	public URL getUrl() {
-		return this.url;
+	public URI getUri() {
+		return this.uri;
 	}
 
 	public String getRepo() {
@@ -105,17 +108,17 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 	}
 
 	@DataBoundSetter
-	public void setUrl(@NonNull String url) {
+	public void setUri(@NonNull String uri) {
 		final URIBuilder builder;
 		try {
-			builder = URIBuilder.fromString(url);
+			builder = URIBuilder.fromString(uri);
 		} catch (URISyntaxException e) {
-			this.url = null;
+			this.uri = null;
 			return;
 		}
 		builder.fixScheme(DEFAULT_PROTOCOL)
 				.applyHostFix();
-		this.url = builder.hasScheme(PROTOCOLS) ? builder.toURL(null) : null;
+		this.uri = builder.hasScheme(PROTOCOLS) ? builder.toURI(null) : null;
 	}
 
 	@DataBoundSetter
@@ -138,16 +141,16 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 
 		@Restricted(NoExternalUse.class)
 		@POST
-		public FormValidation doCheckUrl(@ContextInPath ModelObject context, @QueryParameter String value) {
+		public FormValidation doCheckUri(@AncestorInPath Item item, @ContextInPath ModelObject context,
+				@QueryParameter String value, @QueryParameter String credentialsId) {
 			value = StringUtils.trimToNull(value);
 			if (value == null)
-				return FormValidation.error("URL is required");
-			// final
-			URIBuilder builder;
+				return FormValidation.error("URI is required");
+			final URIBuilder builder;
 			try {
 				builder = URIBuilder.fromString(value);
 			} catch (URISyntaxException e) {
-				return FormValidation.error("Invalid URL");
+				return FormValidation.error("Invalid URI");
 			}
 
 			final List<FormValidation> msgs = new LinkedList<>();
@@ -168,7 +171,6 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 			final HttpClient client = ProxyConfiguration.newHttpClient();
 			final HttpRequest request = ProxyConfiguration.newHttpRequestBuilder(repoURI)
 					.GET()
-					// .setHeader(repo, credentialsId)
 					.build();
 
 			HttpResponse<Void> response;
@@ -179,6 +181,7 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 			}
 			switch (response == null ? -1 : response.statusCode()) {
 			case 200:
+			case 401:
 				break;
 			case 503:
 				msgs.add(FormValidation.error("Server unavailable to service requests!"));
@@ -199,35 +202,38 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 			return FormValidation.ok();
 		}
 
-		public ListBoxModel doFillRepoItems(@AncestorInPath Item item, @QueryParameter String url,
+		public URIBuilder getUriBuilder(final String uri) {
+			final URIBuilder b;
+			try {
+				b = URIBuilder.fromString(uri);
+			} catch (URISyntaxException e) {
+				return null;
+			}
+			if (b == null)
+				return null;
+			b.fixScheme(DEFAULT_PROTOCOL)
+					.applyHostFix()
+					.appendPath("/service/rest/");
+			return b.hasScheme(PROTOCOLS) ? b : null;
+		}
+
+		public ListBoxModel doFillRepoItems(@AncestorInPath Item item, @QueryParameter String uri,
 				@QueryParameter String repo, @QueryParameter String credentialsId) {
 			repo = StringUtils.trimToNull(repo);
 
 			final ListBoxModel dropdown = new ListBoxModel();
 			dropdown.add("- none -", "");
 
-			final URIBuilder b;
-			try {
-				b = URIBuilder.fromString(url);
-			} catch (URISyntaxException e) {
-				e.printStackTrace();
+			final URIBuilder b = getUriBuilder(uri);
+			if (b == null) {
 				if (repo != null)
 					dropdown.add(new Option(repo + " (unavailable)", repo, true));
 				return dropdown;
 			}
-			b.fixScheme(DEFAULT_PROTOCOL);
-			if (!b.hasScheme(PROTOCOLS)) {
-				if (repo != null)
-					dropdown.add(new Option(repo + " (unavailable)", repo, true));
-				return dropdown;
-			}
-
-			b.applyHostFix()
-					.appendPath("/service/rest/");
 
 			final URI repoURI = b.withChildPath("v1/repositories")
 					.toURI(null);
-			// invalid url => empty dropdown
+			// invalid uri => empty dropdown
 			if (repoURI == null || repoURI.getHost() == null) {
 				if (repo != null)
 					dropdown.add(new Option(repo + " (unavailable)", repo, true));
@@ -235,38 +241,32 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 			}
 
 			final HttpClient client = ProxyConfiguration.newHttpClient();
-			final HttpRequest request = ProxyConfiguration.newHttpRequestBuilder(repoURI)
-					.GET()
-					// .setHeader(repo, credentialsId)
-					.build();
-
-			HttpResponse<String> response;
-			try {
-				response = client.send(request, BodyHandlers.ofString());
-			} catch (IOException | InterruptedException e) {
-				if (repo != null)
-					dropdown.add(new Option(repo + " (unavailable)", repo, true));
-				return dropdown;
+			final HttpRequest.Builder requestBuilder = ProxyConfiguration.newHttpRequestBuilder(repoURI)
+					.GET();
+			if ((credentialsId = StringUtils.trimToNull(credentialsId)) != null) {
+				final StandardUsernamePasswordCredentials cred = CredentialsMatchers.firstOrNull( //
+						CredentialsProvider.lookupCredentialsInItem( //
+								StandardUsernamePasswordCredentials.class, item, null),
+						CredentialsMatchers.withId(credentialsId));
+				if (cred != null) {
+					requestBuilder.setHeader("Authorization",
+							"Basic " + Base64.encodeBase64String((cred.getUsername() + ":" + cred.getPassword()
+									.getPlainText()).getBytes()));
+				}
 			}
-
-			if (response.statusCode() != HttpURLConnection.HTTP_OK) {
-				System.err.println("OOOOPS!!!!");
-				System.out.println(request.toString());
-				System.out.println(response.toString());
-			}
-
-			ObjectMapper objMapper = new ObjectMapper();
+			final HttpRequest request = requestBuilder.build();
 
 			JsonNode rootNode = null;
 			try {
-				rootNode = objMapper.readTree(response.body());
-			} catch (IOException e) {
-				e.printStackTrace();
+				final HttpResponse<String> response = client.send(request, BodyHandlers.ofString());
+				if (response.statusCode() == HttpURLConnection.HTTP_OK)
+					rootNode = new ObjectMapper().readTree(response.body());
+			} catch (IOException | InterruptedException e) {
 			}
 
-			Map<String, List<String>> repoMap = new TreeMap<>();
-
+			boolean found = repo == null;
 			if (rootNode != null && rootNode instanceof ArrayNode) {
+				final Map<String, List<String>> repoMap = new TreeMap<>();
 				final ArrayNode arrayNode = (ArrayNode) rootNode;
 				for (Iterator<JsonNode> i = arrayNode.elements(); i.hasNext();) {
 					JsonNode node = i.next();
@@ -279,17 +279,15 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 							.add(id);
 				}
 
-			}
-
-			boolean found = repo == null;
-			for (Entry<String, List<String>> entry : repoMap.entrySet()) {
-				final String key = entry.getKey();
-				final List<String> list = entry.getValue();
-				list.sort(null);
-				for (String repoId : list) {
-					final boolean f = !found && repo.equals(repoId);
-					dropdown.add(new Option(String.format("[%s] %s", key, repoId), repoId, f));
-					found = found | f;
+				for (Entry<String, List<String>> entry : repoMap.entrySet()) {
+					final String key = entry.getKey();
+					final List<String> list = entry.getValue();
+					list.sort(null);
+					for (String repoId : list) {
+						final boolean f = !found && repo.equals(repoId);
+						dropdown.add(new Option(String.format("[%s] %s", key, repoId), repoId, f));
+						found = found | f;
+					}
 				}
 			}
 			if (!found)
@@ -312,5 +310,46 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 					.includeAs(ACL.SYSTEM2, item, StandardUsernamePasswordCredentials.class);
 		}
 
+		@Restricted(NoExternalUse.class)
+		@POST
+		public FormValidation doCheckCredentialsId(@AncestorInPath Item item, @QueryParameter String value,
+				@QueryParameter String uri) {
+
+			final URIBuilder b = getUriBuilder(uri);
+			if (b == null)
+				return FormValidation.ok();
+
+			final URI repoURI = b.appendPath("v1/status")
+					.toURI(null);
+			// invalid uri => skip check
+			if (repoURI == null || repoURI.getHost() == null)
+				return FormValidation.ok();
+
+			final HttpClient client = ProxyConfiguration.newHttpClient();
+			final HttpRequest.Builder requestBuilder = ProxyConfiguration.newHttpRequestBuilder(repoURI)
+					.GET();
+			if ((value = StringUtils.trimToNull(value)) != null) {
+				final StandardUsernamePasswordCredentials cred = CredentialsMatchers.firstOrNull( //
+						CredentialsProvider.lookupCredentialsInItem( //
+								StandardUsernamePasswordCredentials.class, item, null),
+						CredentialsMatchers.withId(value));
+				if (cred != null) {
+					requestBuilder.setHeader("Authorization",
+							"Basic " + Base64.encodeBase64String((cred.getUsername() + ":" + cred.getPassword()
+									.getPlainText()).getBytes()));
+				}
+			}
+
+			final HttpRequest request = requestBuilder.build();
+			HttpResponse<Void> response;
+			try {
+				response = client.send(request, BodyHandlers.discarding());
+			} catch (IOException | InterruptedException e) {
+				response = null;
+			}
+			if (response != null && response.statusCode() == 401)
+				return FormValidation.warning("Credentials unauthorized!");
+			return FormValidation.ok();
+		}
 	}
 }
