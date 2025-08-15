@@ -15,11 +15,21 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.repos;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
-
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeMap;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.AbstractArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
@@ -34,9 +44,14 @@ import org.kohsuke.stapler.verb.POST;
 import com.cloudbees.plugins.credentials.ContextInPath;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import hudson.ProxyConfiguration;
 import hudson.Util;
 import hudson.model.Item;
 import hudson.model.ModelObject;
@@ -98,7 +113,8 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 			this.url = null;
 			return;
 		}
-		builder.fixScheme(DEFAULT_PROTOCOL);
+		builder.fixScheme(DEFAULT_PROTOCOL)
+				.applyHostFix();
 		this.url = builder.hasScheme(PROTOCOLS) ? builder.toURL(null) : null;
 	}
 
@@ -126,20 +142,52 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 			value = StringUtils.trimToNull(value);
 			if (value == null)
 				return FormValidation.error("URL is required");
-			value = StringUtils.stripStart(value, "://");
-			final URI uri;
+			// final
+			URIBuilder builder;
 			try {
-				uri = new URI(value);
+				builder = URIBuilder.fromString(value);
 			} catch (URISyntaxException e) {
 				return FormValidation.error("Invalid URL");
 			}
-			final String scheme = uri.getScheme();
+
+			final List<FormValidation> msgs = new LinkedList<>();
+			final String scheme = builder.getScheme();
 			if (scheme == null)
-				return FormValidation.warning("Protocol must be 'https' (default) or 'http'");
-			if (!List.of("http", "https")
-					.contains(scheme))
+				msgs.add(FormValidation.warning("Protocol must be 'https' (default) or 'http'"));
+			builder.fixScheme(DEFAULT_PROTOCOL);
+
+			if (!builder.hasScheme(PROTOCOLS))
 				return FormValidation.error("Protocol unsupported; allowed Protocols: 'https' (default) or 'http'");
-			return FormValidation.ok();
+
+			final URI repoURI = builder.applyHostFix()
+					.appendPath("/service/rest/v1/status")
+					.toURI(null);
+			if (repoURI == null || repoURI.getHost() == null)
+				return FormValidation.error("Invalid URL");
+
+			final HttpClient client = ProxyConfiguration.newHttpClient();
+			final HttpRequest request = ProxyConfiguration.newHttpRequestBuilder(repoURI)
+					.GET()
+					// .setHeader(repo, credentialsId)
+					.build();
+
+			HttpResponse<Void> response;
+			try {
+				response = client.send(request, BodyHandlers.discarding());
+			} catch (IOException | InterruptedException e) {
+				response = null;
+			}
+			switch (response == null ? -1 : response.statusCode()) {
+			case 200:
+				break;
+			case 503:
+				msgs.add(FormValidation.error("Server unavailable to service requests!"));
+				break;
+			default:
+				msgs.add(FormValidation.error("Server unreachable!"));
+				break;
+			}
+			return FormValidation.aggregate(msgs);
 		}
 
 		@Restricted(NoExternalUse.class)
@@ -163,31 +211,96 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 				b = URIBuilder.fromString(url);
 			} catch (URISyntaxException e) {
 				e.printStackTrace();
-				return null;
+				if (repo != null)
+					dropdown.add(new Option(repo + " (unavailable)", repo, true));
+				return dropdown;
 			}
 			b.fixScheme(DEFAULT_PROTOCOL);
-			if (!b.hasScheme(PROTOCOLS))
-				return null;
-			b.appendPath("/service/rest/");
-
-			final URL repoURL = b.withChildPath("repositories")
-					.toURL(null);
-			// invalid url => empty dropdown
-			if (repoURL == null) {
+			if (!b.hasScheme(PROTOCOLS)) {
 				if (repo != null)
 					dropdown.add(new Option(repo + " (unavailable)", repo, true));
 				return dropdown;
 			}
 
+			b.applyHostFix()
+					.appendPath("/service/rest/");
+
+			final URI repoURI = b.withChildPath("v1/repositories")
+					.toURI(null);
+			// invalid url => empty dropdown
+			if (repoURI == null || repoURI.getHost() == null) {
+				if (repo != null)
+					dropdown.add(new Option(repo + " (unavailable)", repo, true));
+				return dropdown;
+			}
+
+			final HttpClient client = ProxyConfiguration.newHttpClient();
+			final HttpRequest request = ProxyConfiguration.newHttpRequestBuilder(repoURI)
+					.GET()
+					// .setHeader(repo, credentialsId)
+					.build();
+
+			HttpResponse<String> response;
+			try {
+				response = client.send(request, BodyHandlers.ofString());
+			} catch (IOException | InterruptedException e) {
+				if (repo != null)
+					dropdown.add(new Option(repo + " (unavailable)", repo, true));
+				return dropdown;
+			}
+
+			if (response.statusCode() != HttpURLConnection.HTTP_OK) {
+				System.err.println("OOOOPS!!!!");
+				System.out.println(request.toString());
+				System.out.println(response.toString());
+			}
+
+			ObjectMapper objMapper = new ObjectMapper();
+
+			JsonNode rootNode = null;
+			try {
+				rootNode = objMapper.readTree(response.body());
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+			Map<String, List<String>> repoMap = new TreeMap<>();
+
+			if (rootNode != null && rootNode instanceof ArrayNode) {
+				final ArrayNode arrayNode = (ArrayNode) rootNode;
+				for (Iterator<JsonNode> i = arrayNode.elements(); i.hasNext();) {
+					JsonNode node = i.next();
+					String id = getValue(node.get("name"));
+					String format = getValue(node.get("format"));
+					String type = getValue(node.get("type"));
+					if (id == null || format == null || type == null || !"hosted".equals(type))
+						continue;
+					repoMap.computeIfAbsent(format, k -> new LinkedList<>())
+							.add(id);
+				}
+
+			}
+
 			boolean found = repo == null;
-			for (String repoId : List.of("repoA", "repoB", "repoC")) {
-				final boolean f = !found && repo.equals(repoId);
-				dropdown.add(new Option(repoId, repoId, f));
-				found = found | f;
+			for (Entry<String, List<String>> entry : repoMap.entrySet()) {
+				final String key = entry.getKey();
+				final List<String> list = entry.getValue();
+				list.sort(null);
+				for (String repoId : list) {
+					final boolean f = !found && repo.equals(repoId);
+					dropdown.add(new Option(String.format("[%s] %s", key, repoId), repoId, f));
+					found = found | f;
+				}
 			}
 			if (!found)
 				dropdown.add(new Option(repo + " (unavailable)", repo, true));
 			return dropdown;
+		}
+
+		protected String getValue(JsonNode node) {
+			if (!node.isValueNode())
+				return null;
+			return node.asText();
 		}
 
 		public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item item) {

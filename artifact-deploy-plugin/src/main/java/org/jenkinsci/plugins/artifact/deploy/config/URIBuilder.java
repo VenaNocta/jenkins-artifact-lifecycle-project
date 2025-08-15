@@ -162,12 +162,6 @@ public class URIBuilder implements Cloneable {
 
 	// ----------------------------------------
 
-	public URIBuilder fixScheme(final String defaultScheme) {
-		if (this.scheme == null)
-			return setScheme(defaultScheme);
-		return this;
-	}
-
 	public URIBuilder appendPath(String path) {
 		path = StringUtils.trimToNull(path);
 		// check for change
@@ -175,11 +169,34 @@ public class URIBuilder implements Cloneable {
 			return this;
 		// use setter if current path is not set
 		String orig = StringUtils.stripEnd(this.path, "/");
-		orig = StringUtils.trimToNull(this.path);
+		orig = StringUtils.trimToNull(orig);
 		if (orig == null)
 			return setPath(path);
 		// concat with '/'
 		return setPath(String.join("/", orig, StringUtils.stripStart(path, "/")));
+	}
+
+	// ----------------------------------------
+
+	public URIBuilder fixScheme(final String defaultScheme) {
+		if (this.scheme == null)
+			return setScheme(defaultScheme);
+		return this;
+	}
+
+	public URIBuilder applyHostFix() {
+		if (this.host != null || this.port != -1 || this.path == null)
+			return this;
+		String path = StringUtils.stripStart(this.path, "/");
+		int idx = path.indexOf('/');
+		if (idx == -1) {
+			setHost(path);
+			setPath(null);
+			return this;
+		}
+		setHost(path.substring(0, idx));
+		setPath(path.substring(idx, path.length()));
+		return this;
 	}
 
 	// ----------------------------------------
