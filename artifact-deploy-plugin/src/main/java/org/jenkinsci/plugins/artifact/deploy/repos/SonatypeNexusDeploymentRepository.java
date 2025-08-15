@@ -15,7 +15,6 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.repos;
 
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -24,6 +23,7 @@ import java.util.List;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.AbstractArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
+import org.jenkinsci.plugins.artifact.deploy.config.URIBuilder;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
@@ -44,10 +44,7 @@ import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.ListBoxModel.Option;
-import jenkins.model.Jenkins;
-
-import static org.jenkinsci.plugins.artifact.deploy.config.ConfigUtils.convertURL;
-import static org.jenkinsci.plugins.artifact.deploy.config.ConfigUtils.appendPath;;
+import jenkins.model.Jenkins;;
 
 public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymentRepository {
 
@@ -75,7 +72,7 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 	public SonatypeNexusDeploymentRepository(@NonNull String id, @CheckForNull String description, //
 			@CheckForNull String url, @CheckForNull String repo, @CheckForNull String credentialsId) {
 		super(id, description);
-		this.url = convertURL(url, DEFAULT_PROTOCOL, PROTOCOLS);
+		setUrl(url);
 		this.repo = repo;
 		this.credentialsId = credentialsId;
 	}
@@ -94,7 +91,15 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 
 	@DataBoundSetter
 	public void setUrl(@NonNull String url) {
-		this.url = convertURL(url, DEFAULT_PROTOCOL, PROTOCOLS);
+		final URIBuilder builder;
+		try {
+			builder = URIBuilder.fromString(url);
+		} catch (URISyntaxException e) {
+			this.url = null;
+			return;
+		}
+		builder.fixScheme(DEFAULT_PROTOCOL);
+		this.url = builder.hasScheme(PROTOCOLS) ? builder.toURL(null) : null;
 	}
 
 	@DataBoundSetter
@@ -153,17 +158,24 @@ public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymen
 			final ListBoxModel dropdown = new ListBoxModel();
 			dropdown.add("- none -", "");
 
-			URL repoURL = convertURL(url, DEFAULT_PROTOCOL, PROTOCOLS);
+			final URIBuilder b;
 			try {
-				repoURL = appendPath(repoURL, "");
-			} catch (MalformedURLException | URISyntaxException e) {
-				repoURL = null;
+				b = URIBuilder.fromString(url);
+			} catch (URISyntaxException e) {
 				e.printStackTrace();
+				return null;
 			}
+			b.fixScheme(DEFAULT_PROTOCOL);
+			if (!b.hasScheme(PROTOCOLS))
+				return null;
+			b.appendPath("/service/rest/");
+
+			final URL repoURL = b.withChildPath("repositories")
+					.toURL(null);
 			// invalid url => empty dropdown
 			if (repoURL == null) {
-				if(repo!=null)
-				dropdown.add(new Option(repo + " (unavailable)", repo, true));
+				if (repo != null)
+					dropdown.add(new Option(repo + " (unavailable)", repo, true));
 				return dropdown;
 			}
 
