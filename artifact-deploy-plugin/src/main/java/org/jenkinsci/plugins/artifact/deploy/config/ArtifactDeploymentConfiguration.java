@@ -24,20 +24,13 @@ import javax.annotation.concurrent.GuardedBy;
 
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.Symbol;
-import org.jenkinsci.plugins.artifact.deploy.config.api.ArtifactDeploymentRepository;
-import org.jenkinsci.plugins.artifact.deploy.config.api.ArtifactDeploymentRepository.Helper;
-import org.kohsuke.accmod.Restricted;
-import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.verb.POST;
-
 import com.google.inject.Inject;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import hudson.model.Descriptor;
 import hudson.model.Run;
-import hudson.util.FormValidation;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
 
@@ -71,18 +64,19 @@ public class ArtifactDeploymentConfiguration extends GlobalConfiguration {
 		OUTER: for (ArtifactDeploymentRepository repo : repos) {
 			if (repo == null)
 				continue;
-			final Helper helper = repo.getHelper();
+			final Descriptor<ArtifactDeploymentRepository> descriptor = repo.getDescriptor();
 			// check repo id for null or duplicates
 			String id = StringUtils.trimToNull(repo.getId());
 			while (id == null || this.repoMap.containsKey(id)) {
 				// if helper is invalid, skip repo
-				if (helper == null)
+				if (!(descriptor instanceof ArtifactDeploymentRepositoryDescriptor))
 					continue OUTER;
-				id = StringUtils.trimToNull(helper.randomId());
+				final ArtifactDeploymentRepositoryDescriptor repoDesc = (ArtifactDeploymentRepositoryDescriptor) descriptor;
+				id = StringUtils.trimToNull(repoDesc.randomId());
 				// if id is null, skip repo
 				if (id == null)
 					continue OUTER;
-				repo.setId(id = helper.randomId());
+				repo.setId(id = repoDesc.randomId());
 			}
 			this.repoMap.put(id, repo);
 		}

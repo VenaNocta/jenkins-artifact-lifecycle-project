@@ -32,7 +32,7 @@ import java.util.TreeMap;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.plugins.artifact.deploy.config.AbstractArtifactDeploymentRepository;
+import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
 import org.jenkinsci.plugins.artifact.deploy.config.URIBuilder;
 import org.kohsuke.accmod.Restricted;
@@ -64,7 +64,7 @@ import hudson.util.ListBoxModel;
 import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;;
 
-public class SonatypeNexusDeploymentRepository extends AbstractArtifactDeploymentRepository {
+public class SonatypeNexusDeploymentRepository extends ArtifactDeploymentRepository {
 
 	private static final long serialVersionUID = 1L;
 

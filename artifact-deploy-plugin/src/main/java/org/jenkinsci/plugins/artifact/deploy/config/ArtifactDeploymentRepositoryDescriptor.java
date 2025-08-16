@@ -18,8 +18,6 @@ package org.jenkinsci.plugins.artifact.deploy.config;
 import java.util.UUID;
 
 import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.plugins.artifact.deploy.config.api.ArtifactDeploymentRepository;
-import org.jenkinsci.plugins.artifact.deploy.config.api.ArtifactDeploymentRepository.Helper;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.QueryParameter;
@@ -32,8 +30,7 @@ import hudson.model.Descriptor;
 import hudson.model.ModelObject;
 import hudson.util.FormValidation;
 
-public abstract class ArtifactDeploymentRepositoryDescriptor extends Descriptor<ArtifactDeploymentRepository>
-		implements Helper {
+public abstract class ArtifactDeploymentRepositoryDescriptor extends Descriptor<ArtifactDeploymentRepository> {
 
 	@NonNull
 	public String randomId() {

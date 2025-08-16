@@ -15,27 +15,31 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.config;
 
-import org.jenkinsci.plugins.artifact.deploy.config.api.ArtifactDeploymentRepository;
+import java.io.Serializable;
+
 import org.kohsuke.stapler.DataBoundSetter;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import hudson.ExtensionPoint;
+import hudson.model.Describable;
 import hudson.model.Descriptor;
 import jenkins.model.Jenkins;
 
-public abstract class AbstractArtifactDeploymentRepository implements ArtifactDeploymentRepository {
+public abstract class ArtifactDeploymentRepository
+		implements Describable<ArtifactDeploymentRepository>, Serializable, ExtensionPoint {
 
 	private static final long serialVersionUID = 1L;
 
 	protected String id;
 	protected String description;
 
-	protected AbstractArtifactDeploymentRepository(@NonNull final String id) {
+	protected ArtifactDeploymentRepository(@NonNull final String id) {
 		this(id, null);
 	}
 
-	protected AbstractArtifactDeploymentRepository(@NonNull final String id, @CheckForNull final String description) {
+	protected ArtifactDeploymentRepository(@NonNull final String id, @CheckForNull final String description) {
 		this.id = id;
 		this.description = description;
 	}
@@ -48,7 +52,6 @@ public abstract class AbstractArtifactDeploymentRepository implements ArtifactDe
 		return this.description;
 	}
 
-	@Override
 	@DataBoundSetter
 	public void setId(String id) {
 		this.id = id;
@@ -57,17 +60,6 @@ public abstract class AbstractArtifactDeploymentRepository implements ArtifactDe
 	@DataBoundSetter
 	public void setDescription(@NonNull String description) {
 		this.description = description;
-	}
-
-	@Override
-	public Helper getHelper() {
-		final Descriptor<ArtifactDeploymentRepository> d = Jenkins.get()
-				.getDescriptor(getClass());
-		if (d instanceof Helper)
-			return (Helper) d;
-		if (this instanceof Helper)
-			return (Helper) this;
-		return null;
 	}
 
 	/**

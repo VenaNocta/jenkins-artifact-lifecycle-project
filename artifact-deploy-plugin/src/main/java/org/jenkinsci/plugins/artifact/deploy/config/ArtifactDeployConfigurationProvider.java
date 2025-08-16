@@ -15,8 +15,6 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.config;
 
-import org.jenkinsci.plugins.artifact.deploy.config.api.ArtifactDeploymentRepository;
-
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
