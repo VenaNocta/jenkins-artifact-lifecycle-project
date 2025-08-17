@@ -29,8 +29,6 @@ import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.stapler.DataBoundConstructor;
 
-import com.google.common.collect.ImmutableSet;
-
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Result;
@@ -45,22 +43,18 @@ public class BundleContextStep extends Step implements Serializable {
 	}
 
 	@Override
-	public StepExecution start(StepContext context) throws Exception {
-		return new BundleContextExecution(context, this);
+	public StepExecution start(final StepContext context) throws Exception {
+		return new BundleContextExecution(context);
 	}
 
 	public static class BundleContextExecution extends StepExecution {
 
 		private static final long serialVersionUID = 1L;
 
-		@SuppressWarnings("unused")
-		private final BundleContextStep step;
-
 		private BundleContext context;
 
-		public BundleContextExecution(StepContext context, BundleContextStep step) {
+		public BundleContextExecution(final StepContext context) {
 			super(context);
-			this.step = step;
 			this.context = new BundleContext();
 		}
 
@@ -90,7 +84,7 @@ public class BundleContextStep extends Step implements Serializable {
 		}
 
 		@Override
-		public void onSuccess(StepContext context, Object resultObject) {
+		public void onSuccess(final StepContext context, final Object resultObject) {
 			context.onSuccess(resultObject);
 			if (this.upstream == null)
 				return;
@@ -114,7 +108,7 @@ public class BundleContextStep extends Step implements Serializable {
 		}
 
 		@Override
-		public void onFailure(StepContext context, Throwable t) {
+		public void onFailure(final StepContext context, final Throwable t) {
 			context.onFailure(t);
 		}
 
@@ -141,13 +135,14 @@ public class BundleContextStep extends Step implements Serializable {
 
 		@Override
 		public Set<? extends Class<?>> getRequiredContext() {
-			return ImmutableSet.of();
+			return Set.of();
 		}
 
 		@Override
 		public Set<? extends Class<?>> getProvidedContext() {
-			return ImmutableSet.of(BundleContext.class);
+			return Set.of(BundleContext.class);
 		}
 
 	}
+
 }
