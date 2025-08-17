@@ -125,7 +125,7 @@ public class BundleContextStep extends Step implements Serializable {
 		@NonNull
 		@Override
 		public String getDisplayName() {
-			return "Allocate BundleContext";
+			return Messages.BundleContext_DisplayName();
 		}
 
 		@Override
@@ -135,7 +135,7 @@ public class BundleContextStep extends Step implements Serializable {
 
 		@Override
 		public Set<? extends Class<?>> getRequiredContext() {
-			return Set.of();
+			return Set.of(Run.class);
 		}
 
 		@Override

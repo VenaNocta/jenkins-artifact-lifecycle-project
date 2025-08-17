@@ -27,7 +27,7 @@ public interface ArtifactDeployConfigurationProvider extends ExtensionPoint {
 
 	/**
 	 * Asks the provider to return the repo
-	 * 
+	 *
 	 * @param run the Run from where the repo is requested
 	 * @param id  the repo-id
 	 * @return {@code Optional} when the provider has a definition covering the

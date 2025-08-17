@@ -37,7 +37,7 @@ import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 
-public class DeployArtifactStep extends Step implements Serializable {
+public class DeployArtifactsStep extends Step implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
@@ -52,7 +52,7 @@ public class DeployArtifactStep extends Step implements Serializable {
 	private String bundle = null;
 
 	@DataBoundConstructor
-	public DeployArtifactStep(String repo) {
+	public DeployArtifactsStep(String repo) {
 		this.repoId = StringUtils.trimToNull(repo);
 	}
 
@@ -87,7 +87,7 @@ public class DeployArtifactStep extends Step implements Serializable {
 				private static final long serialVersionUID = 1L;
 
 				protected void log(TaskListener listener) {
-					listener.error("Repository (%s) not available!", DeployArtifactStep.this.getRepoId());
+					listener.error("Repository (%s) not available!", DeployArtifactsStep.this.getRepoId());
 				}
 			};
 		final ArtifactDeploymentFactory<?> factory = ArtifactDeploymentFactory.get(repo.getClass());
@@ -98,7 +98,7 @@ public class DeployArtifactStep extends Step implements Serializable {
 				@Override
 				protected void log(TaskListener listener) {
 					listener.fatalError("Repository of (%s) has no valid factory instance!",
-							DeployArtifactStep.this.getRepoId());
+							DeployArtifactsStep.this.getRepoId());
 				}
 			};
 		return factory.newDeployStepExecution(context, this, repo);
@@ -124,7 +124,7 @@ public class DeployArtifactStep extends Step implements Serializable {
 	}
 
 	@Extension
-	public static class SignArtifactDescriptor extends StepDescriptor {
+	public static class DeployArtifactDescriptor extends StepDescriptor {
 
 		@Override
 		public String getFunctionName() {
@@ -133,7 +133,7 @@ public class DeployArtifactStep extends Step implements Serializable {
 
 		@Override
 		public String getDisplayName() {
-			return Messages.DeployArtifact_DisplayName();
+			return Messages.DeployArtifacts_DisplayName();
 		}
 
 		@Override

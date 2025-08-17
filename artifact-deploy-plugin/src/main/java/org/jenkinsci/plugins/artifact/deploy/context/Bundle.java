@@ -25,6 +25,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import jenkins.util.VirtualFile;
 
 public class Bundle implements Serializable {
@@ -50,6 +51,16 @@ public class Bundle implements Serializable {
 	public Stream<Entry<VirtualFile, Map<String, Serializable>>> getArtifactStream() {
 		return this.artifactMap.entrySet()
 				.stream();
+	}
+
+	public Bundle indexArtifact(@NonNull final VirtualFile artifact,
+			@Nullable final Map<String, Serializable> metadata) {
+		Objects.requireNonNull(artifact, "Artifact must not be Null!");
+		final Map<String, Serializable> map = this.artifactMap.computeIfAbsent(artifact,
+				k -> new ConcurrentHashMap<>());
+		if (metadata != null)
+			map.putAll(metadata);
+		return this;
 	}
 
 	@Override

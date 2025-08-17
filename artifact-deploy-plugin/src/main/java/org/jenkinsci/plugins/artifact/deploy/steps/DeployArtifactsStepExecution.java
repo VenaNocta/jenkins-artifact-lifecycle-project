@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.artifact.deploy.steps;
 import java.io.IOException;
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.function.Function;
 
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
@@ -32,14 +33,14 @@ import hudson.model.TaskListener;
 import jenkins.model.ArtifactManager;
 import jenkins.util.VirtualFile;
 
-public abstract class DeployArtifactStepExecution<T extends ArtifactDeploymentRepository> extends StepExecution {
+public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentRepository> extends StepExecution {
 
 	private static final long serialVersionUID = 1L;
 
-	protected final DeployArtifactStep step;
+	protected final DeployArtifactsStep step;
 	protected final T repo;
 
-	protected DeployArtifactStepExecution(@NonNull StepContext context, @NonNull DeployArtifactStep step,
+	protected DeployArtifactsStepExecution(@NonNull StepContext context, @NonNull DeployArtifactsStep step,
 			@NonNull T repo) {
 		super(context);
 		this.step = step;
@@ -89,13 +90,18 @@ public abstract class DeployArtifactStepExecution<T extends ArtifactDeploymentRe
 	}
 
 	protected String fullPath(final VirtualFile root, final VirtualFile file) {
-		return fullPath(root, file, "", "");
+		return fullPath(root, file, n -> n);
 	}
 
 	protected String fullPath(final VirtualFile root, final VirtualFile file, final String prefix,
 			final String suffix) {
+		return fullPath(root, file, name -> String.format("%s%s.%s", prefix, name, suffix));
+	}
+
+	protected String fullPath(@NonNull final VirtualFile root, @NonNull final VirtualFile file,
+			@NonNull final Function<String, String> nameMapper) {
 		final Deque<String> path = new LinkedList<>();
-		path.add(String.format("%s%s.%s", prefix, file.getName(), suffix));
+		path.add(nameMapper.apply(file.getName()));
 		for (VirtualFile f = file.getParent(); f != null; f = f.getParent()) {
 			if (root.equals(f))
 				break;

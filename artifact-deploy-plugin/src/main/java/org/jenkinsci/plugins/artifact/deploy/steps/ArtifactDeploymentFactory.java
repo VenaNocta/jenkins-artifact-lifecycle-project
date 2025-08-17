@@ -37,10 +37,10 @@ public abstract class ArtifactDeploymentFactory<T extends ArtifactDeploymentRepo
 					+ " doesn't have an outer class. Use the constructor that takes the Class object explicitly.");
 	}
 
-	public abstract StepExecution createDeployStepExecution(final StepContext context, final DeployArtifactStep step,
+	public abstract StepExecution createDeployStepExecution(final StepContext context, final DeployArtifactsStep step,
 			final T repo) throws Exception;
 
-	public StepExecution newDeployStepExecution(final StepContext context, final DeployArtifactStep step,
+	public StepExecution newDeployStepExecution(final StepContext context, final DeployArtifactsStep step,
 			final ArtifactDeploymentRepository repo) throws Exception {
 		return createDeployStepExecution(context, step, (T) repo);
 	}
