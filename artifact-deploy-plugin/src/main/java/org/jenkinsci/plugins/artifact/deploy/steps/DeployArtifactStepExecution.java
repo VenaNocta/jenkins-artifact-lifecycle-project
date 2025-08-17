@@ -20,6 +20,7 @@ import java.util.Deque;
 import java.util.LinkedList;
 
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
+import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -59,6 +60,10 @@ public abstract class DeployArtifactStepExecution<T extends ArtifactDeploymentRe
 
 	protected T getRepo() {
 		return this.repo;
+	}
+
+	protected BundleContext getBundleContext() throws IOException, InterruptedException {
+		return getContext().get(BundleContext.class);
 	}
 
 	protected String getArtifacts() throws IOException, InterruptedException {
