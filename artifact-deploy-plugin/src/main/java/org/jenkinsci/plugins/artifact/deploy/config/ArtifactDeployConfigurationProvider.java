@@ -15,6 +15,7 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.config;
 
+import java.util.Optional;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
@@ -24,10 +25,29 @@ import hudson.model.Run;
 
 public interface ArtifactDeployConfigurationProvider extends ExtensionPoint {
 
+	/**
+	 * Asks the provider to return the repo
+	 * 
+	 * @param run the Run from where the repo is requested
+	 * @param id  the repo-id
+	 * @return {@code Optional} when the provider has a definition covering the
+	 *         given id; otherwise {@code null}
+	 */
 	@CheckForNull
-	public ArtifactDeploymentRepository getRepo(@Nullable Run<?, ?> run, @NonNull String id);
+	public Optional<ArtifactDeploymentRepository> getRepo(@Nullable Run<?, ?> run, @NonNull String id);
 
 	public static ExtensionList<ArtifactDeployConfigurationProvider> all() {
 		return ExtensionList.lookup(ArtifactDeployConfigurationProvider.class);
+	}
+
+	@CheckForNull
+	public static ArtifactDeploymentRepository findRepo(@Nullable Run<?, ?> run, @NonNull String id) {
+		Optional<ArtifactDeploymentRepository> r = null;
+		for (ArtifactDeployConfigurationProvider provider : all()) {
+			r = provider.getRepo(run, id);
+			if (r != null)
+				break;
+		}
+		return r == null || r.isEmpty() ? null : r.get();
 	}
 }

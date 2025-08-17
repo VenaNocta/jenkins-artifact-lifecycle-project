@@ -35,6 +35,11 @@ import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
 import org.jenkinsci.plugins.artifact.deploy.config.URIBuilder;
+import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeploymentFactory;
+import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactStep;
+import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactStepExecution;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
+import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
@@ -351,5 +356,35 @@ public class SonatypeNexusDeploymentRepository extends ArtifactDeploymentReposit
 				return FormValidation.warning("Credentials unauthorized!");
 			return FormValidation.ok();
 		}
+	}
+
+	@Extension
+	public static class SonatypeNexusFactory extends ArtifactDeploymentFactory<SonatypeNexusDeploymentRepository> {
+
+		@Override
+		public StepExecution createDeployStepExecution(StepContext context, DeployArtifactStep step,
+				SonatypeNexusDeploymentRepository repo) throws Exception {
+			return new SonatypeNexusDeployExecution(context, step, repo);
+		}
+
+	}
+
+	public static class SonatypeNexusDeployExecution
+			extends DeployArtifactStepExecution<SonatypeNexusDeploymentRepository> {
+
+		private static final long serialVersionUID = 1L;
+
+		protected SonatypeNexusDeployExecution(final StepContext context, final DeployArtifactStep step,
+				final SonatypeNexusDeploymentRepository repo) {
+			super(context, step, repo);
+		}
+
+		@Override
+		public boolean start() throws Exception {
+			getTaskListener().getLogger()
+					.println("Sonatype Exec!");
+			return true;
+		}
+
 	}
 }
