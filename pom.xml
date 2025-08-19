@@ -42,6 +42,7 @@
 		<module>pgpcredentials-api</module>
 		<module>pgpcredentials-plugin</module>
 		<module>artifact-signing-plugin</module>
+		<module>artifact-deploy-plugin</module>
 	</modules>
 
 	<licenses>

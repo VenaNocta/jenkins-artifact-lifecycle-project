@@ -35,9 +35,8 @@ import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
 import org.jenkinsci.plugins.artifact.deploy.config.URIBuilder;
-import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeploymentFactory;
+import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeployExecutionFactory;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
-import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.accmod.Restricted;
@@ -359,31 +358,12 @@ public class SonatypeNexusDeploymentRepository extends ArtifactDeploymentReposit
 	}
 
 	@Extension
-	public static class SonatypeNexusFactory extends ArtifactDeploymentFactory<SonatypeNexusDeploymentRepository> {
+	public static class SonatypeNexusFactory extends ArtifactDeployExecutionFactory<SonatypeNexusDeploymentRepository> {
 
 		@Override
-		public StepExecution createDeployStepExecution(StepContext context, DeployArtifactsStep step,
+		public StepExecution create(StepContext context, DeployArtifactsStep step,
 				SonatypeNexusDeploymentRepository repo) throws Exception {
 			return new SonatypeNexusDeployExecution(context, step, repo);
-		}
-
-	}
-
-	public static class SonatypeNexusDeployExecution
-			extends DeployArtifactsStepExecution<SonatypeNexusDeploymentRepository> {
-
-		private static final long serialVersionUID = 1L;
-
-		protected SonatypeNexusDeployExecution(final StepContext context, final DeployArtifactsStep step,
-				final SonatypeNexusDeploymentRepository repo) {
-			super(context, step, repo);
-		}
-
-		@Override
-		public boolean start() throws Exception {
-			getTaskListener().getLogger()
-					.println("Sonatype Exec!");
-			return true;
 		}
 
 	}

@@ -15,22 +15,48 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.steps;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.io.Serializable;
+import java.net.URL;
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
+import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
 import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.EnvVars;
+import hudson.ProxyConfiguration;
 import hudson.model.AbstractBuild;
-import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import io.jenkins.plugins.httpclient.RobustHTTPClient;
 import jenkins.model.ArtifactManager;
+import jenkins.model.Jenkins;
+import jenkins.util.JenkinsJVM;
+import jenkins.util.SystemProperties;
 import jenkins.util.VirtualFile;
 
 public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentRepository> extends StepExecution {
@@ -45,6 +71,40 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 		super(context);
 		this.step = step;
 		this.repo = repo;
+	}
+
+	protected Logger getLogger() {
+		return Logger.getLogger(getClass().getName());
+	}
+
+	protected void log(final Level level, final String msg, final Throwable t) {
+		try {
+			final PrintStream stream = getTaskListener().getLogger();
+			final int lvl = level == null ? Level.INFO.intValue() : level.intValue();
+
+			final String header;
+			if (lvl <= Level.FINE.intValue())
+				header = "DEBUG: ";
+			else if (lvl <= Level.CONFIG.intValue())
+				header = "CONF: ";
+			else if (lvl <= Level.INFO.intValue())
+				header = "";
+			else if (lvl <= Level.WARNING.intValue())
+				header = "WARN: ";
+			else
+				header = "ERROR: ";
+
+			stream.println(header + msg);
+			if (t != null)
+				t.printStackTrace(stream);
+			return;
+		} catch (IOException | InterruptedException e) {
+		}
+		// ok an when it doesn't work we push it to the instance logger
+		final LogRecord record = new LogRecord(level, msg);
+		if (t != null)
+			record.setThrown(t);
+		getLogger().log(record);
 	}
 
 	protected Run<?, ?> getRun() throws IOException, InterruptedException {
@@ -63,30 +123,57 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 		return this.repo;
 	}
 
-	protected BundleContext getBundleContext() throws IOException, InterruptedException {
-		return getContext().get(BundleContext.class);
-	}
-
-	protected String getArtifacts() throws IOException, InterruptedException {
+	protected String getArtifactPaths() throws IOException, InterruptedException {
 		String artifacts = this.step.getArtifacts();
-		if (getRun() instanceof AbstractBuild) { // no expansion in pipelines
+		if (artifacts != null && getRun() instanceof AbstractBuild) { // no expansion in pipelines
 			artifacts = getEnv().expand(artifacts);
 		}
 		return artifacts;
 	}
 
-	protected Void run() throws Exception {
-		final Node buildNode = getContext().get(Node.class);
+	protected BundleContext getBundleContext() throws IOException, InterruptedException {
+		return getContext().get(BundleContext.class);
+	}
 
-		final Run<?, ?> build = getContext().get(Run.class);
-		final EnvVars env = getContext().get(EnvVars.class);
+	@NonNull
+	protected Bundle getSelectedBundle() throws IOException, InterruptedException {
+		final String artifacts = getArtifactPaths();
+		final BundleContext context = getBundleContext();
+		Bundle bundle = context.getBundle(this.step.getBundle());
 
-		final ArtifactManager artifactManager = build.pickArtifactManager();
-		final VirtualFile archiveFileRoot = artifactManager.root();
+		if (artifacts != null) {
+			if (bundle == null)
+				// create anonymous Bundle
+				bundle = new Bundle(null);
+			else
+				bundle = bundle.copy();
 
-		final TaskListener listener = getContext().get(TaskListener.class);
+			final ArtifactManager artifactManager = getRun().pickArtifactManager();
+			final VirtualFile archiveFileRoot = artifactManager.root();
 
+			for (String filePath : archiveFileRoot.list(artifacts, null, true)) {
+				final VirtualFile artifactFile = archiveFileRoot.child(filePath);
+				if (!artifactFile.isFile())
+					continue;
+				bundle.indexArtifact(artifactFile, this.step.getMetadata());
+			}
+		}
+		// if nothing special is selected, return "default" Bundle
+		return bundle == null ? context.getBundle() : bundle;
+	}
+
+	protected <S extends Serializable> S getEntry(final Map<String, Serializable> metadata, final Class<S> type,
+			final String... keys) {
+		for (String key : keys) {
+			final Serializable obj = metadata.get(key);
+			if (type.isInstance(obj))
+				return (S) obj;
+		}
 		return null;
+	}
+
+	protected String getEntryString(final Map<String, Serializable> metadata, final String... keys) {
+		return StringUtils.trimToNull(getEntry(metadata, String.class, keys));
 	}
 
 	protected String fullPath(final VirtualFile root, final VirtualFile file) {
@@ -108,6 +195,68 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 			path.addFirst(f.getName());
 		}
 		return String.join("/", path);
+	}
+
+	protected HttpClientBuilder httpClientBuilder() {
+		return httpClientBuilder(null);
+	}
+
+	protected HttpClientBuilder httpClientBuilder(@Nullable final Consumer<CredentialsProvider> authenticator) {
+		final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+		final HttpClientBuilder builder = HttpClients.custom();
+		// configure Jenkins proxy, if it is configured
+		final ProxyConfiguration proxyConfig = getProxyConfiguration();
+		if (proxyConfig != null) {
+			final String hostname = proxyConfig.getName();
+			if (hostname != null) {
+				final HttpHost proxyHost = new HttpHost(hostname, proxyConfig.getPort());
+				builder.setRoutePlanner(new DefaultProxyRoutePlanner(proxyHost));
+				final String user = proxyConfig.getUserName();
+				if (user != null) {
+					credentialsProvider.setCredentials(new AuthScope(proxyHost),
+							new UsernamePasswordCredentials(user, proxyConfig.getSecretPassword()
+									.getPlainText()));
+				}
+			}
+		}
+		// add custom credentials
+		if (authenticator != null)
+			authenticator.accept(credentialsProvider);
+		// set User-Agent
+		if (JenkinsJVM.isJenkinsJVM()
+				&& !SystemProperties.getBoolean("jenkins.UserAgentURLConnectionDecorator.DISABLED"))
+			builder.setUserAgent("Jenkins/" + Jenkins.getVersion());
+
+		return builder.setDefaultCredentialsProvider(credentialsProvider);
+	}
+
+	protected ProxyConfiguration getProxyConfiguration() {
+		if (!JenkinsJVM.isJenkinsJVM())
+			return null;
+		Jenkins jenkins = Jenkins.getInstanceOrNull();
+		return jenkins == null ? null : jenkins.proxy;
+	}
+
+	protected byte[] download(final VirtualFile source, final String msgFmt) throws IOException, InterruptedException {
+		final RobustHTTPClient httpClient = new RobustHTTPClient();
+		final URL url = source.toExternalURL();
+
+		try (final ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+			if (url == null) {
+				try (InputStream dataStream = source.open()) {
+					dataStream.transferTo(output);
+				}
+			} else {
+				httpClient.connect("download", String.format(msgFmt, RobustHTTPClient.sanitize(url)),
+						client -> client.execute(new HttpGet(url.toString())), response -> {
+							try (InputStream is = response.getEntity()
+									.getContent()) {
+								is.transferTo(output);
+							}
+						}, getTaskListener());
+			}
+			return output.toByteArray();
+		}
 	}
 
 }

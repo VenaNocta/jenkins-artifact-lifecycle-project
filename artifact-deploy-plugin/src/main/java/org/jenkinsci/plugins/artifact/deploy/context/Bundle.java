@@ -17,6 +17,7 @@ package org.jenkinsci.plugins.artifact.deploy.context;
 
 import java.io.Serializable;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -35,8 +36,7 @@ public class Bundle implements Serializable {
 	protected final Map<VirtualFile, Map<String, Serializable>> artifactMap = new ConcurrentHashMap<>();
 	protected final String id;
 
-	public Bundle(@NonNull final String id) {
-		Objects.requireNonNull(id, "Bundle ID must be defined!");
+	public Bundle(final String id) {
 		this.id = id;
 	}
 
@@ -44,13 +44,14 @@ public class Bundle implements Serializable {
 		return id;
 	}
 
-	public Map<VirtualFile, Map<String, Serializable>> getArtifacts() {
-		return this.artifactMap;
-	}
-
 	public Stream<Entry<VirtualFile, Map<String, Serializable>>> getArtifactStream() {
 		return this.artifactMap.entrySet()
-				.stream();
+				.stream()
+				.map(UnmodifiableEntry::new);
+	}
+
+	public Iterator<Map.Entry<VirtualFile, Map<String, Serializable>>> getArtifactIterator() {
+		return getArtifactStream().iterator();
 	}
 
 	public Bundle indexArtifact(@NonNull final VirtualFile artifact,
@@ -63,14 +64,39 @@ public class Bundle implements Serializable {
 		return this;
 	}
 
+	public boolean isEmpty() {
+		return this.artifactMap.isEmpty();
+	}
+
 	@Override
 	public int hashCode() {
 		return this.id.hashCode();
 	}
 
+	@Override
+	public boolean equals(final Object obj) {
+		if (this == obj)
+			return true;
+		if (obj instanceof Bundle other)
+			return this.artifactMap.equals(other.artifactMap);
+		return false;
+	}
+
+	public Bundle copy() {
+		final Bundle bundle = new Bundle(this.id);
+		for (Entry<VirtualFile, Map<String, Serializable>> entry : this.artifactMap.entrySet())
+			bundle.artifactMap.put(entry.getKey(), entry.getValue());
+		return bundle;
+	}
+
 	public Bundle merge(@NonNull final Bundle bundle) {
 		Objects.requireNonNull(bundle);
-		this.artifactMap.putAll(bundle.getArtifacts());
+		for (Entry<VirtualFile, Map<String, Serializable>> entry : bundle.artifactMap.entrySet()) {
+			this.artifactMap.merge(entry.getKey(), entry.getValue(), (base, dom) -> {
+				base.putAll(dom);
+				return base;
+			});
+		}
 		return this;
 	}
 

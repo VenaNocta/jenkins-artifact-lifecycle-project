@@ -23,32 +23,32 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.ExtensionPoint;
 import jenkins.model.Jenkins;
 
-public abstract class ArtifactDeploymentFactory<T extends ArtifactDeploymentRepository> implements ExtensionPoint {
+public abstract class ArtifactDeployExecutionFactory<T extends ArtifactDeploymentRepository> implements ExtensionPoint {
 	public final transient Class<? extends T> clazz;
 
-	protected ArtifactDeploymentFactory(final Class<? extends T> clazz) {
+	protected ArtifactDeployExecutionFactory(final Class<? extends T> clazz) {
 		this.clazz = clazz;
 	}
 
-	protected ArtifactDeploymentFactory() {
+	protected ArtifactDeployExecutionFactory() {
 		this.clazz = (Class<T>) getClass().getEnclosingClass();
 		if (this.clazz == null)
 			throw new AssertionError(getClass()
 					+ " doesn't have an outer class. Use the constructor that takes the Class object explicitly.");
 	}
 
-	public abstract StepExecution createDeployStepExecution(final StepContext context, final DeployArtifactsStep step,
-			final T repo) throws Exception;
+	public abstract StepExecution create(final StepContext context, final DeployArtifactsStep step, final T repo)
+			throws Exception;
 
 	public StepExecution newDeployStepExecution(final StepContext context, final DeployArtifactsStep step,
 			final ArtifactDeploymentRepository repo) throws Exception {
-		return createDeployStepExecution(context, step, (T) repo);
+		return create(context, step, (T) repo);
 	}
 
 	@CheckForNull
-	public static <C extends ArtifactDeploymentRepository> ArtifactDeploymentFactory<C> get(final Class<C> type) {
-		for (ArtifactDeploymentFactory<C> f : Jenkins.get()
-				.getExtensionList(ArtifactDeploymentFactory.class))
+	public static <C extends ArtifactDeploymentRepository> ArtifactDeployExecutionFactory<C> get(final Class<C> type) {
+		for (ArtifactDeployExecutionFactory<C> f : Jenkins.get()
+				.getExtensionList(ArtifactDeployExecutionFactory.class))
 			if (f.clazz == type)
 				return f;
 		return null;

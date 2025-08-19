@@ -16,7 +16,9 @@
 package org.jenkinsci.plugins.artifact.deploy.steps;
 
 import java.io.Serializable;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeployConfigurationProvider;
@@ -41,7 +43,9 @@ public class DeployArtifactsStep extends Step implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
-	private String repoId = null;
+	private final Map<String, Serializable> metadata = new ConcurrentHashMap<>();
+
+	private String repo = null;
 
 	/**
 	 * Comma- or space-separated list of patterns of files/directories to be
@@ -52,16 +56,20 @@ public class DeployArtifactsStep extends Step implements Serializable {
 	private String bundle = null;
 
 	@DataBoundConstructor
-	public DeployArtifactsStep(String repo) {
-		this.repoId = StringUtils.trimToNull(repo);
+	public DeployArtifactsStep(final String repo) {
+		this.repo = StringUtils.trimToNull(repo);
 	}
 
-	public String getRepoId() {
-		return repoId;
+	public String getRepo() {
+		return repo;
 	}
 
 	public String getArtifacts() {
 		return this.artifacts;
+	}
+
+	public Map<String, Serializable> getMetadata() {
+		return this.metadata;
 	}
 
 	public String getBundle() {
@@ -69,28 +77,36 @@ public class DeployArtifactsStep extends Step implements Serializable {
 	}
 
 	@DataBoundSetter
-	public void setArtifacts(String artifacts) {
+	public void setArtifacts(final String artifacts) {
 		this.artifacts = artifacts;
 	}
 
 	@DataBoundSetter
-	public void setBundle(String bundle) {
+	public void setMetadata(final Map<String, Serializable> metadata) {
+		if (metadata == null)
+			this.metadata.clear();
+		else
+			this.metadata.putAll(metadata);
+	}
+
+	@DataBoundSetter
+	public void setBundle(final String bundle) {
 		this.bundle = bundle;
 	}
 
 	@Override
 	public StepExecution start(final StepContext context) throws Exception {
 		final ArtifactDeploymentRepository repo = ArtifactDeployConfigurationProvider.findRepo(context.get(Run.class),
-				this.repoId);
+				this.repo);
 		if (repo == null)
 			return new InvalidStepExecution(context) {
 				private static final long serialVersionUID = 1L;
 
 				protected void log(TaskListener listener) {
-					listener.error("Repository (%s) not available!", DeployArtifactsStep.this.getRepoId());
+					listener.error("Repository (%s) not available!", DeployArtifactsStep.this.getRepo());
 				}
 			};
-		final ArtifactDeploymentFactory<?> factory = ArtifactDeploymentFactory.get(repo.getClass());
+		final ArtifactDeployExecutionFactory<?> factory = ArtifactDeployExecutionFactory.get(repo.getClass());
 		if (factory == null)
 			return new InvalidStepExecution(context) {
 				private static final long serialVersionUID = 1L;
@@ -98,7 +114,7 @@ public class DeployArtifactsStep extends Step implements Serializable {
 				@Override
 				protected void log(TaskListener listener) {
 					listener.fatalError("Repository of (%s) has no valid factory instance!",
-							DeployArtifactsStep.this.getRepoId());
+							DeployArtifactsStep.this.getRepo());
 				}
 			};
 		return factory.newDeployStepExecution(context, this, repo);
