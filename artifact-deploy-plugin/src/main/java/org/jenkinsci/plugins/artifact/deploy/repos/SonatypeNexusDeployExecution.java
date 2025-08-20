@@ -147,12 +147,16 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 
 		final HttpClientBuilder clientBuilder = HttpClientBuilder.create();
 
-		if (getProxyHost() instanceof HttpHost proxyHost) {
-			log(Level.INFO, "using Proxy Route", null);
-			clientBuilder.setRoutePlanner(new DefaultProxyRoutePlanner(proxyHost));
-			if (getProxyCredentials() instanceof Credentials proxyCreds) {
-				log(Level.INFO, "using Proxy Authentication", null);
-				credProvider.setCredentials(new AuthScope(proxyHost), proxyCreds);
+		{
+			final HttpHost proxyHost = getProxyHost();
+			if (proxyHost != null) {
+				log(Level.INFO, "using Proxy Route", null);
+				clientBuilder.setRoutePlanner(new DefaultProxyRoutePlanner(proxyHost));
+				final Credentials proxyCreds = getProxyCredentials();
+				if (proxyCreds != null) {
+					log(Level.INFO, "using Proxy Authentication", null);
+					credProvider.setCredentials(new AuthScope(proxyHost), proxyCreds);
+				}
 			}
 		}
 
