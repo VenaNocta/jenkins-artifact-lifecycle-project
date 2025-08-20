@@ -16,9 +16,11 @@
 package org.jenkinsci.plugins.artifact.deploy.repos;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -27,7 +29,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
-import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -37,7 +39,6 @@ import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.AuthCache;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
@@ -58,6 +59,9 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import hudson.model.Result;
 import jenkins.util.VirtualFile;
@@ -82,19 +86,15 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		super(context, step, repo);
 	}
 
-	protected void useCreds(Consumer<StandardUsernamePasswordCredentials> consumer) {
+	protected void useCreds(Consumer<StandardUsernamePasswordCredentials> consumer)
+			throws IOException, InterruptedException {
 		final String credentialsId = repoConfig.getCredentialsId();
 		if (credentialsId == null)
 			return;
-		final StandardUsernamePasswordCredentials credentials;
-		try {
-			credentials = CredentialsProvider.findCredentialById(credentialsId,
-					StandardUsernamePasswordCredentials.class, getRun());
-		} catch (IOException | InterruptedException e) {
-			return;
-		}
+		final StandardUsernamePasswordCredentials credentials = CredentialsProvider.findCredentialById(credentialsId,
+				StandardUsernamePasswordCredentials.class, getRun());
 		if (credentials == null)
-			return;
+			throw new IOException("Credentials Unavailable!");
 		consumer.accept(credentials);
 	}
 
@@ -106,6 +106,13 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		if (bundle.isEmpty()) {
 			log(Level.WARNING, "Skipping upload on empty Bundle!", null);
 			getContext().onSuccess(null);
+			return true;
+		}
+
+		final String repo = StringUtils.trimToNull(repoConfig.getRepo());
+		if (repo == null) {
+			log(Level.SEVERE, "Repository not set!", null);
+			getContext().onFailure(new NullPointerException("Repository not set!"));
 			return true;
 		}
 
@@ -123,14 +130,20 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		final BasicCredentialsProvider credProvider = new BasicCredentialsProvider();
 		final AuthCache authCache = new BasicAuthCache();
 
-		useCreds(cred -> {
-			log(Level.INFO, "using Credentials: [" + cred.getId() + "]", null);
-			credProvider.setCredentials(new AuthScope(nexusHost),
-					new UsernamePasswordCredentials(cred.getUsername(), cred.getPassword()
-							.getPlainText()) //
-			);
-			authCache.put(nexusHost, new BasicScheme());
-		});
+		try {
+			useCreds(cred -> {
+				log(Level.INFO, "using Credentials: [" + cred.getId() + "]", null);
+				credProvider.setCredentials(new AuthScope(nexusHost),
+						new UsernamePasswordCredentials(cred.getUsername(), cred.getPassword()
+								.getPlainText()) //
+				);
+				authCache.put(nexusHost, new BasicScheme());
+			});
+		} catch (Throwable t) {
+			log(Level.SEVERE, "Failed to load Credentials from Credentials-Store!", t);
+			getContext().onFailure(t);
+			return true;
+		}
 
 		final HttpClientBuilder clientBuilder = HttpClientBuilder.create();
 
@@ -149,52 +162,78 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		try (final CloseableHttpClient client = clientBuilder //
 				.setDefaultCredentialsProvider(credProvider)
 				.build()) {
-
-			final HttpGet request = new HttpGet(uriBuilder.withChildPath("v1/repositories")
-					.toURI());
-			CloseableHttpResponse response = client.execute(nexusHost, request, context);
-			HttpEntity responseEntity = response.getEntity();
-			responseEntity.getContent()
-					.transferTo(getTaskListener().getLogger());
-
-			log(Level.INFO, "", null);
-			log(Level.INFO, "", null);
-			log(Level.INFO, "", null);
-			log(Level.INFO, "", null);
-
-			// ----------------------------------------------------------------------
-
-			// TODO check REPO exists & type
-
-			switch ("maven2") {
+			switch (getRepoFormat(client, context, uriBuilder, repo)) {
 			case "maven2":
-				return uploadMavenBundle(client, uriBuilder, bundle);
-
+				uploadMavenBundle(client, new HttpClientContext(context), uriBuilder, bundle);
+				break;
 			default:
 				log(Level.WARNING, "Artifact Repository not supported!", null);
 				getContext().setResult(Result.UNSTABLE);
 				getContext().onSuccess(null);
 				break;
 			}
-
-			getTaskListener().getLogger()
-					.println("Sonatype Exec!");
-			getContext().onSuccess(null);
-		}
-		return true;
-	}
-
-	protected boolean uploadMavenBundle(final HttpClient client, final URIBuilder uriBuilder, final Bundle bundle) {
-		final URI uri;
-		try {
-			uri = uriBuilder.withChildPath("v1/components")
-					.setQuery("repository=" + getRepoConfig().getRepo())
-					.toURI();
 		} catch (URISyntaxException e) {
 			log(Level.SEVERE, "Invalid URI!", e);
 			getContext().onFailure(e);
-			return true;
+		} catch (IOException e) {
+			log(Level.SEVERE, "Failed to connect to Server!", e);
+			getContext().onFailure(e);
+		} catch (Exception e) {
+			log(Level.SEVERE, e.getMessage(), e);
+			getContext().onFailure(e);
 		}
+		// TODO catch Authorization-Exception
+		return true;
+	}
+
+	protected String getRepoFormat(final HttpClient client, final HttpClientContext context,
+			final URIBuilder uriBuilder, final String repo) throws Exception {
+		final HttpGet request = new HttpGet(uriBuilder.withChildPath("v1/repositories")
+				.toURI());
+		final HttpResponse response = client.execute(request, context);
+		final StatusLine statusLine = response.getStatusLine();
+		final HttpEntity responseEntity = response.getEntity();
+
+		int statusCode = -1;
+		if (statusLine != null && responseEntity != null)
+			statusCode = statusLine.getStatusCode();
+
+		switch (statusCode) {
+		case 200:
+			try (InputStream dataStream = responseEntity.getContent()) {
+				final JsonNode rootNode = new ObjectMapper().readTree(dataStream);
+				if (rootNode != null && rootNode instanceof ArrayNode) {
+					final ArrayNode arrayNode = (ArrayNode) rootNode;
+					for (Iterator<JsonNode> i = arrayNode.elements(); i.hasNext();) {
+						final JsonNode node = i.next();
+						final String id = getValue(node.get("name"));
+						final String format = getValue(node.get("format"));
+						final String type = getValue(node.get("type"));
+						if (repo.equals(id) && format != null && "hosted".equals(type))
+							return format;
+					}
+					throw new Exception("Repositories not found!");
+				}
+			}
+			// else -> fallback to no content
+		case -1:
+		case 204:
+		default:
+			throw new Exception("No Repositories available!");
+		}
+	}
+
+	protected String getValue(JsonNode node) {
+		if (!node.isValueNode())
+			return null;
+		return node.asText();
+	}
+
+	protected void uploadMavenBundle(final HttpClient client, final HttpClientContext context,
+			final URIBuilder uriBuilder, final Bundle bundle) throws URISyntaxException {
+		final URI uri = uriBuilder.withChildPath("v1/components")
+				.setQuery("repository=" + getRepoConfig().getRepo())
+				.toURI();
 		final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> invalidArtifacts = new LinkedHashSet<>();
 
 		// group all artifacts by their groups
@@ -225,8 +264,8 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 				for (Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>> versionEntry : artifactEntry
 						.getValue()
 						.entrySet()) {
-					errors = errors | uploadMavenArtifacts(client, uri, versionEntry.getValue(), invalidArtifacts,
-							groupEntry.getKey(), artifactEntry.getKey(), versionEntry.getKey());
+					errors = errors | uploadMavenArtifacts(client, context, uri, versionEntry.getValue(),
+							invalidArtifacts, groupEntry.getKey(), artifactEntry.getKey(), versionEntry.getKey());
 				}
 		}
 
@@ -239,10 +278,10 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 			log(Level.INFO, "Upload completed!", null);
 			getContext().onSuccess(null);
 		}
-		return true;
+		return;
 	}
 
-	protected boolean uploadMavenArtifacts(final HttpClient client, final URI uri,
+	protected boolean uploadMavenArtifacts(final HttpClient client, final HttpClientContext context, final URI uri,
 			final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> artifacts,
 			final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> invalidArtifacts, final String groupId,
 			final String artifactId, final String version) {
@@ -291,29 +330,10 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		}
 
 		final HttpPost request = new HttpPost(uri);
-		/*
-		 * useCreds(cred -> { request.setHeader("Authorization", "Basic " +
-		 * Base64.encodeBase64String((cred.getUsername() + ":" + cred.getPassword()
-		 * .getPlainText()).getBytes())); });
-		 */
 		request.setEntity(builder.build());
 
 		try {
-			final HttpResponse response = client.execute(request);
-
-			try {
-				getTaskListener().getLogger()
-						.println("-----------------------------------------");
-				getTaskListener().getLogger()
-						.println("    RESPONSE");
-				getTaskListener().getLogger()
-						.println("-----------------------------------------");
-				response.getEntity()
-						.getContent()
-						.transferTo(getTaskListener().getLogger());
-			} catch (UnsupportedOperationException | InterruptedException | NullPointerException e) {
-			}
-
+			final HttpResponse response = client.execute(request, context);
 			final StatusLine statusLine = response.getStatusLine();
 			if (statusLine == null)
 				// return without errors, because we have no clue what happened!
@@ -324,6 +344,10 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 			case 204:
 				// OK
 				return false;
+			case 400:
+				// Bad Request
+				// [{"id":"*","message":"Not authorized for requested path
+				// '/xxx/yyy/0.0.0/yyy-0.0.0.jar'"}]
 			case 403:
 				log(Level.SEVERE, "Insufficient permissions to upload a component!", null);
 				return true;
