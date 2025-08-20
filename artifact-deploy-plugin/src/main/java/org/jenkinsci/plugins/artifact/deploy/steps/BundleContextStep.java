@@ -51,36 +51,47 @@ public class BundleContextStep extends Step implements Serializable {
 
 		private static final long serialVersionUID = 1L;
 
-		private BundleContext context;
+		private BundleContext bundleContext;
 
 		public BundleContextExecution(final StepContext context) {
-			super(context);
-			this.context = new BundleContext();
+			this(context, new BundleContext());
 		}
 
-		protected BundleContext getBundleContext() throws IOException, InterruptedException {
+		public BundleContextExecution(final StepContext context, final BundleContext bundleContext) {
+			super(context);
+			this.bundleContext = bundleContext;
+		}
+
+		protected BundleContext getUpstreamBundleContext() throws IOException, InterruptedException {
 			return getContext().get(BundleContext.class);
+		}
+
+		protected BundleContext getDownstreamBundleContext() {
+			return this.bundleContext;
 		}
 
 		@Override
 		public boolean start() throws Exception {
+			final BundleContext bundleContext = getDownstreamBundleContext();
 			getContext().newBodyInvoker()
-					.withContext(this.context)
-					.withCallback(new MergeContextExecutionCallback(getBundleContext()))
+					.withContext(bundleContext)
+					.withCallback(new MergeContextExecutionCallback(getUpstreamBundleContext(), bundleContext))
 					.start();
 			return false;
 		}
 
 	}
 
-	private static class MergeContextExecutionCallback extends BodyExecutionCallback {
+	public static class MergeContextExecutionCallback extends BodyExecutionCallback {
 
 		private static final long serialVersionUID = 1L;
 
 		private final BundleContext upstream;
+		private final BundleContext downstream;
 
-		public MergeContextExecutionCallback(final BundleContext upstream) {
+		public MergeContextExecutionCallback(final BundleContext upstream, final BundleContext downstream) {
 			this.upstream = upstream;
+			this.downstream = downstream;
 		}
 
 		@Override
@@ -99,9 +110,8 @@ public class BundleContextStep extends Step implements Serializable {
 						.isWorseThan(Result.UNSTABLE))
 					return;
 
-				final BundleContext bundleContext = context.get(BundleContext.class);
-				if (bundleContext != null)
-					this.upstream.merge(bundleContext);
+				if (this.downstream != null)
+					this.upstream.merge(this.downstream);
 			} catch (IOException | InterruptedException e) {
 				context.onFailure(e);
 			}
