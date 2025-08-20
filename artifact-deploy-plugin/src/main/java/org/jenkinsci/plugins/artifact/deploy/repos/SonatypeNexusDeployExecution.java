@@ -28,15 +28,28 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
 import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.AuthCache;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.client.utils.URIUtils;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.BasicAuthCache;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.jenkinsci.plugins.artifact.deploy.config.URIBuilder;
 import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
@@ -70,7 +83,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 	}
 
 	protected void useCreds(Consumer<StandardUsernamePasswordCredentials> consumer) {
-		final String credentialsId = repo.getCredentialsId();
+		final String credentialsId = repoConfig.getCredentialsId();
 		if (credentialsId == null)
 			return;
 		final StandardUsernamePasswordCredentials credentials;
@@ -87,7 +100,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 
 	@Override
 	public boolean start() throws Exception {
-		final SonatypeNexusDeploymentRepository repo = getRepo();
+		final SonatypeNexusDeploymentRepository repoConfig = getRepoConfig();
 		final Bundle bundle = getSelectedBundle();
 
 		if (bundle.isEmpty()) {
@@ -96,7 +109,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 			return true;
 		}
 
-		final URIBuilder uriBuilder = new URIBuilder(repo.getUri()).appendPath("/service/rest/");
+		final URIBuilder uriBuilder = new URIBuilder(repoConfig.getUri()).appendPath("/service/rest/");
 		final URI uri;
 		try {
 			uri = uriBuilder.toURI();
@@ -106,36 +119,68 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 			return true;
 		}
 
-		final HttpClientBuilder clientBuilder = httpClientBuilder(provider -> {
-			useCreds(cred -> {
-				provider.setCredentials( //
-						new AuthScope(uri.getHost(), uri.getPort(), null, uri.getScheme()),
-						new UsernamePasswordCredentials(cred.getUsername(), cred.getPassword()
-								.getPlainText()) //
-				);
-			});
+		final HttpHost nexusHost = URIUtils.extractHost(uri);
+		final BasicCredentialsProvider credProvider = new BasicCredentialsProvider();
+		final AuthCache authCache = new BasicAuthCache();
+
+		useCreds(cred -> {
+			log(Level.INFO, "using Credentials: [" + cred.getId() + "]", null);
+			credProvider.setCredentials(new AuthScope(nexusHost),
+					new UsernamePasswordCredentials(cred.getUsername(), cred.getPassword()
+							.getPlainText()) //
+			);
+			authCache.put(nexusHost, new BasicScheme());
 		});
 
-		final HttpClient client = clientBuilder.build();
+		final HttpClientBuilder clientBuilder = HttpClientBuilder.create();
 
-		// ----------------------------------------------------------------------
-
-		// TODO check REPO exists & type
-
-		switch ("maven2") {
-		case "maven2":
-			return uploadMavenBundle(client, uriBuilder, bundle);
-
-		default:
-			log(Level.WARNING, "Artifact Repository not supported!", null);
-			getContext().setResult(Result.UNSTABLE);
-			getContext().onSuccess(null);
-			break;
+		if (getProxyHost() instanceof HttpHost proxyHost) {
+			log(Level.INFO, "using Proxy Route", null);
+			clientBuilder.setRoutePlanner(new DefaultProxyRoutePlanner(proxyHost));
+			if (getProxyCredentials() instanceof Credentials proxyCreds) {
+				log(Level.INFO, "using Proxy Authentication", null);
+				credProvider.setCredentials(new AuthScope(proxyHost), proxyCreds);
+			}
 		}
 
-		getTaskListener().getLogger()
-				.println("Sonatype Exec!");
-		getContext().onSuccess(null);
+		final HttpClientContext context = HttpClientContext.create();
+		context.setAuthCache(authCache);
+
+		try (final CloseableHttpClient client = clientBuilder //
+				.setDefaultCredentialsProvider(credProvider)
+				.build()) {
+
+			final HttpGet request = new HttpGet(uriBuilder.withChildPath("v1/repositories")
+					.toURI());
+			CloseableHttpResponse response = client.execute(nexusHost, request, context);
+			HttpEntity responseEntity = response.getEntity();
+			responseEntity.getContent()
+					.transferTo(getTaskListener().getLogger());
+
+			log(Level.INFO, "", null);
+			log(Level.INFO, "", null);
+			log(Level.INFO, "", null);
+			log(Level.INFO, "", null);
+
+			// ----------------------------------------------------------------------
+
+			// TODO check REPO exists & type
+
+			switch ("maven2") {
+			case "maven2":
+				return uploadMavenBundle(client, uriBuilder, bundle);
+
+			default:
+				log(Level.WARNING, "Artifact Repository not supported!", null);
+				getContext().setResult(Result.UNSTABLE);
+				getContext().onSuccess(null);
+				break;
+			}
+
+			getTaskListener().getLogger()
+					.println("Sonatype Exec!");
+			getContext().onSuccess(null);
+		}
 		return true;
 	}
 
@@ -143,7 +188,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		final URI uri;
 		try {
 			uri = uriBuilder.withChildPath("v1/components")
-					.setQuery("repository=" + getRepo().getRepo())
+					.setQuery("repository=" + getRepoConfig().getRepo())
 					.toURI();
 		} catch (URISyntaxException e) {
 			log(Level.SEVERE, "Invalid URI!", e);
@@ -246,11 +291,11 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		}
 
 		final HttpPost request = new HttpPost(uri);
-		useCreds(cred -> {
-			request.setHeader("Authorization",
-					"Basic " + Base64.encodeBase64String((cred.getUsername() + ":" + cred.getPassword()
-							.getPlainText()).getBytes()));
-		});
+		/*
+		 * useCreds(cred -> { request.setHeader("Authorization", "Basic " +
+		 * Base64.encodeBase64String((cred.getUsername() + ":" + cred.getPassword()
+		 * .getPlainText()).getBytes())); });
+		 */
 		request.setEntity(builder.build());
 
 		try {

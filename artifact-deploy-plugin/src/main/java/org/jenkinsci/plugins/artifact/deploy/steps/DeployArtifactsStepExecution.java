@@ -24,7 +24,6 @@ import java.net.URL;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -32,21 +31,15 @@ import java.util.logging.Logger;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
 import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
+
 import edu.umd.cs.findbugs.annotations.NonNull;
-import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.EnvVars;
 import hudson.ProxyConfiguration;
 import hudson.model.AbstractBuild;
@@ -64,13 +57,13 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 	private static final long serialVersionUID = 1L;
 
 	protected final DeployArtifactsStep step;
-	protected final T repo;
+	protected final T repoConfig;
 
 	protected DeployArtifactsStepExecution(@NonNull StepContext context, @NonNull DeployArtifactsStep step,
-			@NonNull T repo) {
+			@NonNull T repoConfig) {
 		super(context);
 		this.step = step;
-		this.repo = repo;
+		this.repoConfig = repoConfig;
 	}
 
 	protected Logger getLogger() {
@@ -119,8 +112,8 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 		return getContext().get(TaskListener.class);
 	}
 
-	protected T getRepo() {
-		return this.repo;
+	protected T getRepoConfig() {
+		return this.repoConfig;
 	}
 
 	protected String getArtifactPaths() throws IOException, InterruptedException {
@@ -197,44 +190,39 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 		return String.join("/", path);
 	}
 
-	protected HttpClientBuilder httpClientBuilder() {
-		return httpClientBuilder(null);
-	}
-
-	protected HttpClientBuilder httpClientBuilder(@Nullable final Consumer<CredentialsProvider> authenticator) {
-		final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-		final HttpClientBuilder builder = HttpClients.custom();
-		// configure Jenkins proxy, if it is configured
-		final ProxyConfiguration proxyConfig = getProxyConfiguration();
-		if (proxyConfig != null) {
-			final String hostname = proxyConfig.getName();
-			if (hostname != null) {
-				final HttpHost proxyHost = new HttpHost(hostname, proxyConfig.getPort());
-				builder.setRoutePlanner(new DefaultProxyRoutePlanner(proxyHost));
-				final String user = proxyConfig.getUserName();
-				if (user != null) {
-					credentialsProvider.setCredentials(new AuthScope(proxyHost),
-							new UsernamePasswordCredentials(user, proxyConfig.getSecretPassword()
-									.getPlainText()));
-				}
-			}
-		}
-		// add custom credentials
-		if (authenticator != null)
-			authenticator.accept(credentialsProvider);
-		// set User-Agent
-		if (JenkinsJVM.isJenkinsJVM()
-				&& !SystemProperties.getBoolean("jenkins.UserAgentURLConnectionDecorator.DISABLED"))
-			builder.setUserAgent("Jenkins/" + Jenkins.getVersion());
-
-		return builder.setDefaultCredentialsProvider(credentialsProvider);
-	}
-
 	protected ProxyConfiguration getProxyConfiguration() {
 		if (!JenkinsJVM.isJenkinsJVM())
 			return null;
 		Jenkins jenkins = Jenkins.getInstanceOrNull();
 		return jenkins == null ? null : jenkins.proxy;
+	}
+
+	protected org.apache.http.HttpHost getProxyHost() {
+		final ProxyConfiguration proxyConfig = getProxyConfiguration();
+		if (proxyConfig == null)
+			return null;
+		final String hostname = proxyConfig.getName();
+		if (hostname == null)
+			return null;
+		return new HttpHost(hostname, proxyConfig.getPort());
+	}
+
+	protected org.apache.http.auth.Credentials getProxyCredentials() {
+		final ProxyConfiguration proxyConfig = getProxyConfiguration();
+		if (proxyConfig == null)
+			return null;
+		final String user = proxyConfig.getUserName();
+		if (user == null)
+			return null;
+		return new UsernamePasswordCredentials(user, proxyConfig.getSecretPassword()
+				.getPlainText());
+	}
+
+	protected String getJenkinsUserAgent() {
+		if (!JenkinsJVM.isJenkinsJVM()
+				|| SystemProperties.getBoolean("jenkins.UserAgentURLConnectionDecorator.DISABLED"))
+			return null;
+		return "Jenkins/" + Jenkins.getVersion();
 	}
 
 	protected byte[] download(final VirtualFile source, final String msgFmt) throws IOException, InterruptedException {
