@@ -43,6 +43,7 @@ public class DeployArtifactsStep extends Step implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
+	private final Map<String, Serializable> options = new ConcurrentHashMap<>();
 	private final Map<String, Serializable> metadata = new ConcurrentHashMap<>();
 
 	private String repo = null;
@@ -68,6 +69,10 @@ public class DeployArtifactsStep extends Step implements Serializable {
 		return this.artifacts;
 	}
 
+	public Map<String, Serializable> getOptions() {
+		return this.options;
+	}
+
 	public Map<String, Serializable> getMetadata() {
 		return this.metadata;
 	}
@@ -78,7 +83,15 @@ public class DeployArtifactsStep extends Step implements Serializable {
 
 	@DataBoundSetter
 	public void setArtifacts(final String artifacts) {
-		this.artifacts = artifacts;
+		this.artifacts = StringUtils.trimToNull(artifacts);
+	}
+
+	@DataBoundSetter
+	public void setOptions(final Map<String, Serializable> options) {
+		if (options == null)
+			this.options.clear();
+		else
+			this.options.putAll(options);
 	}
 
 	@DataBoundSetter
@@ -91,7 +104,7 @@ public class DeployArtifactsStep extends Step implements Serializable {
 
 	@DataBoundSetter
 	public void setBundle(final String bundle) {
-		this.bundle = bundle;
+		this.bundle = StringUtils.trimToNull(bundle);
 	}
 
 	@Override
