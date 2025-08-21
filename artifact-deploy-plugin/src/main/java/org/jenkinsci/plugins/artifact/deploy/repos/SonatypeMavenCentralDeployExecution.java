@@ -23,6 +23,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -73,6 +75,8 @@ import jenkins.util.VirtualFile;
 public class SonatypeMavenCentralDeployExecution
 		extends DeployArtifactsStepExecution<SonatypeMavenCentralDeploymentRepository> {
 
+	public static final String[] OPTION_PUBLISHING_TYPE = //
+			new String[] { "publishingType", "publishingMode" };
 	public static final String[] METADATA_GROUPID = //
 			new String[] { "maven.groupId", "groupId" };
 	public static final String[] METADATA_ARTIFACTID = //
@@ -83,6 +87,18 @@ public class SonatypeMavenCentralDeployExecution
 			new String[] { "maven.extension", "file.extension", "extension" };
 	public static final String[] METADATA_CLASSIFIER = //
 			new String[] { "maven.classifier", "classifier" };
+	// KEYS = <extension> or <classifier>.<extension>
+	public static final String[] MAIN_KEYS = //
+			new String[] { "pom", "pom.asc", //
+					"jar", "jar.asc", //
+					"javadoc.jar", "javadoc.jar.asc", //
+					"sources.jar", "sources.jar.asc" //
+			};
+	public static final String[] TEST_KEYS = //
+			new String[] { "tests.jar", "tests.jar.asc", //
+					"test-javadoc.jar", "test-javadoc.jar.asc", //
+					"test-sources.jar", "test-sources.jar.asc" //
+			};
 
 	private static final long serialVersionUID = 1L;
 
@@ -172,7 +188,6 @@ public class SonatypeMavenCentralDeployExecution
 		try (final CloseableHttpClient client = clientBuilder //
 				.setDefaultCredentialsProvider(credProvider)
 				.build()) {
-
 			uploadBundle(client, context, uriBuilder, bundle);
 		} catch (URISyntaxException e) {
 			log(Level.SEVERE, "Invalid URI!", e);
@@ -188,39 +203,106 @@ public class SonatypeMavenCentralDeployExecution
 		return true;
 	}
 
+	protected boolean ignoreMissingArtifacts() {
+		return false;
+	}
+
+	protected String getPublishingType() {
+		final SonatypeMavenCentralDeploymentRepository repoConfig = getRepoConfig();
+		final String defaultValue = StringUtils.trimToNull(repoConfig.getPublishingType());
+		String selected = getEntryString(this.step.getOptions(), OPTION_PUBLISHING_TYPE);
+		// when null, select default value
+		if (selected == null)
+			selected = defaultValue;
+		// when null, return safest default value
+		if (selected == null)
+			return SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__USER_MANAGED;
+		// check if AUTOMATIC is enabled, reset in case it is disabled & selected
+		if (!repoConfig.getAllowAutoPublish()
+				&& SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__AUTOMATIC.equals(selected)) {
+			if (SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__AUTOMATIC.equals(defaultValue))
+				return SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__USER_MANAGED;
+			return defaultValue;
+		}
+		return selected;
+	}
+
 	protected void uploadBundle(final HttpClient client, final HttpClientContext context, final URIBuilder uriBuilder,
-			final Bundle bundle) throws URISyntaxException {
-		final URI uri = uriBuilder.withChildPath("v1/components")
-				.setQuery("repository=" + getRepoConfig().getNamespace())
-				.toURI();
-		final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> invalidArtifacts = new LinkedHashSet<>();
-
-		// group all artifacts by their groups
+			final Bundle bundle) throws Exception {
 		final Map<String, Map<String, Map<String, Set<Map.Entry<VirtualFile, Map<String, Serializable>>>>>> artifactsByGroupId = new LinkedHashMap<>();
-		bundle.getArtifactStream()
-				.forEach(entry -> {
-					final Map<String, Serializable> metadata = entry.getValue();
-					String groupId = getEntryString(metadata, METADATA_GROUPID);
-					final String artifactId = getEntryString(metadata, METADATA_ARTIFACTID);
-					final String version = getEntryString(metadata, METADATA_VERSION);
-					if (groupId == null || artifactId == null || version == null) {
-						invalidArtifacts.add(entry);
-						return;
+		// group all artifacts by their groups
+		{
+			final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> invalidArtifacts = new LinkedHashSet<>();
+			bundle.getArtifactStream()
+					.forEach(entry -> {
+						final Map<String, Serializable> metadata = entry.getValue();
+						final String groupId = getEntryString(metadata, METADATA_GROUPID);
+						final String artifactId = getEntryString(metadata, METADATA_ARTIFACTID);
+						final String version = getEntryString(metadata, METADATA_VERSION);
+						final String extension = getEntryString(metadata, METADATA_EXTENSION);
+						if (groupId == null || artifactId == null || version == null || extension == null) {
+							invalidArtifacts.add(entry);
+							return;
+						}
+
+						artifactsByGroupId.computeIfAbsent(groupId, k -> new LinkedHashMap<>())
+								.computeIfAbsent(artifactId, k -> new LinkedHashMap<>())
+								.computeIfAbsent(version, k -> new LinkedHashSet<>())
+								.add(entry);
+					});
+			if (!invalidArtifacts.isEmpty()) {
+				log(Level.WARNING, invalidArtifacts.size() + " Artifacts with invalid Metadata found!", null);
+				for (Entry<VirtualFile, Map<String, Serializable>> entry : invalidArtifacts)
+					log(Level.WARNING, "  - " + entry.getKey()
+							.getName(), null);
+				log(Level.INFO, "", null);
+			}
+		}
+		// validate namespace
+		{
+			final String namespace = getRepoConfig().getNamespace();
+			for (Iterator<String> i = artifactsByGroupId.keySet()
+					.iterator(); i.hasNext();) {
+				final String groupId = i.next();
+				if (groupId.startsWith(namespace))
+					continue;
+				log(Level.WARNING, "Skipping groupId=" + groupId, null);
+				i.remove();
+			}
+		}
+		// validate the existance of all required artifacts per project
+		{
+			boolean errors = false;
+			for (Entry<String, Map<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>>> groupEntry : artifactsByGroupId
+					.entrySet()) {
+				for (Entry<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>> artifactEntry : groupEntry
+						.getValue()
+						.entrySet())
+					for (Iterator<Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>> i = artifactEntry
+							.getValue()
+							.entrySet()
+							.iterator(); i.hasNext();) {
+						final Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>> versionEntry = i.next();
+						if (validateProject(versionEntry.getValue(), //
+								groupEntry.getKey(), artifactEntry.getKey(), versionEntry.getKey())) {
+							errors |= true;
+							i.remove();
+						}
 					}
-					// convert canonical groupId to path
-					groupId = groupId.replace('.', '/');
-
-					artifactsByGroupId.computeIfAbsent(groupId, k -> new LinkedHashMap<>())
-							.computeIfAbsent(artifactId, k -> new LinkedHashMap<>())
-							.computeIfAbsent(version, k -> new LinkedHashSet<>())
-							.add(entry);
-				});
-		// validate the projects 1 by 1
-
+			}
+			if (errors) {
+				if (ignoreMissingArtifacts())
+					log(Level.WARNING, "Continuing deploy without invalid projects", null);
+				else
+					throw new Exception("Some Projects can not currently be deployed!");
+			}
+		}
+		// compress artifacts
 		boolean errors = false;
 		try (ByteArrayOutputStream dataStream = new ByteArrayOutputStream()) {
 			try (TarArchiveOutputStream archiveStream = new TarArchiveOutputStream(
 					new GZIPOutputStream(new BufferedOutputStream(dataStream)))) {
+				// package the projects 1 by 1
 				for (Entry<String, Map<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>>> groupEntry : artifactsByGroupId
 						.entrySet()) {
 					for (Entry<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>> artifactEntry : groupEntry
@@ -229,26 +311,33 @@ public class SonatypeMavenCentralDeployExecution
 						for (Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>> versionEntry : artifactEntry
 								.getValue()
 								.entrySet()) {
-							errors = errors | packageArtifacts(archiveStream, versionEntry.getValue(), invalidArtifacts,
-									groupEntry.getKey(), artifactEntry.getKey(), versionEntry.getKey());
+							errors = errors | packageProject(archiveStream, versionEntry.getValue(),
+									// convert canonical groupId to path
+									groupEntry.getKey()
+											.replace('.', '/'), //
+									artifactEntry.getKey(), versionEntry.getKey());
 						}
 				}
 			}
-
-			dataStream.toByteArray();
+			// validate upload data
+			final byte[] data = dataStream.toByteArray();
+			if (data.length > 1073741824) {
+				log(Level.WARNING, "Upload > 1GB; Failure Expected!", null);
+			}
 
 			// TODO upload dataStream
+			final URI uri = uriBuilder.withChildPath("v1/publisher/upload")
+					.setQuery("publishingType=" + getPublishingType())
+					.toURI();
 
 		} catch (NoSuchAlgorithmException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		} catch (IOException e1) {
+		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e1.printStackTrace();
+			e.printStackTrace();
 		}
 
-		if (!invalidArtifacts.isEmpty())
-			log(Level.WARNING, invalidArtifacts.size() + " Artifacts with invalid Metadata found!", null);
 		if (errors) {
 			log(Level.SEVERE, "Upload failed!", null);
 			getContext().onFailure(new Exception("Upload failed!"));
@@ -259,33 +348,18 @@ public class SonatypeMavenCentralDeployExecution
 		return;
 	}
 
-	protected void appendArchiveEntry(final TarArchiveOutputStream archiveStream, final String path, final byte[] data)
-			throws IOException {
-		final TarArchiveEntry entry = new TarArchiveEntry(path);
-		entry.setSize(data.length);
-		archiveStream.putArchiveEntry(entry);
-		archiveStream.write(data);
-		archiveStream.closeArchiveEntry();
-	}
-
-	protected boolean packageArtifacts(final TarArchiveOutputStream archiveStream,
-			final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> artifacts,
-			final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> invalidArtifacts, final String groupId,
-			final String artifactId, final String version) throws IOException, NoSuchAlgorithmException {
+	protected boolean validateProject(final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> artifacts,
+			final String groupId, final String artifactId, final String version) {
 		final Set<String> mainKeys = new LinkedHashSet<>();
 		final Set<String> testKeys = new LinkedHashSet<>();
 
-		for (Entry<VirtualFile, Map<String, Serializable>> entry : artifacts) {
+		for (Iterator<Entry<VirtualFile, Map<String, Serializable>>> i = artifacts.iterator(); i.hasNext();) {
+			final Entry<VirtualFile, Map<String, Serializable>> entry = i.next();
 			final Map<String, Serializable> metadata = entry.getValue();
 
-			// verify extension
-			final String extension = getEntryString(metadata, METADATA_EXTENSION);
-			if (extension == null) {
-				invalidArtifacts.add(entry);
-				continue;
-			}
 			// index classifier.extension for later verification
 			final String classifier = getEntryString(metadata, METADATA_CLASSIFIER);
+			final String extension = getEntryString(metadata, METADATA_EXTENSION);
 			if ("tests".equals(classifier) || StringUtils.startsWith(classifier, "test-"))
 				testKeys.add(classifier + '.' + extension);
 			else {
@@ -294,6 +368,36 @@ public class SonatypeMavenCentralDeployExecution
 				else
 					mainKeys.add(classifier + '.' + extension);
 			}
+		}
+
+		// validate overall completeness by main/test-Keys
+		final Set<String> missingArtifacts = new HashSet<>(Set.of(MAIN_KEYS));
+		missingArtifacts.removeAll(mainKeys);
+		if (!testKeys.isEmpty()) {
+			// if test artifacts exist
+			// 1. add all test key requirements
+			missingArtifacts.addAll(Set.of(TEST_KEYS));
+			// 2. remove all found test-keys
+			missingArtifacts.removeAll(testKeys);
+		}
+		if (missingArtifacts.isEmpty())
+			return false;
+		log(Level.SEVERE, "Missing Artifacts detected:", null);
+		final String prefix = String.format("  - %s/%s-%s-", groupId, artifactId, version);
+		for (String artifact : missingArtifacts)
+			log(Level.SEVERE, prefix + artifact, null);
+		log(Level.INFO, "", null);
+		return true;
+	}
+
+	protected boolean packageProject(final TarArchiveOutputStream archiveStream,
+			final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> artifacts, final String groupId,
+			final String artifactId, final String version) throws IOException, NoSuchAlgorithmException {
+		for (Entry<VirtualFile, Map<String, Serializable>> entry : artifacts) {
+			final Map<String, Serializable> metadata = entry.getValue();
+			final String extension = getEntryString(metadata, METADATA_EXTENSION);
+			final String classifier = getEntryString(metadata, METADATA_CLASSIFIER);
+
 			// assemble artifact name
 			final StringBuilder nameBuilder = new StringBuilder(artifactId).append('-')
 					.append(version);
@@ -327,10 +431,16 @@ public class SonatypeMavenCentralDeployExecution
 					MessageDigest.getInstance(MessageDigestAlgorithms.SHA_1)
 							.digest(buffer));
 		}
-
-		// TODO validate all completeness by main/test-Keys
-
 		return false;
+	}
+
+	protected void appendArchiveEntry(final TarArchiveOutputStream archiveStream, final String path, final byte[] data)
+			throws IOException {
+		final TarArchiveEntry entry = new TarArchiveEntry(path);
+		entry.setSize(data.length);
+		archiveStream.putArchiveEntry(entry);
+		archiveStream.write(data);
+		archiveStream.closeArchiveEntry();
 	}
 
 	private static class BearerScheme extends BasicScheme {
