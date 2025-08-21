@@ -15,13 +15,27 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.repos;
 
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.logging.Level;
+import java.util.zip.GZIPOutputStream;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.digest.MessageDigestAlgorithms;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHost;
@@ -32,6 +46,7 @@ import org.apache.http.auth.AuthenticationException;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.AuthCache;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.client.utils.URIUtils;
 import org.apache.http.impl.auth.BasicScheme;
@@ -53,20 +68,21 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import jenkins.util.VirtualFile;
 
 public class SonatypeMavenCentralDeployExecution
 		extends DeployArtifactsStepExecution<SonatypeMavenCentralDeploymentRepository> {
 
-	public static final String[] METADATA_MAVEN2_GROUPID = //
-			new String[] { "maven2.groupId", "maven.groupId", "groupId" };
-	public static final String[] METADATA_MAVEN2_ARTIFACTID = //
-			new String[] { "maven2.artifactId", "maven.artifactId", "artifactId" };
-	public static final String[] METADATA_MAVEN2_VERSION = //
-			new String[] { "maven2.version", "maven.version", "version" };
-	public static final String[] METADATA_MAVEN2_EXTENSION = //
-			new String[] { "maven2.extension", "maven.extension", "file.extension", "extension" };
-	public static final String[] METADATA_MAVEN2_CLASSIFIER = //
-			new String[] { "maven2.classifier", "maven.classifier", "classifier" };
+	public static final String[] METADATA_GROUPID = //
+			new String[] { "maven.groupId", "groupId" };
+	public static final String[] METADATA_ARTIFACTID = //
+			new String[] { "maven.artifactId", "artifactId" };
+	public static final String[] METADATA_VERSION = //
+			new String[] { "maven.version", "version" };
+	public static final String[] METADATA_EXTENSION = //
+			new String[] { "maven.extension", "file.extension", "extension" };
+	public static final String[] METADATA_CLASSIFIER = //
+			new String[] { "maven.classifier", "classifier" };
 
 	private static final long serialVersionUID = 1L;
 
@@ -157,11 +173,10 @@ public class SonatypeMavenCentralDeployExecution
 				.setDefaultCredentialsProvider(credProvider)
 				.build()) {
 
-			// TODO uploadMavenBundle(client, new HttpClientContext(context), uriBuilder,
-			// bundle);
-			// } catch (URISyntaxException e) {
-			// log(Level.SEVERE, "Invalid URI!", e);
-			// getContext().onFailure(e);
+			uploadBundle(client, context, uriBuilder, bundle);
+		} catch (URISyntaxException e) {
+			log(Level.SEVERE, "Invalid URI!", e);
+			getContext().onFailure(e);
 		} catch (IOException e) {
 			log(Level.SEVERE, "Failed to connect to Server!", e);
 			getContext().onFailure(e);
@@ -171,6 +186,151 @@ public class SonatypeMavenCentralDeployExecution
 		}
 		// TODO catch Authorization-Exception
 		return true;
+	}
+
+	protected void uploadBundle(final HttpClient client, final HttpClientContext context, final URIBuilder uriBuilder,
+			final Bundle bundle) throws URISyntaxException {
+		final URI uri = uriBuilder.withChildPath("v1/components")
+				.setQuery("repository=" + getRepoConfig().getNamespace())
+				.toURI();
+		final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> invalidArtifacts = new LinkedHashSet<>();
+
+		// group all artifacts by their groups
+		final Map<String, Map<String, Map<String, Set<Map.Entry<VirtualFile, Map<String, Serializable>>>>>> artifactsByGroupId = new LinkedHashMap<>();
+		bundle.getArtifactStream()
+				.forEach(entry -> {
+					final Map<String, Serializable> metadata = entry.getValue();
+					String groupId = getEntryString(metadata, METADATA_GROUPID);
+					final String artifactId = getEntryString(metadata, METADATA_ARTIFACTID);
+					final String version = getEntryString(metadata, METADATA_VERSION);
+					if (groupId == null || artifactId == null || version == null) {
+						invalidArtifacts.add(entry);
+						return;
+					}
+					// convert canonical groupId to path
+					groupId = groupId.replace('.', '/');
+
+					artifactsByGroupId.computeIfAbsent(groupId, k -> new LinkedHashMap<>())
+							.computeIfAbsent(artifactId, k -> new LinkedHashMap<>())
+							.computeIfAbsent(version, k -> new LinkedHashSet<>())
+							.add(entry);
+				});
+		// validate the projects 1 by 1
+
+		boolean errors = false;
+		try (ByteArrayOutputStream dataStream = new ByteArrayOutputStream()) {
+			try (TarArchiveOutputStream archiveStream = new TarArchiveOutputStream(
+					new GZIPOutputStream(new BufferedOutputStream(dataStream)))) {
+				for (Entry<String, Map<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>>> groupEntry : artifactsByGroupId
+						.entrySet()) {
+					for (Entry<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>> artifactEntry : groupEntry
+							.getValue()
+							.entrySet())
+						for (Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>> versionEntry : artifactEntry
+								.getValue()
+								.entrySet()) {
+							errors = errors | packageArtifacts(archiveStream, versionEntry.getValue(), invalidArtifacts,
+									groupEntry.getKey(), artifactEntry.getKey(), versionEntry.getKey());
+						}
+				}
+			}
+
+			dataStream.toByteArray();
+
+			// TODO upload dataStream
+
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+
+		if (!invalidArtifacts.isEmpty())
+			log(Level.WARNING, invalidArtifacts.size() + " Artifacts with invalid Metadata found!", null);
+		if (errors) {
+			log(Level.SEVERE, "Upload failed!", null);
+			getContext().onFailure(new Exception("Upload failed!"));
+		} else {
+			log(Level.INFO, "Upload completed!", null);
+			getContext().onSuccess(null);
+		}
+		return;
+	}
+
+	protected void appendArchiveEntry(final TarArchiveOutputStream archiveStream, final String path, final byte[] data)
+			throws IOException {
+		final TarArchiveEntry entry = new TarArchiveEntry(path);
+		entry.setSize(data.length);
+		archiveStream.putArchiveEntry(entry);
+		archiveStream.write(data);
+		archiveStream.closeArchiveEntry();
+	}
+
+	protected boolean packageArtifacts(final TarArchiveOutputStream archiveStream,
+			final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> artifacts,
+			final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> invalidArtifacts, final String groupId,
+			final String artifactId, final String version) throws IOException, NoSuchAlgorithmException {
+		final Set<String> mainKeys = new LinkedHashSet<>();
+		final Set<String> testKeys = new LinkedHashSet<>();
+
+		for (Entry<VirtualFile, Map<String, Serializable>> entry : artifacts) {
+			final Map<String, Serializable> metadata = entry.getValue();
+
+			// verify extension
+			final String extension = getEntryString(metadata, METADATA_EXTENSION);
+			if (extension == null) {
+				invalidArtifacts.add(entry);
+				continue;
+			}
+			// index classifier.extension for later verification
+			final String classifier = getEntryString(metadata, METADATA_CLASSIFIER);
+			if ("tests".equals(classifier) || StringUtils.startsWith(classifier, "test-"))
+				testKeys.add(classifier + '.' + extension);
+			else {
+				if (classifier == null)
+					mainKeys.add(extension);
+				else
+					mainKeys.add(classifier + '.' + extension);
+			}
+			// assemble artifact name
+			final StringBuilder nameBuilder = new StringBuilder(artifactId).append('-')
+					.append(version);
+			if (classifier != null) {
+				nameBuilder.append('-')
+						.append(classifier);
+			}
+			nameBuilder.append('.')
+					.append(extension);
+			final String artifactName = nameBuilder.toString();
+			// download artifact from artifact-manager
+			final byte[] buffer;
+			try {
+				buffer = download(entry.getKey(), "Downloading %s from Archive to Memory");
+			} catch (IOException | InterruptedException e) {
+				log(Level.SEVERE, "Failed to load Artifact from Archive!", e);
+				return true;
+			}
+			if (buffer.length == 0)
+				log(Level.WARNING, String.format("Artifact (%s) is empty!", groupId + '/' + artifactName), null);
+			// add artifact to archive
+			appendArchiveEntry(archiveStream, String.join("/", groupId, artifactId, version, artifactName), buffer);
+			// check if checksums are required
+			if (StringUtils.endsWith(extension, ".asc"))
+				continue;
+			// calculate checksums and archive them as well
+			appendArchiveEntry(archiveStream, String.join("/", groupId, artifactId, version, (artifactName + ".md5")),
+					MessageDigest.getInstance(MessageDigestAlgorithms.MD5)
+							.digest(buffer));
+			appendArchiveEntry(archiveStream, String.join("/", groupId, artifactId, version, (artifactName + ".sha1")),
+					MessageDigest.getInstance(MessageDigestAlgorithms.SHA_1)
+							.digest(buffer));
+		}
+
+		// TODO validate all completeness by main/test-Keys
+
+		return false;
 	}
 
 	private static class BearerScheme extends BasicScheme {
