@@ -27,6 +27,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -42,6 +44,8 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
+import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
 import org.apache.http.auth.AUTH;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.AuthenticationException;
@@ -49,8 +53,11 @@ import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.AuthCache;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.client.utils.URIUtils;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.BasicAuthCache;
 import org.apache.http.impl.client.BasicCredentialsProvider;
@@ -107,6 +114,30 @@ public class SonatypeMavenCentralDeployExecution
 		super(context, step, repo);
 	}
 
+	protected boolean ignoreMissingArtifacts() {
+		return false;
+	}
+
+	protected String getPublishingType() {
+		final SonatypeMavenCentralDeploymentRepository repoConfig = getRepoConfig();
+		final String defaultValue = StringUtils.trimToNull(repoConfig.getPublishingType());
+		String selected = getEntryString(this.step.getOptions(), OPTION_PUBLISHING_TYPE);
+		// when null, select default value
+		if (selected == null)
+			selected = defaultValue;
+		// when null, return safest default value
+		if (selected == null)
+			return SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__USER_MANAGED;
+		// check if AUTOMATIC is enabled, reset in case it is disabled & selected
+		if (!repoConfig.getAllowAutoPublish()
+				&& SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__AUTOMATIC.equals(selected)) {
+			if (SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__AUTOMATIC.equals(defaultValue))
+				return SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__USER_MANAGED;
+			return defaultValue;
+		}
+		return selected;
+	}
+
 	protected void useCreds(Consumer<StandardUsernamePasswordCredentials> consumer)
 			throws IOException, InterruptedException {
 		final String credentialsId = repoConfig.getCredentialsId();
@@ -152,6 +183,7 @@ public class SonatypeMavenCentralDeployExecution
 		final BasicCredentialsProvider credProvider = new BasicCredentialsProvider();
 		final AuthCache authCache = new BasicAuthCache();
 
+		// set target credentials
 		try {
 			useCreds(cred -> {
 				log(Level.INFO, "using Credentials: [" + cred.getId() + "]", null);
@@ -169,6 +201,7 @@ public class SonatypeMavenCentralDeployExecution
 
 		final HttpClientBuilder clientBuilder = HttpClientBuilder.create();
 
+		// set Proxy
 		{
 			final HttpHost proxyHost = getProxyHost();
 			if (proxyHost != null) {
@@ -185,15 +218,17 @@ public class SonatypeMavenCentralDeployExecution
 		final HttpClientContext context = HttpClientContext.create();
 		context.setAuthCache(authCache);
 
+		// handle upload
 		try (final CloseableHttpClient client = clientBuilder //
 				.setDefaultCredentialsProvider(credProvider)
 				.build()) {
 			uploadBundle(client, context, uriBuilder, bundle);
+			getContext().onSuccess(null);
 		} catch (URISyntaxException e) {
 			log(Level.SEVERE, "Invalid URI!", e);
 			getContext().onFailure(e);
 		} catch (IOException e) {
-			log(Level.SEVERE, "Failed to connect to Server!", e);
+			log(Level.SEVERE, "Connection lost!", e);
 			getContext().onFailure(e);
 		} catch (Exception e) {
 			log(Level.SEVERE, e.getMessage(), e);
@@ -203,28 +238,11 @@ public class SonatypeMavenCentralDeployExecution
 		return true;
 	}
 
-	protected boolean ignoreMissingArtifacts() {
-		return false;
-	}
-
-	protected String getPublishingType() {
-		final SonatypeMavenCentralDeploymentRepository repoConfig = getRepoConfig();
-		final String defaultValue = StringUtils.trimToNull(repoConfig.getPublishingType());
-		String selected = getEntryString(this.step.getOptions(), OPTION_PUBLISHING_TYPE);
-		// when null, select default value
-		if (selected == null)
-			selected = defaultValue;
-		// when null, return safest default value
-		if (selected == null)
-			return SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__USER_MANAGED;
-		// check if AUTOMATIC is enabled, reset in case it is disabled & selected
-		if (!repoConfig.getAllowAutoPublish()
-				&& SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__AUTOMATIC.equals(selected)) {
-			if (SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__AUTOMATIC.equals(defaultValue))
-				return SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__USER_MANAGED;
-			return defaultValue;
-		}
-		return selected;
+	protected List<String> groupIdAsList(final String groupId) {
+		final LinkedList<String> groupIdList = new LinkedList<>();
+		for (String group : StringUtils.split(groupId, '.'))
+			groupIdList.addLast(group);
+		return groupIdList;
 	}
 
 	protected void uploadBundle(final HttpClient client, final HttpClientContext context, final URIBuilder uriBuilder,
@@ -273,32 +291,78 @@ public class SonatypeMavenCentralDeployExecution
 		// validate the existance of all required artifacts per project
 		{
 			boolean errors = false;
-			for (Entry<String, Map<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>>> groupEntry : artifactsByGroupId
-					.entrySet()) {
-				for (Entry<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>> artifactEntry : groupEntry
+			for (Iterator<Entry<String, Map<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>>>> groupIterator = artifactsByGroupId
+					.entrySet()
+					.iterator(); groupIterator.hasNext();) {
+				final Entry<String, Map<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>>> groupEntry = groupIterator
+						.next();
+				for (Iterator<Entry<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>>> artifactIterator = groupEntry
 						.getValue()
-						.entrySet())
-					for (Iterator<Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>> i = artifactEntry
+						.entrySet()
+						.iterator(); artifactIterator.hasNext();) {
+					final Entry<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>> artifactEntry = artifactIterator
+							.next();
+					for (Iterator<Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>> versionIterator = artifactEntry
 							.getValue()
 							.entrySet()
-							.iterator(); i.hasNext();) {
-						final Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>> versionEntry = i.next();
+							.iterator(); versionIterator.hasNext();) {
+						final Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>> versionEntry = versionIterator
+								.next();
 						if (validateProject(versionEntry.getValue(), //
 								groupEntry.getKey(), artifactEntry.getKey(), versionEntry.getKey())) {
 							errors |= true;
-							i.remove();
+							versionIterator.remove();
 						}
 					}
+					if (artifactEntry.getValue()
+							.isEmpty())
+						artifactIterator.remove();
+				}
+				if (groupEntry.getValue()
+						.isEmpty())
+					groupIterator.remove();
 			}
 			if (errors) {
 				if (ignoreMissingArtifacts())
 					log(Level.WARNING, "Continuing deploy without invalid projects", null);
 				else
-					throw new Exception("Some Projects can not currently be deployed!");
+					throw new Exception("Some Projects can not be deployed!");
 			}
 		}
+		// check if there are any projects left to be deployed!
+		if (artifactsByGroupId.isEmpty()) {
+			log(Level.WARNING, "No deployable Projects found, skipping Upload!", null);
+			return;
+		}
+		// build bundle name from common groupId
+		final String bundleName;
+		{
+			final Iterator<String> i = artifactsByGroupId.keySet()
+					.iterator();
+			// seed common group Id's
+			final List<String> groupIdList = groupIdAsList(i.next());
+			// remove non matching starting at the 1st difference
+			i.forEachRemaining(groupId -> {
+				final Iterator<String> commonIterator = groupIdList.iterator();
+				final Iterator<String> specificIterator = groupIdAsList(groupId).iterator();
+				// step through all common entries
+				while (commonIterator.hasNext() && specificIterator.hasNext()) {
+					if (StringUtils.equals(commonIterator.next(), specificIterator.next()))
+						continue;
+					// remove 1st difference
+					commonIterator.remove();
+					break;
+				}
+				// remove all later entries
+				while (commonIterator.hasNext()) {
+					commonIterator.next();
+					commonIterator.remove();
+				}
+			});
+			bundleName = String.join("-", groupIdList) + ".tar.gz";
+		}
+
 		// compress artifacts
-		boolean errors = false;
 		try (ByteArrayOutputStream dataStream = new ByteArrayOutputStream()) {
 			try (TarArchiveOutputStream archiveStream = new TarArchiveOutputStream(
 					new GZIPOutputStream(new BufferedOutputStream(dataStream)))) {
@@ -311,7 +375,7 @@ public class SonatypeMavenCentralDeployExecution
 						for (Entry<String, Set<Entry<VirtualFile, Map<String, Serializable>>>> versionEntry : artifactEntry
 								.getValue()
 								.entrySet()) {
-							errors = errors | packageProject(archiveStream, versionEntry.getValue(),
+							packageProject(archiveStream, versionEntry.getValue(),
 									// convert canonical groupId to path
 									groupEntry.getKey()
 											.replace('.', '/'), //
@@ -319,33 +383,51 @@ public class SonatypeMavenCentralDeployExecution
 						}
 				}
 			}
+
 			// validate upload data
 			final byte[] data = dataStream.toByteArray();
 			if (data.length > 1073741824) {
 				log(Level.WARNING, "Upload > 1GB; Failure Expected!", null);
 			}
 
-			// TODO upload dataStream
+			// upload dataStream
 			final URI uri = uriBuilder.withChildPath("v1/publisher/upload")
 					.setQuery("publishingType=" + getPublishingType())
 					.toURI();
+			final MultipartEntityBuilder builder = MultipartEntityBuilder.create();
 
+			builder.setMimeSubtype("form-data");
+			builder.addBinaryBody("bundle", data, ContentType.APPLICATION_OCTET_STREAM, bundleName);
+
+			final HttpPost request = new HttpPost(uri);
+			request.setEntity(builder.build());
+
+			final HttpResponse response = client.execute(request, context);
+			final StatusLine statusLine = response.getStatusLine();
+			if (statusLine == null)
+				// return as error as something in the connection broke and we have no clue what
+				// happened!
+				throw new IOException();
+
+			switch (statusLine.getStatusCode()) {
+			case 201:
+				// OK
+				// Body -> The deployment identifier for created deployment.
+				break;
+			case 400:
+				throw new Exception("Invalid Credentials!");
+			case 401:
+				throw new Exception("User unauthenticated!");
+			case 403:
+				throw new Exception("User unauthorized! Check the Namespace!");
+			default:
+				throw new Exception(
+						"Upload returned: (" + statusLine.getStatusCode() + ") " + statusLine.getReasonPhrase());
+			}
 		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			throw new Exception("Hash Algorithm not found!", e);
 		}
-
-		if (errors) {
-			log(Level.SEVERE, "Upload failed!", null);
-			getContext().onFailure(new Exception("Upload failed!"));
-		} else {
-			log(Level.INFO, "Upload completed!", null);
-			getContext().onSuccess(null);
-		}
-		return;
+		log(Level.INFO, "Upload completed!", null);
 	}
 
 	protected boolean validateProject(final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> artifacts,
@@ -390,9 +472,9 @@ public class SonatypeMavenCentralDeployExecution
 		return true;
 	}
 
-	protected boolean packageProject(final TarArchiveOutputStream archiveStream,
+	protected void packageProject(final TarArchiveOutputStream archiveStream,
 			final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> artifacts, final String groupId,
-			final String artifactId, final String version) throws IOException, NoSuchAlgorithmException {
+			final String artifactId, final String version) throws Exception {
 		for (Entry<VirtualFile, Map<String, Serializable>> entry : artifacts) {
 			final Map<String, Serializable> metadata = entry.getValue();
 			final String extension = getEntryString(metadata, METADATA_EXTENSION);
@@ -413,8 +495,7 @@ public class SonatypeMavenCentralDeployExecution
 			try {
 				buffer = download(entry.getKey(), "Downloading %s from Archive to Memory");
 			} catch (IOException | InterruptedException e) {
-				log(Level.SEVERE, "Failed to load Artifact from Archive!", e);
-				return true;
+				throw new Exception("Failed to load Artifact from Archive!", e);
 			}
 			if (buffer.length == 0)
 				log(Level.WARNING, String.format("Artifact (%s) is empty!", groupId + '/' + artifactName), null);
@@ -431,7 +512,6 @@ public class SonatypeMavenCentralDeployExecution
 					MessageDigest.getInstance(MessageDigestAlgorithms.SHA_1)
 							.digest(buffer));
 		}
-		return false;
 	}
 
 	protected void appendArchiveEntry(final TarArchiveOutputStream archiveStream, final String path, final byte[] data)
