@@ -33,6 +33,10 @@ public class Bundle implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
+	public static final String METADATA_FILE_PATH = "file.path";
+	public static final String METADATA_FILE_NAME = "file.name";
+	public static final String METADATA_FILE_EXTENSION = "file.extension";
+
 	protected final Map<VirtualFile, Map<String, Serializable>> artifactMap = new ConcurrentHashMap<>();
 	protected final String id;
 
@@ -52,6 +56,19 @@ public class Bundle implements Serializable {
 
 	public Iterator<Map.Entry<VirtualFile, Map<String, Serializable>>> getArtifactIterator() {
 		return getArtifactStream().iterator();
+	}
+
+	public Stream<VirtualFile> getArtifactFileStream() {
+		return this.artifactMap.keySet()
+				.stream();
+	}
+
+	public Iterator<VirtualFile> getArtifactFileIterator() {
+		return getArtifactFileStream().iterator();
+	}
+
+	public Map<String, Serializable> getMetadata(final VirtualFile file) {
+		return this.artifactMap.get(file);
 	}
 
 	public Bundle indexArtifact(@NonNull final VirtualFile artifact,

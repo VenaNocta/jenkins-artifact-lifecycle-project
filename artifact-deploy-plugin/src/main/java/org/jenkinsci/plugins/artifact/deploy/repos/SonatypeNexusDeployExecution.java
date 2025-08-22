@@ -75,7 +75,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 	public static final String[] METADATA_MAVEN2_VERSION = //
 			new String[] { "maven2.version", "maven.version", "version" };
 	public static final String[] METADATA_MAVEN2_EXTENSION = //
-			new String[] { "maven2.extension", "maven.extension", "file.extension", "extension" };
+			new String[] { "maven2.extension", "maven.extension", "extension", Bundle.METADATA_FILE_EXTENSION };
 	public static final String[] METADATA_MAVEN2_CLASSIFIER = //
 			new String[] { "maven2.classifier", "maven.classifier", "classifier" };
 

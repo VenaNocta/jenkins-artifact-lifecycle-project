@@ -20,6 +20,7 @@ import java.util.LinkedList;
 import java.util.List;
 import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
 import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
+import org.jenkinsci.plugins.artifact.deploy.context.BundleUtils;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 
@@ -29,7 +30,6 @@ import hudson.model.AbstractBuild;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import jenkins.model.ArtifactManager;
-import jenkins.util.VirtualFile;
 
 public class BundleArtifactsStepExecution extends SynchronousStepExecution<Void> {
 
@@ -50,7 +50,6 @@ public class BundleArtifactsStepExecution extends SynchronousStepExecution<Void>
 				.getBundle(this.step.getBundle());
 
 		final ArtifactManager artifactManager = build.pickArtifactManager();
-		final VirtualFile archiveFileRoot = artifactManager.root();
 
 		final PrintStream logger = getContext().get(TaskListener.class)
 				.getLogger();
@@ -61,14 +60,14 @@ public class BundleArtifactsStepExecution extends SynchronousStepExecution<Void>
 		}
 
 		final List<String> index = new LinkedList<>();
-		for (String filePath : archiveFileRoot.list(artifacts, null, true)) {
-			final VirtualFile artifactFile = archiveFileRoot.child(filePath);
-
-			if (!artifactFile.isFile())
-				continue;
-			index.add(filePath);
-			bundle.indexArtifact(artifactFile, this.step.getMetadata());
-		}
+		BundleUtils.findArtifacts(artifactManager, artifacts, null, true, (artifactFile, metadata) -> {
+			// log the artifact's path
+			index.add(BundleUtils.getMetadataEntry(metadata, String.class, Bundle.METADATA_FILE_PATH));
+			// override with specified values
+			metadata.putAll(this.step.getMetadata());
+			// index artifact
+			bundle.indexArtifact(artifactFile, metadata);
+		});
 
 		logger.println(String.format(Messages.BundleArtifacts_Exec_FMT_Report(), index.size(), this.step.getBundle()));
 		for (String filePath : index) {

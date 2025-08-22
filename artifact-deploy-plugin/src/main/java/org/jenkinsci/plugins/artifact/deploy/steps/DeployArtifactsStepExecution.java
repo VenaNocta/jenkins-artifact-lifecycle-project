@@ -21,8 +21,6 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.net.URL;
-import java.util.Deque;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -36,6 +34,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
 import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
+import org.jenkinsci.plugins.artifact.deploy.context.BundleUtils;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
@@ -142,14 +141,7 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 				bundle = bundle.copy();
 
 			final ArtifactManager artifactManager = getRun().pickArtifactManager();
-			final VirtualFile archiveFileRoot = artifactManager.root();
-
-			for (String filePath : archiveFileRoot.list(artifacts, null, true)) {
-				final VirtualFile artifactFile = archiveFileRoot.child(filePath);
-				if (!artifactFile.isFile())
-					continue;
-				bundle.indexArtifact(artifactFile, this.step.getMetadata());
-			}
+			BundleUtils.indexArtifacts(bundle, artifactManager, artifacts, null, true, this.step.getMetadata());
 		}
 		// if nothing special is selected, return "default" Bundle
 		return bundle == null ? context.getBundle() : bundle;
@@ -157,12 +149,7 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 
 	protected <S extends Serializable> S getEntry(final Map<String, Serializable> metadata, final Class<S> type,
 			final String... keys) {
-		for (String key : keys) {
-			final Serializable obj = metadata.get(key);
-			if (type.isInstance(obj))
-				return (S) obj;
-		}
-		return null;
+		return BundleUtils.getMetadataEntry(metadata, type, keys);
 	}
 
 	protected String getEntryString(final Map<String, Serializable> metadata, final String... keys) {
@@ -170,7 +157,7 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 	}
 
 	protected String fullPath(final VirtualFile root, final VirtualFile file) {
-		return fullPath(root, file, n -> n);
+		return fullPath(root, file, null);
 	}
 
 	protected String fullPath(final VirtualFile root, final VirtualFile file, final String prefix,
@@ -179,15 +166,8 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 	}
 
 	protected String fullPath(@NonNull final VirtualFile root, @NonNull final VirtualFile file,
-			@NonNull final Function<String, String> nameMapper) {
-		final Deque<String> path = new LinkedList<>();
-		path.add(nameMapper.apply(file.getName()));
-		for (VirtualFile f = file.getParent(); f != null; f = f.getParent()) {
-			if (root.equals(f))
-				break;
-			path.addFirst(f.getName());
-		}
-		return String.join("/", path);
+			final Function<String, String> nameMapper) {
+		return BundleUtils.fullPath(root, file, nameMapper);
 	}
 
 	protected ProxyConfiguration getProxyConfiguration() {
