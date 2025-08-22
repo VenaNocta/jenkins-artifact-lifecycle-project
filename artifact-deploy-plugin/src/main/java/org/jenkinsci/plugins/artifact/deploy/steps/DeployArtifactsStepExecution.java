@@ -92,7 +92,7 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 			return;
 		} catch (IOException | InterruptedException e) {
 		}
-		// ok an when it doesn't work we push it to the instance logger
+		// ok, when it doesn't work we push it to the instance logger
 		final LogRecord record = new LogRecord(level, msg);
 		if (t != null)
 			record.setThrown(t);
