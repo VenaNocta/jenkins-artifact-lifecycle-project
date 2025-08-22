@@ -33,7 +33,6 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
-import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.TaskListener;
 
@@ -130,7 +129,8 @@ public class MergeBundleStep extends Step implements Serializable {
 			if (source == target) {
 				log(Level.WARNING, "Merging skipped: Source == Target", null);
 			} else {
-				log(Level.INFO, String.format("Merging %s into %s", source.getId(), target.getId()), null);
+				log(Level.INFO, String.format("Merging Bundle (%s) into Bundle (%s)", source.getId(), target.getId()),
+						null);
 				target.merge(source);
 			}
 
@@ -148,7 +148,6 @@ public class MergeBundleStep extends Step implements Serializable {
 			return "mergeBundle";
 		}
 
-		@NonNull
 		@Override
 		public String getDisplayName() {
 			return Messages.MergeBundle_DisplayName();
