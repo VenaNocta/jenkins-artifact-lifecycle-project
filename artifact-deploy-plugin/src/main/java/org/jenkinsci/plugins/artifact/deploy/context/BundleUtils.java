@@ -28,6 +28,8 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.apache.commons.lang.StringUtils;
+
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import jenkins.model.ArtifactManager;
@@ -74,13 +76,24 @@ public class BundleUtils {
 	}
 
 	@NonNull
-	public static String getFileExtension(final String fileName) {
+	public static String getFileExtension(String fileName) {
+		fileName = StringUtils.stripStart(fileName, "/.");
 		if (fileName == null)
 			return "";
-		final int idx = fileName.indexOf('.');
-		if (idx == -1)
+		final String[] arr = fileName.split("\\.");
+
+		if (arr.length < 2)
 			return "";
-		return fileName.substring(idx + 1);
+
+		for (int i = 1; i < arr.length; i++) {
+			if (arr[i].matches("^\\d+(-.+)?$"))
+				continue;
+			final String[] ext = new String[arr.length - i];
+			for (int j = 0; j < ext.length; i++, j++)
+				ext[j] = arr[i];
+			return String.join(".", ext);
+		}
+		return "";
 	}
 
 	public static <S extends Serializable> S getMetadataEntry(final Map<String, Serializable> metadata,

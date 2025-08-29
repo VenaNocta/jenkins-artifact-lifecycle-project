@@ -101,23 +101,28 @@ public class BundleInfoStep extends Step implements Serializable {
 			if (this.style == null) {
 				this.style = new CompoundTreeStyle() {
 					@Override
+					public CharSequence getInitialOffset() {
+						return "";
+					}
+
+					@Override
 					public CharSequence getNoElementOffset() {
 						return "  ";
 					}
 
 					@Override
 					public CharSequence getEmptyElementOffset() {
-						return "  ";
+						return "| ";
 					}
 
 					@Override
 					public CharSequence getElementOffset() {
-						return "- ";
+						return "├ ";
 					}
 
 					@Override
 					public CharSequence getLastElementOffset() {
-						return "- ";
+						return "└ ";
 					}
 
 					@Override
@@ -161,7 +166,7 @@ public class BundleInfoStep extends Step implements Serializable {
 					.log(record);
 		}
 
-		public CompoundTree createBundleTree(final CharSequence tag, final CharSequence value) {
+		public CompoundTree createTree(final CharSequence tag, final CharSequence value) {
 			return new SortedCompoundTree(tag, value, getStyle());
 		}
 
@@ -172,8 +177,7 @@ public class BundleInfoStep extends Step implements Serializable {
 			final boolean skipMetadata = !this.step.getMetadata();
 			final Bundle bundle = getBundle(context, this.step.getBundle());
 
-			final CompoundTree bundleTree = createBundleTree(null,
-					String.format("Artifacts in Bundle (%s)", bundle.getId()));
+			final CompoundTree bundleTree = createTree(null, String.format("Artifacts in Bundle (%s)", bundle.getId()));
 
 			for (Iterator<Entry<VirtualFile, Map<String, Serializable>>> i = bundle.getArtifactIterator(); i
 					.hasNext();) {
@@ -183,15 +187,14 @@ public class BundleInfoStep extends Step implements Serializable {
 						? BundleUtils.getMetadataEntry(metadata, String.class, Bundle.METADATA_FILE_PATH)
 						: null;
 				final CompoundTree artifactTree = new SortedCompoundTree(path == null ? entry.getKey()
-						.getName() : path);
+						.getName() : path, getStyle());
 				bundleTree.append(artifactTree);
 
 				if (skipMetadata)
 					continue;
 
 				for (Entry<String, Serializable> dataEntry : metadata.entrySet()) {
-					BundleUtils.indexMetadata(artifactTree, SortedCompoundTree::new, dataEntry.getKey(),
-							dataEntry.getValue());
+					BundleUtils.indexMetadata(artifactTree, this::createTree, dataEntry.getKey(), dataEntry.getValue());
 				}
 			}
 
