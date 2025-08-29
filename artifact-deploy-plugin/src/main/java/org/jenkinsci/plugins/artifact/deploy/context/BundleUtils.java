@@ -17,18 +17,23 @@ package org.jenkinsci.plugins.artifact.deploy.context;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import jenkins.model.ArtifactManager;
 import jenkins.util.VirtualFile;
+import net.runeduniverse.lib.utils.logging.log.api.CompoundTree;
+import net.runeduniverse.lib.utils.logging.log.api.Recordable;
 
 public class BundleUtils {
 
@@ -106,6 +111,53 @@ public class BundleUtils {
 			path.addFirst(f.getName());
 		}
 		return String.join("/", path);
+	}
+
+	public static void indexMetadata(final CompoundTree root,
+			final BiFunction<CharSequence, CharSequence, CompoundTree> subTreeFactory, final CharSequence key,
+			final Serializable data) {
+
+		if (data instanceof CharSequence d) {
+			root.append(key, d);
+			return;
+		}
+		if (data instanceof Recordable r) {
+			root.append(r.toRecord());
+			return;
+		}
+
+		final CompoundTree tree = subTreeFactory.apply(key, null);
+		if (data instanceof Map) {
+			final Map<?, ?> map = (Map<?, ?>) data;
+			for (Entry<?, ?> entry : map.entrySet()) {
+				final CharSequence k;
+				if (entry.getKey() instanceof CharSequence k0)
+					k = k0;
+				else
+					k = String.valueOf(entry.getKey());
+				final Serializable v;
+				if (entry.getValue() instanceof Serializable v0)
+					v = v0;
+				else
+					v = String.valueOf(entry.getValue());
+				indexMetadata(tree, subTreeFactory, k, v);
+			}
+		} else if (data instanceof Collection) {
+			final Collection<?> col = (Collection<?>) data;
+			for (Object obj : col) {
+				final Serializable v;
+				if (obj instanceof Serializable v0)
+					v = v0;
+				else
+					v = String.valueOf(obj);
+				indexMetadata(tree, subTreeFactory, null, v);
+			}
+		} else {
+			root.append(key, String.valueOf(data));
+			return;
+		}
+
+		root.append(tree);
 	}
 
 }

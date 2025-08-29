@@ -115,6 +115,10 @@
 		</dependency>
 
 		<!-- non packaged dependencies -->
+		<dependency>
+			<groupId>net.runeduniverse.lib.utils</groupId>
+			<artifactId>utils-logging</artifactId>
+		</dependency>
 
 		<!-- COMPILER -->
 		<!-- TEST -->

@@ -36,7 +36,7 @@ import org.kohsuke.stapler.DataBoundSetter;
 import hudson.Extension;
 import hudson.model.TaskListener;
 
-public class MergeBundleStep extends Step implements Serializable {
+public class BundleMergeStep extends Step implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
@@ -44,15 +44,15 @@ public class MergeBundleStep extends Step implements Serializable {
 	private String target;
 
 	@DataBoundConstructor
-	public MergeBundleStep() {
+	public BundleMergeStep() {
 	}
 
 	public String getSource() {
-		return source;
+		return this.source;
 	}
 
 	public String getTarget() {
-		return target;
+		return this.target;
 	}
 
 	@DataBoundSetter
@@ -67,16 +67,16 @@ public class MergeBundleStep extends Step implements Serializable {
 
 	@Override
 	public StepExecution start(final StepContext context) throws Exception {
-		return new MergeBundleExecution(context, this);
+		return new BundleMergeExecution(context, this);
 	}
 
-	public static class MergeBundleExecution extends StepExecution {
+	public static class BundleMergeExecution extends StepExecution {
 
 		private static final long serialVersionUID = 1L;
 
-		private final MergeBundleStep step;
+		private final BundleMergeStep step;
 
-		public MergeBundleExecution(final StepContext context, final MergeBundleStep step) {
+		public BundleMergeExecution(final StepContext context, final BundleMergeStep step) {
 			super(context);
 			this.step = step;
 		}
@@ -141,16 +141,16 @@ public class MergeBundleStep extends Step implements Serializable {
 	}
 
 	@Extension
-	public static class MergeBundleDescriptor extends StepDescriptor {
+	public static class BundleMergeDescriptor extends StepDescriptor {
 
 		@Override
 		public String getFunctionName() {
-			return "mergeBundle";
+			return "bundleMerge";
 		}
 
 		@Override
 		public String getDisplayName() {
-			return Messages.MergeBundle_DisplayName();
+			return Messages.BundleMerge_DisplayName();
 		}
 
 		@Override
