@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
@@ -41,24 +42,37 @@ import org.apache.commons.codec.digest.MessageDigestAlgorithms;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.Consts;
 import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
+import org.apache.http.annotation.Contract;
+import org.apache.http.annotation.ThreadingBehavior;
 import org.apache.http.auth.AUTH;
+import org.apache.http.auth.AuthScheme;
+import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.AuthenticationException;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.AuthCache;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.client.utils.URIUtils;
+import org.apache.http.config.Lookup;
+import org.apache.http.config.RegistryBuilder;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.auth.BasicSchemeFactory;
+import org.apache.http.impl.auth.DigestSchemeFactory;
+import org.apache.http.impl.auth.KerberosSchemeFactory;
+import org.apache.http.impl.auth.NTLMSchemeFactory;
+import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.apache.http.impl.client.BasicAuthCache;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -216,11 +230,22 @@ public class SonatypeMavenCentralDeployExecution
 			}
 		}
 
+		// configure auth provider
+		final Lookup<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
+				.register("Bearer", new BearerSchemeProvider())
+				.register(AuthSchemes.BASIC, new BasicSchemeFactory())
+				.register(AuthSchemes.DIGEST, new DigestSchemeFactory())
+				.register(AuthSchemes.NTLM, new NTLMSchemeFactory())
+				.register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory())
+				.register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())
+				.build();
+
 		final HttpClientContext context = HttpClientContext.create();
 		context.setAuthCache(authCache);
 
 		// handle upload
 		try (final CloseableHttpClient client = clientBuilder //
+				.setDefaultAuthSchemeRegistry(authSchemeRegistry)
 				.setDefaultCredentialsProvider(credProvider)
 				.build()) {
 			uploadBundle(client, context, uriBuilder, bundle);
@@ -533,9 +558,17 @@ public class SonatypeMavenCentralDeployExecution
 		archiveStream.closeArchiveEntry();
 	}
 
-	private static class BearerScheme extends BasicScheme {
+	public static class BearerScheme extends BasicScheme {
 
 		private static final long serialVersionUID = 1L;
+
+		public BearerScheme() {
+			this(Consts.ASCII);
+		}
+
+		public BearerScheme(final Charset charset) {
+			super(charset);
+		}
 
 		/**
 		 * Returns textual designation of the basic authentication scheme.
@@ -639,6 +672,36 @@ public class SonatypeMavenCentralDeployExecution
 					.append("]");
 			return builder.toString();
 		}
+	}
+
+	/**
+	 * {@link AuthSchemeProvider} implementation that creates and initializes
+	 * {@link BearerScheme} instances.
+	 *
+	 * @since 4.0
+	 */
+	@Contract(threading = ThreadingBehavior.IMMUTABLE)
+	public static class BearerSchemeProvider implements AuthSchemeProvider {
+
+		private final Charset charset;
+
+		/**
+		 * @since 4.3
+		 */
+		public BearerSchemeProvider(final Charset charset) {
+			super();
+			this.charset = charset;
+		}
+
+		public BearerSchemeProvider() {
+			this(null);
+		}
+
+		@Override
+		public AuthScheme create(final HttpContext context) {
+			return new BearerScheme(this.charset);
+		}
+
 	}
 
 }
