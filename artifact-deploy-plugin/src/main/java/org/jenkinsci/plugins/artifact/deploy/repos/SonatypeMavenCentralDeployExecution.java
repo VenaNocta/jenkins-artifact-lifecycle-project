@@ -37,6 +37,7 @@ import java.util.logging.Level;
 import java.util.zip.GZIPOutputStream;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.MessageDigestAlgorithms;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
@@ -511,17 +512,16 @@ public class SonatypeMavenCentralDeployExecution
 			if (buffer.length == 0)
 				log(Level.WARNING, String.format("Artifact (%s) is empty!", groupId + '/' + artifactName), null);
 			// add artifact to archive
-			appendArchiveEntry(archiveStream, String.join("/", groupId, artifactId, version, artifactName), buffer);
+			final String path = String.join("/", groupId, artifactId, version, artifactName);
+			appendArchiveEntry(archiveStream, path, buffer);
 			// check if checksums are required
 			if (StringUtils.endsWith(extension, ".asc"))
 				continue;
 			// calculate checksums and archive them as well
-			appendArchiveEntry(archiveStream, String.join("/", groupId, artifactId, version, (artifactName + ".md5")),
-					MessageDigest.getInstance(MessageDigestAlgorithms.MD5)
-							.digest(buffer));
-			appendArchiveEntry(archiveStream, String.join("/", groupId, artifactId, version, (artifactName + ".sha1")),
-					MessageDigest.getInstance(MessageDigestAlgorithms.SHA_1)
-							.digest(buffer));
+			appendHashEntry(archiveStream, path, buffer, "md5", MessageDigestAlgorithms.MD5);
+			appendHashEntry(archiveStream, path, buffer, "sha1", MessageDigestAlgorithms.SHA_1);
+			appendHashEntry(archiveStream, path, buffer, "sha256", MessageDigestAlgorithms.SHA_256);
+			appendHashEntry(archiveStream, path, buffer, "sha512", MessageDigestAlgorithms.SHA_512);
 		}
 	}
 
@@ -532,6 +532,14 @@ public class SonatypeMavenCentralDeployExecution
 		archiveStream.putArchiveEntry(entry);
 		archiveStream.write(data);
 		archiveStream.closeArchiveEntry();
+	}
+
+	protected void appendHashEntry(final TarArchiveOutputStream archiveStream, final String path, final byte[] data,
+			final String suffix, final String algorithm) throws NoSuchAlgorithmException, IOException {
+		appendArchiveEntry(archiveStream, String.join(".", path, suffix),
+				Hex.encodeHexString(MessageDigest.getInstance(algorithm)
+						.digest(data))
+						.getBytes());
 	}
 
 }
