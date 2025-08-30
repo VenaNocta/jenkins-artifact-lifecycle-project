@@ -367,6 +367,8 @@ public class SonatypeMavenCentralDeployExecution
 		try (ByteArrayOutputStream dataStream = new ByteArrayOutputStream()) {
 			try (TarArchiveOutputStream archiveStream = new TarArchiveOutputStream(
 					new GZIPOutputStream(new BufferedOutputStream(dataStream)))) {
+				// enable long filename support
+				archiveStream.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
 				// package the projects 1 by 1
 				for (Entry<String, Map<String, Map<String, Set<Entry<VirtualFile, Map<String, Serializable>>>>>> groupEntry : artifactsByGroupId
 						.entrySet()) {
