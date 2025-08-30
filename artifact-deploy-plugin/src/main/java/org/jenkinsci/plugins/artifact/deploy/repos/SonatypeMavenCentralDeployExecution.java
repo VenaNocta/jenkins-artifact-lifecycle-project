@@ -95,9 +95,10 @@ public class SonatypeMavenCentralDeployExecution
 	public static final String[] METADATA_CLASSIFIER = //
 			new String[] { "maven.classifier", "classifier" };
 	// KEYS = <extension> or <classifier>.<extension>
+	public static final String[] BASE_KEYS = //
+			new String[] { "pom", "pom.asc" };
 	public static final String[] MAIN_KEYS = //
-			new String[] { "pom", "pom.asc", //
-					"jar", "jar.asc", //
+			new String[] { "jar", "jar.asc", //
 					"javadoc.jar", "javadoc.jar.asc", //
 					"sources.jar", "sources.jar.asc" //
 			};
@@ -432,6 +433,7 @@ public class SonatypeMavenCentralDeployExecution
 
 	protected boolean validateProject(final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> artifacts,
 			final String groupId, final String artifactId, final String version) {
+		final Set<String> missingArtifacts = new HashSet<>(Set.of(BASE_KEYS));
 		final Set<String> mainKeys = new LinkedHashSet<>();
 		final Set<String> testKeys = new LinkedHashSet<>();
 
@@ -444,17 +446,23 @@ public class SonatypeMavenCentralDeployExecution
 			final String extension = getEntryString(metadata, METADATA_EXTENSION);
 			if ("tests".equals(classifier) || StringUtils.startsWith(classifier, "test-"))
 				testKeys.add(classifier + '.' + extension);
-			else {
-				if (classifier == null)
+			else if (classifier == null) {
+				if (missingArtifacts.remove(extension)) {
+					// required base-key found
+				} else
 					mainKeys.add(extension);
-				else
-					mainKeys.add(classifier + '.' + extension);
-			}
+			} else
+				mainKeys.add(classifier + '.' + extension);
 		}
 
-		// validate overall completeness by main/test-Keys
-		final Set<String> missingArtifacts = new HashSet<>(Set.of(MAIN_KEYS));
-		missingArtifacts.removeAll(mainKeys);
+		// validate overall completeness by main/test-keys
+		if (!mainKeys.isEmpty()) {
+			// if main artifacts exist
+			// 1. add all main key requirements
+			missingArtifacts.addAll(Set.of(MAIN_KEYS));
+			// 2. remove all found main-keys
+			missingArtifacts.removeAll(mainKeys);
+		}
 		if (!testKeys.isEmpty()) {
 			// if test artifacts exist
 			// 1. add all test key requirements
