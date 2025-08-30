@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
@@ -45,42 +44,21 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.http.Consts;
 import org.apache.http.Header;
 import org.apache.http.HttpHost;
-import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
-import org.apache.http.annotation.Contract;
-import org.apache.http.annotation.ThreadingBehavior;
 import org.apache.http.auth.AUTH;
-import org.apache.http.auth.AuthScheme;
-import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.AuthenticationException;
 import org.apache.http.auth.Credentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.AuthCache;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.http.client.utils.URIUtils;
-import org.apache.http.config.Lookup;
-import org.apache.http.config.RegistryBuilder;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.impl.auth.BasicScheme;
-import org.apache.http.impl.auth.BasicSchemeFactory;
-import org.apache.http.impl.auth.DigestSchemeFactory;
-import org.apache.http.impl.auth.KerberosSchemeFactory;
-import org.apache.http.impl.auth.NTLMSchemeFactory;
-import org.apache.http.impl.auth.SPNegoSchemeFactory;
-import org.apache.http.impl.client.BasicAuthCache;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.message.BufferedHeader;
-import org.apache.http.protocol.HttpContext;
-import org.apache.http.util.Args;
 import org.apache.http.util.CharArrayBuffer;
 import org.apache.http.util.EncodingUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.URIBuilder;
@@ -184,9 +162,8 @@ public class SonatypeMavenCentralDeployExecution
 		}
 
 		final URIBuilder uriBuilder = new URIBuilder(repoConfig.getURI());
-		final URI uri;
 		try {
-			uri = uriBuilder.toURI();
+			uriBuilder.toURI();
 		} catch (URISyntaxException e) {
 			// theoretically impossible!
 			log(Level.SEVERE, "Invalid Server address!", e);
@@ -194,19 +171,29 @@ public class SonatypeMavenCentralDeployExecution
 			return true;
 		}
 
-		final HttpHost portalHost = URIUtils.extractHost(uri);
 		final BasicCredentialsProvider credProvider = new BasicCredentialsProvider();
-		final AuthCache authCache = new BasicAuthCache();
+		final List<Header> defaultHeaders = new LinkedList<>();
 
 		// set target credentials
 		try {
 			useCreds(cred -> {
 				log(Level.INFO, "using Credentials: [" + cred.getId() + "]", null);
-				credProvider.setCredentials(new AuthScope(portalHost),
-						new UsernamePasswordCredentials(cred.getUsername(), cred.getPassword()
-								.getPlainText()) //
-				);
-				authCache.put(portalHost, new BearerScheme());
+				final StringBuilder tmp = new StringBuilder();
+				tmp.append(cred.getUsername());
+				tmp.append(":");
+				tmp.append(cred.getPassword()
+						.getPlainText());
+
+				final Base64 base64codec = new Base64(0);
+				final byte[] base64password = base64codec
+						.encode(EncodingUtils.getBytes(tmp.toString(), Consts.ASCII.name()));
+
+				final CharArrayBuffer buffer = new CharArrayBuffer(32);
+				buffer.append(AUTH.WWW_AUTH_RESP);
+				buffer.append(": Bearer ");
+				buffer.append(base64password, 0, base64password.length);
+
+				defaultHeaders.add(new BufferedHeader(buffer));
 			});
 		} catch (Throwable t) {
 			log(Level.SEVERE, "Failed to load Credentials from Credentials-Store!", t);
@@ -230,22 +217,11 @@ public class SonatypeMavenCentralDeployExecution
 			}
 		}
 
-		// configure auth provider
-		final Lookup<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
-				.register("Bearer", new BearerSchemeProvider())
-				.register(AuthSchemes.BASIC, new BasicSchemeFactory())
-				.register(AuthSchemes.DIGEST, new DigestSchemeFactory())
-				.register(AuthSchemes.NTLM, new NTLMSchemeFactory())
-				.register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory())
-				.register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())
-				.build();
-
 		final HttpClientContext context = HttpClientContext.create();
-		context.setAuthCache(authCache);
 
 		// handle upload
 		try (final CloseableHttpClient client = clientBuilder //
-				.setDefaultAuthSchemeRegistry(authSchemeRegistry)
+				.setDefaultHeaders(defaultHeaders)
 				.setDefaultCredentialsProvider(credProvider)
 				.build()) {
 			uploadBundle(client, context, uriBuilder, bundle);
@@ -556,152 +532,6 @@ public class SonatypeMavenCentralDeployExecution
 		archiveStream.putArchiveEntry(entry);
 		archiveStream.write(data);
 		archiveStream.closeArchiveEntry();
-	}
-
-	public static class BearerScheme extends BasicScheme {
-
-		private static final long serialVersionUID = 1L;
-
-		public BearerScheme() {
-			this(Consts.ASCII);
-		}
-
-		public BearerScheme(final Charset charset) {
-			super(charset);
-		}
-
-		/**
-		 * Returns textual designation of the basic authentication scheme.
-		 *
-		 * @return {@code basic}
-		 */
-		@Override
-		public String getSchemeName() {
-			return "bearer";
-		}
-
-		/**
-		 * Produces basic authorization header for the given set of {@link Credentials}.
-		 *
-		 * @param credentials The set of credentials to be used for authentication
-		 * @param request     The request being authenticated
-		 * @throws org.apache.http.auth.InvalidCredentialsException if authentication
-		 *                                                          credentials are not
-		 *                                                          valid or not
-		 *                                                          applicable for this
-		 *                                                          authentication
-		 *                                                          scheme
-		 * @throws AuthenticationException                          if authorization
-		 *                                                          string cannot be
-		 *                                                          generated due to an
-		 *                                                          authentication
-		 *                                                          failure
-		 *
-		 * @return a basic authorization string
-		 */
-		@Override
-		public Header authenticate(final Credentials credentials, final HttpRequest request, final HttpContext context)
-				throws AuthenticationException {
-
-			Args.notNull(credentials, "Credentials");
-			Args.notNull(request, "HTTP request");
-			final StringBuilder tmp = new StringBuilder();
-			tmp.append(credentials.getUserPrincipal()
-					.getName());
-			tmp.append(":");
-			tmp.append((credentials.getPassword() == null) ? "null" : credentials.getPassword());
-
-			final Base64 base64codec = new Base64(0);
-			final byte[] base64password = base64codec
-					.encode(EncodingUtils.getBytes(tmp.toString(), getCredentialsCharset().name()));
-
-			final CharArrayBuffer buffer = new CharArrayBuffer(32);
-			if (isProxy()) {
-				buffer.append(AUTH.PROXY_AUTH_RESP);
-			} else {
-				buffer.append(AUTH.WWW_AUTH_RESP);
-			}
-			buffer.append(": Bearer ");
-			buffer.append(base64password, 0, base64password.length);
-
-			return new BufferedHeader(buffer);
-		}
-
-		/**
-		 * Returns a basic {@code Authorization} header value for the given
-		 * {@link Credentials} and charset.
-		 *
-		 * @param credentials The credentials to encode.
-		 * @param charset     The charset to use for encoding the credentials
-		 *
-		 * @return a basic authorization header
-		 *
-		 * @deprecated (4.3) use
-		 *             {@link #authenticate(Credentials, HttpRequest, HttpContext)}.
-		 */
-		@Deprecated
-		public static Header authenticate(final Credentials credentials, final String charset, final boolean proxy) {
-			Args.notNull(credentials, "Credentials");
-			Args.notNull(charset, "charset");
-
-			final StringBuilder tmp = new StringBuilder();
-			tmp.append(credentials.getUserPrincipal()
-					.getName());
-			tmp.append(":");
-			tmp.append((credentials.getPassword() == null) ? "null" : credentials.getPassword());
-
-			final byte[] base64password = Base64.encodeBase64(EncodingUtils.getBytes(tmp.toString(), charset), false);
-
-			final CharArrayBuffer buffer = new CharArrayBuffer(32);
-			if (proxy) {
-				buffer.append(AUTH.PROXY_AUTH_RESP);
-			} else {
-				buffer.append(AUTH.WWW_AUTH_RESP);
-			}
-			buffer.append(": Bearer ");
-			buffer.append(base64password, 0, base64password.length);
-
-			return new BufferedHeader(buffer);
-		}
-
-		@Override
-		public String toString() {
-			final StringBuilder builder = new StringBuilder();
-			builder.append("BEARER [complete=")
-					.append(isComplete())
-					.append("]");
-			return builder.toString();
-		}
-	}
-
-	/**
-	 * {@link AuthSchemeProvider} implementation that creates and initializes
-	 * {@link BearerScheme} instances.
-	 *
-	 * @since 4.0
-	 */
-	@Contract(threading = ThreadingBehavior.IMMUTABLE)
-	public static class BearerSchemeProvider implements AuthSchemeProvider {
-
-		private final Charset charset;
-
-		/**
-		 * @since 4.3
-		 */
-		public BearerSchemeProvider(final Charset charset) {
-			super();
-			this.charset = charset;
-		}
-
-		public BearerSchemeProvider() {
-			this(null);
-		}
-
-		@Override
-		public AuthScheme create(final HttpContext context) {
-			return new BearerScheme(this.charset);
-		}
-
 	}
 
 }
