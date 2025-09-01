@@ -26,7 +26,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 
 import org.apache.commons.lang.StringUtils;
@@ -57,12 +57,12 @@ import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
-import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
+import hudson.AbortException;
 import hudson.model.Result;
 import jenkins.util.VirtualFile;
 
@@ -86,16 +86,12 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		super(context, step, repo);
 	}
 
-	protected void useCreds(Consumer<StandardUsernamePasswordCredentials> consumer)
+	protected void useCreds(Function<StandardUsernamePasswordCredentials, Boolean> consumer)
 			throws IOException, InterruptedException {
 		final String credentialsId = repoConfig.getCredentialsId();
 		if (credentialsId == null)
 			return;
-		final StandardUsernamePasswordCredentials credentials = CredentialsProvider.findCredentialById(credentialsId,
-				StandardUsernamePasswordCredentials.class, getRun());
-		if (credentials == null)
-			throw new IOException("Credentials Unavailable!");
-		consumer.accept(credentials);
+		super.useCreds(StandardUsernamePasswordCredentials.class, credentialsId, consumer);
 	}
 
 	@Override
@@ -110,20 +106,16 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		}
 
 		final String repo = StringUtils.trimToNull(repoConfig.getRepo());
-		if (repo == null) {
-			log(Level.SEVERE, "Repository not set!", null);
-			getContext().onFailure(new NullPointerException("Repository not set!"));
-			return true;
-		}
+		if (repo == null)
+			throw new AbortException("Namespace not set!");
 
 		final URIBuilder uriBuilder = new URIBuilder(repoConfig.getUri()).appendPath("/service/rest/");
 		final URI uri;
 		try {
 			uri = uriBuilder.toURI();
 		} catch (URISyntaxException e) {
-			log(Level.SEVERE, "Invalid Server address!", e);
-			getContext().onFailure(e);
-			return true;
+			// theoretically impossible!
+			throw new AbortException("Invalid Server address!");
 		}
 
 		final HttpHost nexusHost = URIUtils.extractHost(uri);
@@ -138,7 +130,10 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 								.getPlainText()) //
 				);
 				authCache.put(nexusHost, new BasicScheme());
+				return true;
 			});
+		} catch (AbortException e) {
+			throw e;
 		} catch (Throwable t) {
 			log(Level.SEVERE, "Failed to load Credentials from Credentials-Store!", t);
 			getContext().onFailure(t);
@@ -176,17 +171,23 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 				getContext().onSuccess(null);
 				break;
 			}
-		} catch (URISyntaxException e) {
+		}
+		// known validation or operation errors
+		catch (AbortException e) {
+			throw e;
+		}
+		// TODO catch Authorization-Exception
+		// unexpected errors
+		catch (URISyntaxException e) {
 			log(Level.SEVERE, "Invalid URI!", e);
 			getContext().onFailure(e);
 		} catch (IOException e) {
-			log(Level.SEVERE, "Failed to connect to Server!", e);
+			log(Level.SEVERE, "Connection lost!", e);
 			getContext().onFailure(e);
 		} catch (Exception e) {
 			log(Level.SEVERE, e.getMessage(), e);
 			getContext().onFailure(e);
 		}
-		// TODO catch Authorization-Exception
 		return true;
 	}
 
@@ -216,14 +217,14 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 						if (repo.equals(id) && format != null && "hosted".equals(type))
 							return format;
 					}
-					throw new Exception("Repositories not found!");
+					throw new AbortException("Repositories not found!");
 				}
 			}
 			// else -> fallback to no content
 		case -1:
 		case 204:
 		default:
-			throw new Exception("No Repositories available!");
+			throw new AbortException("No Repositories available!");
 		}
 	}
 
@@ -275,10 +276,9 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 
 		if (!invalidArtifacts.isEmpty())
 			log(Level.WARNING, invalidArtifacts.size() + " Artifacts with invalid Metadata found!", null);
-		if (errors) {
-			log(Level.SEVERE, "Upload failed!", null);
-			getContext().onFailure(new Exception("Upload failed!"));
-		} else {
+		if (errors)
+			new AbortException("Upload failed!");
+		else {
 			log(Level.INFO, "Upload completed!", null);
 			getContext().onSuccess(null);
 		}

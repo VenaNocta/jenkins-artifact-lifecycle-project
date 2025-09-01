@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
@@ -32,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.zip.GZIPOutputStream;
 
@@ -44,6 +45,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Consts;
 import org.apache.http.Header;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
@@ -68,8 +70,9 @@ import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
-import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+
+import hudson.AbortException;
 import jenkins.util.VirtualFile;
 
 public class SonatypeMavenCentralDeployExecution
@@ -132,16 +135,12 @@ public class SonatypeMavenCentralDeployExecution
 		return selected;
 	}
 
-	protected void useCreds(Consumer<StandardUsernamePasswordCredentials> consumer)
+	protected void useCreds(Function<StandardUsernamePasswordCredentials, Boolean> consumer)
 			throws IOException, InterruptedException {
 		final String credentialsId = repoConfig.getCredentialsId();
 		if (credentialsId == null)
 			return;
-		final StandardUsernamePasswordCredentials credentials = CredentialsProvider.findCredentialById(credentialsId,
-				StandardUsernamePasswordCredentials.class, getRun());
-		if (credentials == null)
-			throw new IOException("Credentials Unavailable!");
-		consumer.accept(credentials);
+		super.useCreds(StandardUsernamePasswordCredentials.class, credentialsId, consumer);
 	}
 
 	@Override
@@ -156,20 +155,15 @@ public class SonatypeMavenCentralDeployExecution
 		}
 
 		final String namespace = StringUtils.trimToNull(repoConfig.getNamespace());
-		if (namespace == null) {
-			log(Level.SEVERE, "Namespace not set!", null);
-			getContext().onFailure(new NullPointerException("Namespace not set!"));
-			return true;
-		}
+		if (namespace == null)
+			throw new AbortException("Namespace not set!");
 
 		final URIBuilder uriBuilder = new URIBuilder(repoConfig.getURI());
 		try {
 			uriBuilder.toURI();
 		} catch (URISyntaxException e) {
 			// theoretically impossible!
-			log(Level.SEVERE, "Invalid Server address!", e);
-			getContext().onFailure(e);
-			return true;
+			throw new AbortException("Invalid Server address!");
 		}
 
 		final BasicCredentialsProvider credProvider = new BasicCredentialsProvider();
@@ -195,7 +189,10 @@ public class SonatypeMavenCentralDeployExecution
 				buffer.append(base64password, 0, base64password.length);
 
 				defaultHeaders.add(new BufferedHeader(buffer));
+				return true;
 			});
+		} catch (AbortException e) {
+			throw e;
 		} catch (Throwable t) {
 			log(Level.SEVERE, "Failed to load Credentials from Credentials-Store!", t);
 			getContext().onFailure(t);
@@ -225,9 +222,17 @@ public class SonatypeMavenCentralDeployExecution
 				.setDefaultHeaders(defaultHeaders)
 				.setDefaultCredentialsProvider(credProvider)
 				.build()) {
-			uploadBundle(client, context, uriBuilder, bundle);
+			final String deploymentId = uploadBundle(client, context, uriBuilder, bundle);
+
 			getContext().onSuccess(null);
-		} catch (URISyntaxException e) {
+		}
+		// known validation or operation errors
+		catch (AbortException e) {
+			throw e;
+		}
+		// TODO catch Authorization-Exception
+		// unexpected errors
+		catch (URISyntaxException e) {
 			log(Level.SEVERE, "Invalid URI!", e);
 			getContext().onFailure(e);
 		} catch (IOException e) {
@@ -237,7 +242,6 @@ public class SonatypeMavenCentralDeployExecution
 			log(Level.SEVERE, e.getMessage(), e);
 			getContext().onFailure(e);
 		}
-		// TODO catch Authorization-Exception
 		return true;
 	}
 
@@ -248,7 +252,7 @@ public class SonatypeMavenCentralDeployExecution
 		return groupIdList;
 	}
 
-	protected void uploadBundle(final HttpClient client, final HttpClientContext context, final URIBuilder uriBuilder,
+	protected String uploadBundle(final HttpClient client, final HttpClientContext context, final URIBuilder uriBuilder,
 			final Bundle bundle) throws Exception {
 		final Map<String, Map<String, Map<String, Set<Map.Entry<VirtualFile, Map<String, Serializable>>>>>> artifactsByGroupId = new LinkedHashMap<>();
 		// group all artifacts by their groups
@@ -329,13 +333,13 @@ public class SonatypeMavenCentralDeployExecution
 				if (ignoreMissingArtifacts())
 					log(Level.WARNING, "Continuing deploy without invalid projects", null);
 				else
-					throw new Exception("Some Projects can not be deployed!");
+					throw new AbortException("Some Projects can not be deployed!");
 			}
 		}
 		// check if there are any projects left to be deployed!
 		if (artifactsByGroupId.isEmpty()) {
 			log(Level.WARNING, "No deployable Projects found, skipping Upload!", null);
-			return;
+			return null;
 		}
 		// build bundle name from common groupId
 		final String bundleName;
@@ -412,7 +416,7 @@ public class SonatypeMavenCentralDeployExecution
 			if (statusLine == null)
 				// return as error as something in the connection broke and we have no clue what
 				// happened!
-				throw new IOException();
+				throw new AbortException("Connection failed!");
 
 			switch (statusLine.getStatusCode()) {
 			case 201:
@@ -420,19 +424,27 @@ public class SonatypeMavenCentralDeployExecution
 				// Body -> The deployment identifier for created deployment.
 				break;
 			case 400:
-				throw new Exception("Invalid Credentials!");
+				throw new AbortException("Invalid Credentials!");
 			case 401:
-				throw new Exception("User unauthenticated!");
+				throw new AbortException("User unauthenticated!");
 			case 403:
-				throw new Exception("User unauthorized! Check the Namespace!");
+				throw new AbortException("User unauthorized! Check the Namespace!");
 			default:
-				throw new Exception(
+				throw new AbortException(
 						"Upload returned: (" + statusLine.getStatusCode() + ") " + statusLine.getReasonPhrase());
 			}
+
+			String deploymentId = null;
+			final HttpEntity responseEntity = response.getEntity();
+			if (responseEntity != null) {
+				deploymentId = new String(responseEntity.getContent()
+						.readAllBytes(), StandardCharsets.UTF_8);
+			}
+			log(Level.INFO, String.format("Upload completed! Deployment (id: %s) validating!", deploymentId), null);
+			return deploymentId;
 		} catch (NoSuchAlgorithmException e) {
-			throw new Exception("Hash Algorithm not found!", e);
+			throw new InternalError("Hash Algorithm not found!", e);
 		}
-		log(Level.INFO, "Upload completed!", null);
 	}
 
 	protected boolean validateProject(final Set<Map.Entry<VirtualFile, Map<String, Serializable>>> artifacts,
@@ -507,7 +519,7 @@ public class SonatypeMavenCentralDeployExecution
 			try {
 				buffer = download(entry.getKey(), "Downloading %s from Archive to Memory");
 			} catch (IOException | InterruptedException e) {
-				throw new Exception("Failed to load Artifact from Archive!", e);
+				throw new AbortException("Failed to load Artifact from Archive!");
 			}
 			if (buffer.length == 0)
 				log(Level.WARNING, String.format("Artifact (%s) is empty!", groupId + '/' + artifactName), null);

@@ -35,13 +35,19 @@ import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository
 import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
 import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
 import org.jenkinsci.plugins.artifact.deploy.context.BundleUtils;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
+import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.common.IdCredentials;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.ProxyConfiguration;
 import hudson.model.AbstractBuild;
+import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import io.jenkins.plugins.httpclient.RobustHTTPClient;
@@ -127,6 +133,15 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 		return getContext().get(BundleContext.class);
 	}
 
+	protected Result getResult() throws IOException, InterruptedException {
+		final StepContext context = getContext();
+		if (context.get(FlowExecution.class) instanceof CpsFlowExecution exec) {
+			return exec.getResult();
+		}
+		return context.get(Run.class)
+				.getResult();
+	}
+
 	@NonNull
 	protected Bundle getSelectedBundle() throws IOException, InterruptedException {
 		final String artifacts = getArtifactPaths();
@@ -145,6 +160,29 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 		}
 		// if nothing special is selected, return "default" Bundle
 		return bundle == null ? context.getBundle() : bundle;
+	}
+
+	protected void setResult(final Result result) throws IOException, InterruptedException {
+		final StepContext context = getContext();
+		if (context.get(FlowExecution.class) instanceof CpsFlowExecution exec) {
+			exec.setResult(result);
+		} else {
+			context.get(Run.class)
+					.setResult(result);
+		}
+	}
+
+	protected <C extends IdCredentials> void useCreds(final Class<C> type, final String id,
+			final Function<C, Boolean> consumer) throws IOException, InterruptedException {
+		final String credentialsId = id;
+		if (credentialsId == null)
+			return;
+		final Run<?, ?> run = getRun();
+		final C credentials = CredentialsProvider.findCredentialById(credentialsId, type, run);
+		if (credentials == null)
+			throw new AbortException(String.format("Credentials (id: %s) Unavailable!", credentialsId));
+		if (consumer.apply(credentials))
+			CredentialsProvider.track(run, credentials);
 	}
 
 	protected <S extends Serializable> S getEntry(final Map<String, Serializable> metadata, final Class<S> type,
