@@ -352,6 +352,19 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 				// Bad Request
 				// [{"id":"*","message":"Not authorized for requested path
 				// '/xxx/yyy/0.0.0/yyy-0.0.0.jar'"}]
+				JsonNode rootNode = null;
+				final HttpEntity data = response.getEntity();
+				if (data != null) {
+					rootNode = new ObjectMapper().readTree(data.getContent());
+				}
+				if (rootNode != null && rootNode instanceof ArrayNode arrayNode) {
+					for (Iterator<JsonNode> i = arrayNode.elements(); i.hasNext();) {
+						final String msg = StringUtils.trimToNull(getValue(i.next()
+								.get("message")));
+						if (msg != null)
+							log(Level.WARNING, "Bad Request: " + msg, null);
+					}
+				}
 			case 403:
 				log(Level.SEVERE, "Insufficient permissions to upload a component!", null);
 				return true;
