@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -58,6 +59,7 @@ import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -353,20 +355,31 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 				// [{"id":"*","message":"Not authorized for requested path
 				// '/xxx/yyy/0.0.0/yyy-0.0.0.jar'"}]
 				JsonNode rootNode = null;
-				final HttpEntity data = response.getEntity();
-				if (data != null) {
-					rootNode = new ObjectMapper().readTree(data.getContent());
+				final HttpEntity responseEntity = response.getEntity();
+				if (responseEntity != null) {
+					final String responseData = new String(responseEntity.getContent()
+							.readAllBytes(), StandardCharsets.UTF_8);
+					try {
+						rootNode = new ObjectMapper().readTree(responseData);
+					} catch (JsonParseException e) {
+						log(Level.WARNING, "Bad Request: " + responseData, null);
+					}
 				}
-				if (rootNode != null && rootNode instanceof ArrayNode arrayNode) {
+				if (rootNode instanceof ArrayNode arrayNode) {
 					for (Iterator<JsonNode> i = arrayNode.elements(); i.hasNext();) {
 						final String msg = StringUtils.trimToNull(getValue(i.next()
 								.get("message")));
-						if (msg != null)
-							log(Level.WARNING, "Bad Request: " + msg, null);
+						if (msg != null) {
+							if (msg.startsWith("Not authorized for requested path"))
+								log(Level.WARNING, "Insufficient permissions to upload component!", null);
+							else
+								log(Level.WARNING, "Bad Request: " + msg, null);
+						}
 					}
 				}
+				return true;
 			case 403:
-				log(Level.SEVERE, "Insufficient permissions to upload a component!", null);
+				log(Level.SEVERE, "Insufficient permissions to upload component!", null);
 				return true;
 			case 422:
 				log(Level.SEVERE, "Parameter 'repository' is required or invalid 'repository'!", null);
