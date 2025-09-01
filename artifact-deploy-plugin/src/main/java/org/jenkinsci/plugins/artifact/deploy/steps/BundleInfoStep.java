@@ -84,7 +84,7 @@ public class BundleInfoStep extends Step implements Serializable {
 
 		private final BundleInfoStep step;
 
-		private CompoundTreeStyle style = null;;
+		private CompoundTreeStyle style = null;
 
 		public BundleInfoExecution(final StepContext context, final BundleInfoStep step) {
 			super(context);

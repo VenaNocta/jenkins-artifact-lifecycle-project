@@ -71,15 +71,26 @@ import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import hudson.AbortException;
+import hudson.model.Result;
 import jenkins.util.VirtualFile;
+import net.runeduniverse.lib.utils.logging.log.DefaultCompoundTree;
+import net.runeduniverse.lib.utils.logging.log.api.CompoundTree;
+import net.runeduniverse.lib.utils.logging.log.api.CompoundTreeStyle;
 
 public class SonatypeMavenCentralDeployExecution
 		extends DeployArtifactsStepExecution<SonatypeMavenCentralDeploymentRepository> {
 
 	public static final String[] OPTION_PUBLISHING_TYPE = //
-			new String[] { "publishingType", "publishingMode" };
+			new String[] { "publishing.type", "publishing.mode" };
+	public static final String[] OPTION_VALIDATION_RETRIES = //
+			new String[] { "validation.retries" };
+	public static final String[] OPTION_VALIDATION_TIMEOUT = //
+			new String[] { "validation.timeout" };
 	public static final String[] METADATA_GROUPID = //
 			new String[] { "maven.groupId", "groupId" };
 	public static final String[] METADATA_ARTIFACTID = //
@@ -104,7 +115,12 @@ public class SonatypeMavenCentralDeployExecution
 					"test-sources.jar", "test-sources.jar.asc" //
 			};
 
+	public static final long DEFAULT_OPTION_VALIDATION_RETRIES = 100;
+	public static final long DEFAULT_OPTION_VALIDATION_TIMEOUT = 5000; // ms => 5s
+
 	private static final long serialVersionUID = 1L;
+
+	private CompoundTreeStyle style = null;
 
 	protected SonatypeMavenCentralDeployExecution(final StepContext context, final DeployArtifactsStep step,
 			final SonatypeMavenCentralDeploymentRepository repo) {
@@ -135,12 +151,63 @@ public class SonatypeMavenCentralDeployExecution
 		return selected;
 	}
 
+	protected long getValidationRetries() {
+		final Number selected = getEntry(this.step.getOptions(), Number.class, OPTION_VALIDATION_RETRIES);
+		if (selected == null)
+			return DEFAULT_OPTION_VALIDATION_RETRIES;
+		return selected.longValue();
+	}
+
+	protected long getValidationTimeout() {
+		final Number selected = getEntry(this.step.getOptions(), Number.class, OPTION_VALIDATION_TIMEOUT);
+		if (selected == null)
+			return DEFAULT_OPTION_VALIDATION_TIMEOUT;
+		return selected.longValue();
+	}
+
 	protected void useCreds(Function<StandardUsernamePasswordCredentials, Boolean> consumer)
 			throws IOException, InterruptedException {
 		final String credentialsId = repoConfig.getCredentialsId();
 		if (credentialsId == null)
 			return;
 		super.useCreds(StandardUsernamePasswordCredentials.class, credentialsId, consumer);
+	}
+
+	protected CompoundTreeStyle getStyle() {
+		if (this.style == null) {
+			this.style = new CompoundTreeStyle() {
+				@Override
+				public CharSequence getInitialOffset() {
+					return "";
+				}
+
+				@Override
+				public CharSequence getNoElementOffset() {
+					return "  ";
+				}
+
+				@Override
+				public CharSequence getEmptyElementOffset() {
+					return "| ";
+				}
+
+				@Override
+				public CharSequence getElementOffset() {
+					return "├ ";
+				}
+
+				@Override
+				public CharSequence getLastElementOffset() {
+					return "└ ";
+				}
+
+				@Override
+				public boolean getTagsToUpper() {
+					return false;
+				}
+			};
+		}
+		return this.style;
 	}
 
 	@Override
@@ -223,6 +290,7 @@ public class SonatypeMavenCentralDeployExecution
 				.setDefaultCredentialsProvider(credProvider)
 				.build()) {
 			final String deploymentId = uploadBundle(client, context, uriBuilder, bundle);
+			pollValidation(client, context, uriBuilder, deploymentId);
 
 			getContext().onSuccess(null);
 		}
@@ -552,6 +620,121 @@ public class SonatypeMavenCentralDeployExecution
 				Hex.encodeHexString(MessageDigest.getInstance(algorithm)
 						.digest(data))
 						.getBytes());
+	}
+
+	protected void pollValidation(final HttpClient client, final HttpClientContext context, final URIBuilder uriBuilder,
+			final String deploymentId) throws IOException, InterruptedException, URISyntaxException {
+		long mxRetries = getValidationRetries();
+		long retryCnt = 0;
+		short state = -1;
+		long timeout = getValidationTimeout();
+		// states:
+		// 0 - PENDING
+		// 1 - VALIDATING
+		// 2 - VALIDATED || PUBLISHING || PUBLISHED
+		// 3 - FAILED
+		POLLING: for (; retryCnt < mxRetries; retryCnt++) {
+			final JsonNode response = getDeploymentStatus(client, context, uriBuilder, deploymentId);
+			if (response == null)
+				continue;
+			switch (getValue(response.get("deploymentState"))) {
+			// Waiting States
+			case "PENDING":
+				if (state == 0)
+					break;
+				log(Level.INFO, "Maven Central Portal: Validation Pending", null);
+				state = 0;
+				break;
+			case "VALIDATING":
+				if (state == 1)
+					break;
+				log(Level.INFO, "Maven Central Portal: Validation in Progress", null);
+				state = 1;
+				break;
+			// Success / Failure States
+			case "FAILED":
+				// it failed -> show the errors (they have sections!) as tree
+				final CompoundTree tree = new DefaultCompoundTree("Maven Central Portal: Validation Failed!",
+						getStyle());
+				for (Iterator<Map.Entry<String, JsonNode>> i = response.get("errors")
+						.fields(); i.hasNext();) {
+					final Map.Entry<String, JsonNode> entry = i.next();
+
+					final ArrayNode arrayNode;
+					if (entry.getValue() instanceof ArrayNode node)
+						arrayNode = node;
+					else
+						continue;
+
+					final CompoundTree error = new DefaultCompoundTree(entry.getKey(), getStyle());
+					arrayNode.forEach(v -> error.append(v.asText()));
+					tree.append(error);
+				}
+				// log errors as warnings!
+				for (String line : tree.toText())
+					log(Level.WARNING, line, null);
+				// flag as 'UNSTABLE'
+				setResult(Result.UNSTABLE);
+				break POLLING;
+			default:
+				log(Level.INFO, "Maven Central Portal: Validation Successful", null);
+				state = 2;
+				break POLLING;
+			}
+			Thread.sleep(timeout);
+		}
+
+		// Too many retries!
+		if (mxRetries <= retryCnt) {
+			log(Level.WARNING, "Deployment Validation took too long!", null);
+			setResult(Result.UNSTABLE);
+		}
+	}
+
+	protected JsonNode getDeploymentStatus(final HttpClient client, final HttpClientContext context,
+			final URIBuilder uriBuilder, final String deploymentId) throws URISyntaxException, IOException {
+		final URI uri = uriBuilder.withChildPath("v1/publisher/status")
+				.setQuery("id=" + deploymentId)
+				.toURI();
+
+		final HttpPost request = new HttpPost(uri);
+
+		final HttpResponse response = client.execute(request, context);
+		final StatusLine statusLine = response.getStatusLine();
+		if (statusLine == null)
+			// return no status as something in the connection broke and we have no clue
+			// what
+			// happened!
+			throw new AbortException("Connection failed!");
+
+		switch (statusLine.getStatusCode()) {
+		case 200:
+			// OK
+			break;
+		case 400:
+			throw new AbortException("Invalid Credentials!");
+		case 401:
+			throw new AbortException("User unauthenticated!");
+		case 403:
+			throw new AbortException("User unauthorized! Check the Namespace!");
+		case 404:
+			throw new AbortException("Deployment not found!");
+		case 500:
+		default:
+			throw new AbortException(
+					"Status Check returned: (" + statusLine.getStatusCode() + ") " + statusLine.getReasonPhrase());
+		}
+
+		final HttpEntity responseEntity = response.getEntity();
+		if (responseEntity == null)
+			return null;
+		return new ObjectMapper().readTree(responseEntity.getContent());
+	}
+
+	protected String getValue(final JsonNode node) {
+		if (!node.isValueNode())
+			return null;
+		return node.asText();
 	}
 
 }
