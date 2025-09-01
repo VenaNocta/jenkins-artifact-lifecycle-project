@@ -237,7 +237,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 	}
 
 	protected void uploadMavenBundle(final HttpClient client, final HttpClientContext context,
-			final URIBuilder uriBuilder, final Bundle bundle) throws URISyntaxException {
+			final URIBuilder uriBuilder, final Bundle bundle) throws URISyntaxException, AbortException {
 		final URI uri = uriBuilder.withChildPath("v1/components")
 				.setQuery("repository=" + getRepoConfig().getRepo())
 				.toURI();
@@ -279,7 +279,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 		if (!invalidArtifacts.isEmpty())
 			log(Level.WARNING, invalidArtifacts.size() + " Artifacts with invalid Metadata found!", null);
 		if (errors)
-			new AbortException("Upload failed!");
+			throw new AbortException("Upload failed!");
 		else {
 			log(Level.INFO, "Upload completed!", null);
 			getContext().onSuccess(null);
