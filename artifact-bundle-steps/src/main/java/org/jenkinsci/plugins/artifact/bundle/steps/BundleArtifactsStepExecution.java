@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.artifact.deploy.steps;
+package org.jenkinsci.plugins.artifact.bundle.steps;
 
 import java.io.PrintStream;
 import java.util.LinkedList;
 import java.util.List;
-import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
-import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
-import org.jenkinsci.plugins.artifact.deploy.context.BundleUtils;
+
+import org.jenkinsci.plugins.artifact.bundle.api.context.Bundle;
+import org.jenkinsci.plugins.artifact.bundle.api.context.BundleContext;
+import org.jenkinsci.plugins.artifact.bundle.api.context.Bundles;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 
@@ -60,9 +61,9 @@ public class BundleArtifactsStepExecution extends SynchronousStepExecution<Void>
 		}
 
 		final List<String> index = new LinkedList<>();
-		BundleUtils.findArtifacts(artifactManager, artifacts, null, true, (artifactFile, metadata) -> {
+		Bundles.findArtifacts(artifactManager, artifacts, null, true, (artifactFile, metadata) -> {
 			// log the artifact's path
-			index.add(BundleUtils.getMetadataEntry(metadata, String.class, Bundle.METADATA_FILE_PATH));
+			index.add(Bundles.getMetadataEntry(metadata, String.class, Bundle.METADATA_FILE_PATH));
 			// override with specified values
 			metadata.putAll(this.step.getMetadata());
 			// index artifact

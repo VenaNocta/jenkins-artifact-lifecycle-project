@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.artifact.deploy.context;
+package org.jenkinsci.plugins.artifact.bundle.api.context;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -41,6 +41,13 @@ public class BundleContext implements Serializable {
 		if ((id = StringUtils.trimToNull(id)) == null)
 			return null;
 		return this.bundles.computeIfAbsent(id, Bundle::new);
+	}
+
+	public Bundle getBundleOrDefault(final String id) {
+		final Bundle bundle = getBundle(id);
+		if (bundle == null)
+			return getBundle();
+		return bundle;
 	}
 
 	public boolean hasBundle(final String id) {

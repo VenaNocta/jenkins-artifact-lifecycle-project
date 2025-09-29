@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.artifact.deploy.steps;
+package org.jenkinsci.plugins.artifact.bundle.steps;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -24,8 +24,8 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
-import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
+import org.jenkinsci.plugins.artifact.bundle.api.context.Bundle;
+import org.jenkinsci.plugins.artifact.bundle.api.context.BundleContext;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;

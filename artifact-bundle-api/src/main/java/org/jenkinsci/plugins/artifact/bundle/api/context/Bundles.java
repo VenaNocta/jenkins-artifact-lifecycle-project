@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.artifact.deploy.context;
+package org.jenkinsci.plugins.artifact.bundle.api.context;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -37,7 +37,7 @@ import jenkins.util.VirtualFile;
 import net.runeduniverse.lib.utils.logging.log.api.CompoundTree;
 import net.runeduniverse.lib.utils.logging.log.api.Recordable;
 
-public class BundleUtils {
+public class Bundles {
 
 	public static void indexArtifacts(@NonNull final Bundle bundle, final ArtifactManager artifactManager,
 			@NonNull final String includes, @CheckForNull final String excludes, final boolean useDefaultExcludes,

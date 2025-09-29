@@ -39,8 +39,9 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<root-dir>..</root-dir>
 		<!-- VERSIONS -->
-		<artifact-version>2</artifact-version>
+		<artifact-version>3</artifact-version>
 		<sources-version>0</sources-version>
+		<bundle-api-version>0</bundle-api-version>
 	</properties>
 
 	<licenses>
@@ -85,6 +86,11 @@
 	</issueManagement>
 
 	<dependencies>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
+			<artifactId>artifact-bundle-api</artifactId>
+			<version>${major-version}.${minor-version}.${bundle-api-version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>structs</artifactId>

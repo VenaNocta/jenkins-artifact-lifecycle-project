@@ -13,23 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.artifact.deploy.steps;
+package org.jenkinsci.plugins.artifact.bundle.steps;
 
-import java.io.IOException;
-import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
-
-import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
-import org.jenkinsci.plugins.artifact.deploy.context.BundleContext;
-import org.jenkinsci.plugins.artifact.deploy.context.BundleUtils;
+import org.jenkinsci.plugins.artifact.bundle.api.context.Bundle;
+import org.jenkinsci.plugins.artifact.bundle.api.context.BundleContext;
+import org.jenkinsci.plugins.artifact.bundle.api.context.Bundles;
+import org.jenkinsci.plugins.artifact.bundle.api.steps.BundleStepExecution;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -38,7 +33,6 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import hudson.Extension;
-import hudson.model.TaskListener;
 import jenkins.util.VirtualFile;
 import net.runeduniverse.lib.utils.logging.log.SortedCompoundTree;
 import net.runeduniverse.lib.utils.logging.log.api.CompoundTree;
@@ -78,7 +72,7 @@ public class BundleInfoStep extends Step implements Serializable {
 		return new BundleInfoExecution(context, this);
 	}
 
-	public static class BundleInfoExecution extends StepExecution {
+	public static class BundleInfoExecution extends BundleStepExecution {
 
 		private static final long serialVersionUID = 1L;
 
@@ -89,12 +83,6 @@ public class BundleInfoStep extends Step implements Serializable {
 		public BundleInfoExecution(final StepContext context, final BundleInfoStep step) {
 			super(context);
 			this.step = step;
-		}
-
-		protected Bundle getBundle(final BundleContext context, String id) {
-			if ((id = StringUtils.trimToNull(id)) == null)
-				return context.getBundle();
-			return context.getBundle(id);
 		}
 
 		protected CompoundTreeStyle getStyle() {
@@ -134,48 +122,16 @@ public class BundleInfoStep extends Step implements Serializable {
 			return this.style;
 		}
 
-		protected void log(final Level level, final String msg, final Throwable t) {
-			try {
-				final PrintStream stream = getContext().get(TaskListener.class)
-						.getLogger();
-				final int lvl = level == null ? Level.INFO.intValue() : level.intValue();
-
-				final String header;
-				if (lvl <= Level.FINE.intValue())
-					header = "DEBUG: ";
-				else if (lvl <= Level.CONFIG.intValue())
-					header = "CONF: ";
-				else if (lvl <= Level.INFO.intValue())
-					header = "";
-				else if (lvl <= Level.WARNING.intValue())
-					header = "WARN: ";
-				else
-					header = "ERROR: ";
-
-				stream.println(header + msg);
-				if (t != null)
-					t.printStackTrace(stream);
-				return;
-			} catch (IOException | InterruptedException e) {
-			}
-			// ok, when it doesn't work we push it to the instance logger
-			final LogRecord record = new LogRecord(level, msg);
-			if (t != null)
-				record.setThrown(t);
-			Logger.getLogger(getClass().getName())
-					.log(record);
-		}
-
 		public CompoundTree createTree(final CharSequence tag, final CharSequence value) {
 			return new SortedCompoundTree(tag, value, getStyle());
 		}
 
 		@Override
 		public boolean start() throws Exception {
-			final BundleContext context = getContext().get(BundleContext.class);
+			final BundleContext context = getBundleContext();
 
 			final boolean skipMetadata = !this.step.getMetadata();
-			final Bundle bundle = getBundle(context, this.step.getBundle());
+			final Bundle bundle = context.getBundleOrDefault(this.step.getBundle());
 
 			final CompoundTree bundleTree = createTree(null, String.format("Artifacts in Bundle (%s)", bundle.getId()));
 
@@ -183,9 +139,7 @@ public class BundleInfoStep extends Step implements Serializable {
 					.hasNext();) {
 				final Entry<VirtualFile, Map<String, Serializable>> entry = i.next();
 				final Map<String, Serializable> metadata = entry.getValue();
-				final String path = skipMetadata
-						? BundleUtils.getMetadataEntry(metadata, String.class, Bundle.METADATA_FILE_PATH)
-						: null;
+				final String path = skipMetadata ? getEntryString(metadata, Bundle.METADATA_FILE_PATH) : null;
 				final CompoundTree artifactTree = new SortedCompoundTree(path == null ? entry.getKey()
 						.getName() : path, getStyle());
 				bundleTree.append(artifactTree);
@@ -194,7 +148,7 @@ public class BundleInfoStep extends Step implements Serializable {
 					continue;
 
 				for (Entry<String, Serializable> dataEntry : metadata.entrySet()) {
-					BundleUtils.indexMetadata(artifactTree, this::createTree, dataEntry.getKey(), dataEntry.getValue());
+					Bundles.indexMetadata(artifactTree, this::createTree, dataEntry.getKey(), dataEntry.getValue());
 				}
 			}
 

@@ -53,7 +53,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.jenkinsci.plugins.artifact.deploy.config.URIBuilder;
-import org.jenkinsci.plugins.artifact.deploy.context.Bundle;
+import org.jenkinsci.plugins.artifact.bundle.api.context.Bundle;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
