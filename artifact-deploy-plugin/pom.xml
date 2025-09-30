@@ -42,6 +42,7 @@
 		<artifact-version>3</artifact-version>
 		<sources-version>0</sources-version>
 		<bundle-api-version>0</bundle-api-version>
+		<bundle-steps-version>0</bundle-steps-version>
 	</properties>
 
 	<licenses>
@@ -142,6 +143,12 @@
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.workflow</groupId>
 			<artifactId>workflow-basic-steps</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
+			<artifactId>artifact-bundle-steps</artifactId>
+			<version>${major-version}.${minor-version}.${bundle-steps-version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
