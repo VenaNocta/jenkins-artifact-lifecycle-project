@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.artifact.deploy.config;
+package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -24,16 +24,14 @@ import org.kohsuke.stapler.Stapler;
 import org.kohsuke.stapler.StaplerRequest2;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
-import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.ExtensionPoint;
 import hudson.model.Item;
 import hudson.model.Job;
 
-import static org.jenkinsci.plugins.artifact.deploy.config.ArtifactLifecycleConfiguration.ACTION_URL;
+public abstract class ArtifactLifecycleConfigLink implements ExtensionPoint {
 
-public abstract class ArtifactLifecycleConfigurationLink implements ExtensionPoint {
-
-	private static final Logger LOGGER = Logger.getLogger(ArtifactLifecycleConfigurationLink.class.getName());
+	private static final Logger LOGGER = Logger.getLogger(ArtifactLifecycleConfigLink.class.getName());
 
 	/**
 	 * Get the URL this link should point to, which will be used by
@@ -117,44 +115,12 @@ public abstract class ArtifactLifecycleConfigurationLink implements ExtensionPoi
 		return false;
 	}
 
-	@Extension(ordinal = 8_500L)
-	public static class RepoServersLink extends ArtifactLifecycleConfigurationLink {
-		@Override
-		@NonNull
-		public String getUrl() {
-			return ACTION_URL + "/repo-servers";
-		}
-
-		@Override
-		@NonNull
-		public String getIcon() {
-			return "icon-gear2 icon-md";
-		}
-
-		@Override
-		public String getDisplayName() {
-			return Messages.ArtifactLifecycleCnfLink_RepoServersLink_DisplayName();
-		}
-	}
-
-	@Extension(ordinal = 8_000L)
-	public static class ReposLink extends ArtifactLifecycleConfigurationLink {
-		@Override
-		@NonNull
-		public String getUrl() {
-			return ACTION_URL + "/repos";
-		}
-
-		@Override
-		@NonNull
-		public String getIcon() {
-			return "icon-gear2 icon-md";
-		}
-
-		@Override
-		public String getDisplayName() {
-			return Messages.ArtifactLifecycleCnfLink_ReposLink_DisplayName();
-		}
+	/**
+	 * All registered instances.
+	 */
+	@NonNull
+	public static ExtensionList<ArtifactLifecycleConfigLink> all() {
+		return ExtensionList.lookup(ArtifactLifecycleConfigLink.class);
 	}
 
 }

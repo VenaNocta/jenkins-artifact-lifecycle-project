@@ -15,22 +15,28 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.config;
 
-import static org.jenkinsci.plugins.artifact.deploy.config.ArtifactLifecycleConfiguration.ACTION_URL;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactLifecycleConfigLink;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactLifecycleConfigPage;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
-import hudson.model.Descriptor;
 
 @Extension
-public class ArtifactDeploymentPipesPage extends ArtifactLifecycleConfigurationPage {
+public class ArtifactDeploymentPipesPage extends ArtifactLifecycleConfigPage {
 
 	@Override
 	public String getUrlName() {
 		return "deploy-pipes";
 	}
 
+	@Override
+	public String getDisplayName() {
+		return Messages.ArtifactLifecycleCnfLink_DeployPipes_DisplayName();
+	}
+
 	@Extension(ordinal = 5_000L)
-	public static class DeploymentPipesLink extends ArtifactLifecycleConfigurationLink {
+	public static class DeploymentPipesLink extends ArtifactLifecycleConfigLink {
+
 		@Override
 		@NonNull
 		public String getUrl() {
@@ -47,16 +53,6 @@ public class ArtifactDeploymentPipesPage extends ArtifactLifecycleConfigurationP
 		public String getDisplayName() {
 			return Messages.ArtifactLifecycleCnfLink_DeployPipes_DisplayName();
 		}
-	}
-
-	@Extension
-	public static class DeploymentPipesPageDescriptor extends Descriptor<ArtifactLifecycleConfigurationPage> {
-
-		@Override
-		public String getDisplayName() {
-			return Messages.ArtifactLifecycleCnfLink_DeployPipes_DisplayName();
-		}
-
 	}
 
 }
