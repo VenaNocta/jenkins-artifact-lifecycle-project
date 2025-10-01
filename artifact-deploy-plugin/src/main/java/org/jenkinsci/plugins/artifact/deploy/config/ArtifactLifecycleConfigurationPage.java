@@ -18,37 +18,21 @@ package org.jenkinsci.plugins.artifact.deploy.config;
 import java.util.List;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
-import hudson.Extension;
 import hudson.ExtensionList;
-import hudson.model.DescriptorByNameOwner;
-import hudson.model.RootAction;
+import hudson.ExtensionPoint;
+import hudson.model.AbstractDescribableImpl;
 
-@Extension
-public class ArtifactLifecycle implements RootAction, DescriptorByNameOwner {
+public abstract class ArtifactLifecycleConfigurationPage
+		extends AbstractDescribableImpl<ArtifactLifecycleConfigurationPage> implements ExtensionPoint {
 
-	public static final String ACTION_URL = "artifact-lifecycle";
-
-	@Override
-	public String getUrlName() {
-		return ACTION_URL;
-	}
-
-	@Override
-	public String getIconFileName() {
-		return "icon-gear2 icon-md";
-	}
-
-	@Override
-	public String getDisplayName() {
-		return "-- ArtifactLifecycle --";
-	}
+	public abstract String getUrlName();
 
 	/**
 	 * Used to generate the list of links on the sidepanel.
 	 */
 	@NonNull
-	public List<ArtifactLifecycleLink> getArtifactLifecycleLinks() {
-		return ExtensionList.lookup(ArtifactLifecycleLink.class);
+	public List<ArtifactLifecycleConfigurationLink> getNavLinks() {
+		return ExtensionList.lookup(ArtifactLifecycleConfigurationLink.class);
 	}
 
 }

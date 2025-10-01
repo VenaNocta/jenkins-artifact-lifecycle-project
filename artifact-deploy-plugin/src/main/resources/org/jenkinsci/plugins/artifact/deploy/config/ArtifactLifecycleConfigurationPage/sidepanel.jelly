@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:local="local">
+    <l:header/>
+    <l:side-panel>
+        <l:tasks>
+            <d:taglib uri="local">
+                <d:tag name="taskWithTarget">
+                    <div class="task">
+                        <a href="${href}" class="task-icon-link" target="${target}"><l:icon class="${icon}" style="width: 24px; height: 24px; margin: 2px;"/></a>
+                        <st:nbsp/>
+                        <a href="${href}" class="task-link" target="${target}">${title}</a>
+                    </div>
+                </d:tag>
+            </d:taglib>
+            <j:forEach var="link" items="${it.navLinks}">
+                <j:choose>
+                    <j:when test="${link.inNewWindow}">
+                        <local:taskWithTarget href="${link.displayUrl}" icon="${link.icon}" title="${link.displayName}" target="_blank" />
+                    </j:when>
+                    <j:otherwise>
+                        <l:task href="${link.displayUrl}" icon="${link.icon}" title="${link.displayName}" />
+                    </j:otherwise>
+                </j:choose>
+            </j:forEach>
+        </l:tasks>
+    </l:side-panel>
+</j:jelly>

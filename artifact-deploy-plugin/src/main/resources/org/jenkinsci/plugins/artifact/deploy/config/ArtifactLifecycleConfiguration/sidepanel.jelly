@@ -13,7 +13,7 @@
                     </div>
                 </d:tag>
             </d:taglib>
-            <j:forEach var="link" items="${it.artifactLifecycleLinks}">
+            <j:forEach var="link" items="${it.navLinks}">
                 <j:choose>
                     <j:when test="${link.inNewWindow}">
                         <local:taskWithTarget href="${link.displayUrl}" icon="${link.icon}" title="${link.displayName}" target="_blank" />

@@ -29,11 +29,11 @@ import hudson.ExtensionPoint;
 import hudson.model.Item;
 import hudson.model.Job;
 
-import static org.jenkinsci.plugins.artifact.deploy.config.ArtifactLifecycle.ACTION_URL;
+import static org.jenkinsci.plugins.artifact.deploy.config.ArtifactLifecycleConfiguration.ACTION_URL;
 
-public abstract class ArtifactLifecycleLink implements ExtensionPoint {
+public abstract class ArtifactLifecycleConfigurationLink implements ExtensionPoint {
 
-	private static final Logger LOGGER = Logger.getLogger(ArtifactLifecycleLink.class.getName());
+	private static final Logger LOGGER = Logger.getLogger(ArtifactLifecycleConfigurationLink.class.getName());
 
 	/**
 	 * Get the URL this link should point to, which will be used by
@@ -68,26 +68,30 @@ public abstract class ArtifactLifecycleLink implements ExtensionPoint {
 		}
 
 		final StringBuilder toAppend = new StringBuilder();
-		toAppend.append(req.getContextPath());
+		{
+			// prepend context path
+			final String contextPath = req.getContextPath();
+			toAppend.append(contextPath);
 
-		if (!req.getContextPath()
-				.endsWith("/")) {
-			toAppend.append("/");
-		}
-
-		final Item item = req.findAncestorObject(Item.class);
-		if (item == null) {
-			toAppend.append(url);
-		} else {
-			toAppend.append(item.getUrl());
-
-			if (!item.getUrl()
-					.endsWith("/")) {
+			if (!contextPath.endsWith("/")) {
 				toAppend.append("/");
 			}
-
-			toAppend.append(url);
 		}
+
+		// prepend item path
+		final Item item = req.findAncestorObject(Item.class);
+		if (item == null) {
+			toAppend.append("manage/");
+		} else {
+			final String itemUrl = item.getUrl();
+			toAppend.append(item);
+
+			if (!itemUrl.endsWith("/")) {
+				toAppend.append("/");
+			}
+		}
+
+		toAppend.append(url);
 
 		return toAppend.toString();
 	}
@@ -113,28 +117,8 @@ public abstract class ArtifactLifecycleLink implements ExtensionPoint {
 		return false;
 	}
 
-	@Extension(ordinal = 10_000L)
-	public static class GeneralLink extends ArtifactLifecycleLink {
-		@Override
-		@NonNull
-		public String getUrl() {
-			return ACTION_URL;
-		}
-
-		@Override
-		@NonNull
-		public String getIcon() {
-			return "icon-gear2 icon-md";
-		}
-
-		@Override
-		public String getDisplayName() {
-			return Messages.ArtifactLifecycleLink_GeneralLink_DisplayName();
-		}
-	}
-
 	@Extension(ordinal = 8_500L)
-	public static class RepoServersLink extends ArtifactLifecycleLink {
+	public static class RepoServersLink extends ArtifactLifecycleConfigurationLink {
 		@Override
 		@NonNull
 		public String getUrl() {
@@ -149,12 +133,12 @@ public abstract class ArtifactLifecycleLink implements ExtensionPoint {
 
 		@Override
 		public String getDisplayName() {
-			return Messages.ArtifactLifecycleLink_RepoServersLink_DisplayName();
+			return Messages.ArtifactLifecycleCnfLink_RepoServersLink_DisplayName();
 		}
 	}
 
 	@Extension(ordinal = 8_000L)
-	public static class ReposLink extends ArtifactLifecycleLink {
+	public static class ReposLink extends ArtifactLifecycleConfigurationLink {
 		@Override
 		@NonNull
 		public String getUrl() {
@@ -169,27 +153,7 @@ public abstract class ArtifactLifecycleLink implements ExtensionPoint {
 
 		@Override
 		public String getDisplayName() {
-			return Messages.ArtifactLifecycleLink_ReposLink_DisplayName();
-		}
-	}
-
-	@Extension(ordinal = 5_000L)
-	public static class DeploymentPipesLink extends ArtifactLifecycleLink {
-		@Override
-		@NonNull
-		public String getUrl() {
-			return ACTION_URL + "/deploy-pipes";
-		}
-
-		@Override
-		@NonNull
-		public String getIcon() {
-			return "icon-gear2 icon-md";
-		}
-
-		@Override
-		public String getDisplayName() {
-			return Messages.ArtifactLifecycleLink_DeployPipes_DisplayName();
+			return Messages.ArtifactLifecycleCnfLink_ReposLink_DisplayName();
 		}
 	}
 
