@@ -1,5 +1,5 @@
 /*
- * Copyright © 2025 VenaNocta (venanocta@gmail.com)
+ * Copyright © 2026 VenaNocta (venanocta@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -34,6 +32,7 @@ import hudson.model.Descriptor;
 import hudson.model.Run;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
+import net.jcip.annotations.GuardedBy;
 
 @Extension
 @Symbol("globalArtifactDeploymentConfig")

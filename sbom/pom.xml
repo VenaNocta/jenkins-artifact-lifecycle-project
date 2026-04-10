@@ -1,6 +1,6 @@
 <!--
 
-    Copyright © 2025 VenaNocta (venanocta@gmail.com)
+    Copyright © 2026 VenaNocta (venanocta@gmail.com)
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@
 		<version>0.0.0</version>
 	</parent>
 
-	<artifactId>artifact-signing-bom-sources</artifactId>
+	<artifactId>artifact-signing-sbom</artifactId>
 	<version>${major-version}.${minor-version}.${artifact-version}</version>
 	<packaging>pom</packaging>
 
-	<name>Jenkins Artifact Signing Plugin - Bill of Sources</name>
+	<name>Jenkins Artifact Signing Plugin - SBOM</name>
 	<url>https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
 	<inceptionYear>2025</inceptionYear>
 
@@ -42,10 +42,10 @@
 		<!-- ARTIFACT VERSIONS -->
 		<!-- ARTIFACT VERSIONS - TESTING -->
 		<!-- ARTIFACT VERSIONS - BOMs -->
-		<jenkins-tools-bom-version>2.479.x</jenkins-tools-bom-version>
-		<jenkins-tools-bom-patch>3482.vc10d4f6da_28a_</jenkins-tools-bom-patch>
+		<jenkins-tools-bom-version>2.555.x</jenkins-tools-bom-version>
+		<jenkins-tools-bom-patch>6269.v7a_159d68a_366</jenkins-tools-bom-patch>
 		<runeduniverse-utils-bom-version>2.0.0</runeduniverse-utils-bom-version>
-		<bouncycastle-pgp-version>1.81</bouncycastle-pgp-version>
+		<bouncycastle-pgp-version>1.83</bouncycastle-pgp-version>
 	</properties>
 
 
@@ -106,10 +106,13 @@
 			<!-- UTILS -->
 			<dependency>
 				<groupId>net.runeduniverse.lib.utils</groupId>
-				<artifactId>utils-bom</artifactId>
+				<artifactId>utils-logging-api</artifactId>
 				<version>${runeduniverse-utils-bom-version}</version>
-				<type>pom</type>
-				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>net.runeduniverse.lib.utils</groupId>
+				<artifactId>utils-logging</artifactId>
+				<version>${runeduniverse-utils-bom-version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.bouncycastle</groupId>

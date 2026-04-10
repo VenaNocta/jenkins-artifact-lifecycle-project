@@ -1,7 +1,6 @@
-
 <!--
 
-    Copyright © 2025 VenaNocta (venanocta@gmail.com)
+    Copyright © 2026 VenaNocta (venanocta@gmail.com)
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -149,7 +148,7 @@
 		<dependencies>
 			<dependency>
 				<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
-				<artifactId>artifact-signing-bom-sources</artifactId>
+				<artifactId>artifact-signing-sbom</artifactId>
 				<version>${major-version}.${minor-version}.${sources-version}</version>
 				<type>pom</type>
 				<scope>import</scope>

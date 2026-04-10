@@ -1,7 +1,6 @@
-
 <!--
 
-    Copyright © 2025 VenaNocta (venanocta@gmail.com)
+    Copyright © 2026 VenaNocta (venanocta@gmail.com)
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -75,16 +74,20 @@
 
 	<scm>
 		<url>
-			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
+			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin
+		</url>
 		<connection>
-			scm:git:https://github.com/RunedUniverse/jenkins-artifact-signing-plugin.git</connection>
+			scm:git:https://github.com/RunedUniverse/jenkins-artifact-signing-plugin.git
+		</connection>
 		<developerConnection>
-			scm:git:git@github.com:RunedUniverse/jenkins-artifact-signing-plugin.git</developerConnection>
+			scm:git:git@github.com:RunedUniverse/jenkins-artifact-signing-plugin.git
+		</developerConnection>
 	</scm>
 	<issueManagement>
 		<system>GitHub Issues</system>
 		<url>
-			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin/issues</url>
+			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin/issues
+		</url>
 	</issueManagement>
 
 	<dependencies>
@@ -133,9 +136,22 @@
 		<!-- TEST -->
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter</artifactId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>${junit.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.main</groupId>
+			<artifactId>jenkins-test-harness</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.platform</groupId>
+			<artifactId>junit-platform-launcher</artifactId>
+			<version>${junit.version}</version>
+			<scope>test</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.workflow</groupId>
 			<artifactId>workflow-cps</artifactId>
@@ -165,7 +181,7 @@
 		<dependencies>
 			<dependency>
 				<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
-				<artifactId>artifact-signing-bom-sources</artifactId>
+				<artifactId>artifact-signing-sbom</artifactId>
 				<version>${major-version}.${minor-version}.${sources-version}</version>
 				<type>pom</type>
 				<scope>import</scope>

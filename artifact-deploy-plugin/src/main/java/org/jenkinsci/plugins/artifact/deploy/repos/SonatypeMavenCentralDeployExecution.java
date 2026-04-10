@@ -1,5 +1,5 @@
 /*
- * Copyright © 2025 VenaNocta (venanocta@gmail.com)
+ * Copyright © 2026 VenaNocta (venanocta@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -246,7 +246,8 @@ public class SonatypeMavenCentralDeployExecution
 				tmp.append(cred.getPassword()
 						.getPlainText());
 
-				final Base64 base64codec = new Base64(0);
+				final Base64 base64codec = Base64.builder()
+						.get();
 				final byte[] base64password = base64codec
 						.encode(EncodingUtils.getBytes(tmp.toString(), Consts.ASCII.name()));
 
@@ -656,10 +657,8 @@ public class SonatypeMavenCentralDeployExecution
 				// it failed -> show the errors (they have sections!) as tree
 				final CompoundTree tree = new DefaultCompoundTree("Maven Central Portal: Validation Failed!",
 						getStyle());
-				for (Iterator<Map.Entry<String, JsonNode>> i = response.get("errors")
-						.fields(); i.hasNext();) {
-					final Map.Entry<String, JsonNode> entry = i.next();
-
+				for (Map.Entry<String, JsonNode> entry : response.get("errors")
+						.properties()) {
 					final ArrayNode arrayNode;
 					if (entry.getValue() instanceof ArrayNode node)
 						arrayNode = node;

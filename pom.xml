@@ -1,6 +1,6 @@
 <!--
 
-    Copyright © 2025 VenaNocta (venanocta@gmail.com)
+    Copyright © 2026 VenaNocta (venanocta@gmail.com)
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 	<parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>5.9</version>
+		<version>6.2152.ve00a_731c3ce9</version>
 	</parent>
 
 	<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
@@ -38,7 +38,7 @@
 	<inceptionYear>2025</inceptionYear>
 
 	<modules>
-		<module>sources</module>
+		<module>sbom</module>
 		<module>pgpcredentials-api</module>
 		<module>pgpcredentials-plugin</module>
 		<module>artifact-bundle-api</module>
@@ -76,19 +76,34 @@
 
 	<scm>
 		<url>
-			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
+			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin
+		</url>
 		<connection>
-			scm:git:https://github.com/RunedUniverse/jenkins-artifact-signing-plugin.git</connection>
+			scm:git:https://github.com/RunedUniverse/jenkins-artifact-signing-plugin.git
+		</connection>
 		<developerConnection>
-			scm:git:git@github.com:RunedUniverse/jenkins-artifact-signing-plugin.git</developerConnection>
+			scm:git:git@github.com:RunedUniverse/jenkins-artifact-signing-plugin.git
+		</developerConnection>
 	</scm>
 	<issueManagement>
 		<system>GitHub Issues</system>
 		<url>
-			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin/issues</url>
+			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin/issues
+		</url>
 	</issueManagement>
 
+	<repositories>
+		<repository>
+			<id>repo.jenkins-ci.org</id>
+			<url>https://repo.jenkins-ci.org/public/</url>
+		</repository>
+	</repositories>
+
 	<pluginRepositories>
+		<pluginRepository>
+			<id>repo.jenkins-ci.org</id>
+			<url>https://repo.jenkins-ci.org/public/</url>
+		</pluginRepository>
 		<pluginRepository>
 			<id>runeduniverse-development</id>
 			<url>https://nexus.runeduniverse.net/repository/maven-development/</url>
@@ -103,7 +118,7 @@
 		<minor-version>0</minor-version>
 		<artifact-version>0</artifact-version>
 		<!-- ARTIFACT VERSIONS -->
-		<jenkins.version>2.479.1</jenkins.version>
+		<jenkins.version>2.541.1</jenkins.version>
 		<!-- ARTIFACT VERSIONS - COMPILER -->
 		<openjdk-min-version>${maven.compiler.release}</openjdk-min-version>
 		<plugin-revelc-formatter-version>2.23.0</plugin-revelc-formatter-version>
@@ -111,8 +126,8 @@
 		<plugin-mycila-license-version>4.2.rc1</plugin-mycila-license-version>
 		<maven-jenkins-workflow-version>1.0.0</maven-jenkins-workflow-version>
 		<!-- ARTIFACT VERSIONS - TEST -->
-		<!-- 
-		<jenkins-test-harness.version>2345.v699712948764</jenkins-test-harness.version>
+		<!--
+		<jenkins-test-harness.version>2519.v4ee63f85da_71</jenkins-test-harness.version>
 		-->
 	</properties>
 
@@ -397,12 +412,32 @@
 					</configuration>
 				</plugin>
 				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-enforcer-plugin</artifactId>
+					<executions>
+						<execution>
+							<id>display-info</id>
+							<configuration>
+								<rules>
+									<requirePluginVersions>
+										<banSnapshots>false</banSnapshots>
+										<!-- r4m injects itself as plugin -->
+										<unCheckedPluginList>
+											net.runeduniverse.tools.maven.r4m:r4m-maven-extension
+										</unCheckedPluginList>
+									</requirePluginVersions>
+								</rules>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
 					<groupId>com.mycila</groupId>
 					<artifactId>license-maven-plugin</artifactId>
 					<version>${plugin-mycila-license-version}</version>
 					<configuration>
 						<properties>
-							<year>2025</year>
+							<year>2026</year>
 							<owner>VenaNocta</owner>
 							<email>venanocta@gmail.com</email>
 						</properties>
@@ -431,7 +466,6 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-surefire-plugin</artifactId>
-					<version>2.22.2</version>
 					<configuration>
 						<trimStackTrace>false</trimStackTrace>
 						<!-- 
@@ -448,4 +482,3 @@
 		</pluginManagement>
 	</build>
 </project>
-
