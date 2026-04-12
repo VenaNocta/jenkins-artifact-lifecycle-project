@@ -27,7 +27,7 @@
 	</parent>
 
 	<artifactId>artifact-signing-plugin</artifactId>
-	<version>${major-version}.${minor-version}.${artifact-version}</version>
+	<version>0.0.2</version>
 	<packaging>hpi</packaging>
 
 	<name>Jenkins Artifact Signing Plugin</name>
@@ -38,7 +38,6 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<root-dir>..</root-dir>
 		<!-- VERSIONS -->
-		<artifact-version>2</artifact-version>
 		<sources-version>0</sources-version>
 		<pgpcredentials-version>2</pgpcredentials-version>
 	</properties>

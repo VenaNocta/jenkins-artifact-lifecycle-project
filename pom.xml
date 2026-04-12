@@ -97,16 +97,16 @@
 			<id>repo.jenkins-ci.org</id>
 			<url>https://repo.jenkins-ci.org/public/</url>
 		</repository>
+		<repository>
+			<id>runeduniverse-releases</id>
+			<url>https://nexus.runeduniverse.net/repository/maven-releases/</url>
+		</repository>
 	</repositories>
 
 	<pluginRepositories>
 		<pluginRepository>
 			<id>repo.jenkins-ci.org</id>
 			<url>https://repo.jenkins-ci.org/public/</url>
-		</pluginRepository>
-		<pluginRepository>
-			<id>runeduniverse-development</id>
-			<url>https://nexus.runeduniverse.net/repository/maven-development/</url>
 		</pluginRepository>
 	</pluginRepositories>
 
@@ -154,6 +154,37 @@
 		<!-- DEV-INSTALL -->
 		<profile>
 			<id>dev-install</id>
+			<repositories>
+				<repository>
+					<id>runeduniverse-releases</id>
+					<url>
+						https://nexus.runeduniverse.net/repository/maven-releases/
+					</url>
+				</repository>
+				<repository>
+					<id>runeduniverse-development</id>
+					<url>
+						https://nexus.runeduniverse.net/repository/maven-development/
+					</url>
+				</repository>
+				<repository>
+					<id>repo.jenkins-ci.org</id>
+					<url>https://repo.jenkins-ci.org/public/</url>
+				</repository>
+			</repositories>
+
+			<pluginRepositories>
+				<pluginRepository>
+					<id>repo.jenkins-ci.org</id>
+					<url>https://repo.jenkins-ci.org/public/</url>
+				</pluginRepository>
+				<pluginRepository>
+					<id>runeduniverse-development</id>
+					<url>
+						https://nexus.runeduniverse.net/repository/maven-development/
+					</url>
+				</pluginRepository>
+			</pluginRepositories>
 			<build>
 				<defaultGoal>clean dev/install</defaultGoal>
 				<pluginManagement>

@@ -28,7 +28,7 @@
 
 	<groupId>org.jenkins-ci.plugins.pgpcredentials</groupId>
 	<artifactId>pgpcredentials-plugin</artifactId>
-	<version>${major-version}.${minor-version}.${artifact-version}</version>
+	<version>0.0.2</version>
 	<packaging>hpi</packaging>
 
 	<name>Jenkins PGP-Credentials Plugin</name>
@@ -40,7 +40,6 @@
 		<root-dir>..</root-dir>
 		<no-test-jar>false</no-test-jar>
 		<!-- VERSIONS -->
-		<artifact-version>2</artifact-version>
 		<sources-version>0</sources-version>
 		<api-version>2</api-version>
 	</properties>

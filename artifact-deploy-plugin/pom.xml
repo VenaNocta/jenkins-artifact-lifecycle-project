@@ -27,7 +27,7 @@
 	</parent>
 
 	<artifactId>artifact-deploy-plugin</artifactId>
-	<version>${major-version}.${minor-version}.${artifact-version}</version>
+	<version>0.0.3</version>
 	<packaging>hpi</packaging>
 
 	<name>Jenkins Artifact Deploy Plugin</name>
@@ -39,7 +39,6 @@
 		<root-dir>..</root-dir>
 		<hpi.bundledArtifacts>utils-logging</hpi.bundledArtifacts>
 		<!-- VERSIONS -->
-		<artifact-version>3</artifact-version>
 		<sources-version>0</sources-version>
 		<bundle-api-version>0</bundle-api-version>
 		<bundle-steps-version>0</bundle-steps-version>

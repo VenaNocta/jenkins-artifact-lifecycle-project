@@ -27,7 +27,7 @@
 	</parent>
 
 	<artifactId>artifact-signing-sbom</artifactId>
-	<version>${major-version}.${minor-version}.${artifact-version}</version>
+	<version>0.0.0</version>
 	<packaging>pom</packaging>
 
 	<name>Jenkins Artifact Signing Plugin - SBOM</name>
@@ -37,14 +37,11 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<root-dir>..</root-dir>
-		<!-- VERSIONS -->
-		<artifact-version>0</artifact-version>
-		<!-- ARTIFACT VERSIONS -->
-		<!-- ARTIFACT VERSIONS - TESTING -->
 		<!-- ARTIFACT VERSIONS - BOMs -->
 		<jenkins-tools-bom-version>2.555.x</jenkins-tools-bom-version>
 		<jenkins-tools-bom-patch>6269.v7a_159d68a_366</jenkins-tools-bom-patch>
-		<runeduniverse-utils-bom-version>2.0.0</runeduniverse-utils-bom-version>
+		<runeduniverse-utils-bom-version>2.0.1</runeduniverse-utils-bom-version>
+		<!-- ARTIFACT VERSIONS - ARTIFACTS -->
 		<bouncycastle-pgp-version>1.83</bouncycastle-pgp-version>
 	</properties>
 
@@ -106,13 +103,10 @@
 			<!-- UTILS -->
 			<dependency>
 				<groupId>net.runeduniverse.lib.utils</groupId>
-				<artifactId>utils-logging-api</artifactId>
+				<artifactId>utils-bom</artifactId>
 				<version>${runeduniverse-utils-bom-version}</version>
-			</dependency>
-			<dependency>
-				<groupId>net.runeduniverse.lib.utils</groupId>
-				<artifactId>utils-logging</artifactId>
-				<version>${runeduniverse-utils-bom-version}</version>
+				<type>pom</type>
+				<scope>import</scope>
 			</dependency>
 			<dependency>
 				<groupId>org.bouncycastle</groupId>
