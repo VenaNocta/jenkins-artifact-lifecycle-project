@@ -35,7 +35,7 @@ public interface ArtifactSigningConfigurationProvider extends ExtensionPoint {
 
 	@CheckForNull
 	public static <R> R get(@NonNull final BiFunction<ArtifactSigningConfigurationProvider, Run<?, ?>, R> function,
-			@Nullable Run<?, ?> run) {
+			@Nullable final Run<?, ?> run) {
 		Objects.requireNonNull(function);
 		R r = null;
 		for (ArtifactSigningConfigurationProvider provider : all()) {

@@ -19,6 +19,7 @@ import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.pgpcredentials.PGPRequirementBuilder;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
+import org.jenkinsci.plugins.variant.OptionalExtension;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -30,7 +31,6 @@ import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
-import hudson.Extension;
 import hudson.Util;
 import hudson.model.Item;
 import hudson.model.ItemGroup;
@@ -40,6 +40,7 @@ import hudson.security.ACL;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 
+@OptionalExtension(requirePlugins = { "cloudbees-folder" })
 public class ArtifactSigningFolderConfiguration extends AbstractFolderProperty<AbstractFolder<?>> {
 
 	@CheckForNull
@@ -58,7 +59,8 @@ public class ArtifactSigningFolderConfiguration extends AbstractFolderProperty<A
 		this.defaultCredentialsId = defaultCredentialsId;
 	}
 
-	@Extension(optional = true)
+	@OptionalExtension(requirePlugins = { "cloudbees-folder" })
+	// @Extension(optional = true)
 	@Symbol("artifactSigningConfig")
 	public static class ArtifactSigningFolderConfigurationDescriptor extends AbstractFolderPropertyDescriptor {
 
@@ -81,7 +83,8 @@ public class ArtifactSigningFolderConfiguration extends AbstractFolderProperty<A
 	}
 
 	// should be asked first
-	@Extension(optional = true, ordinal = 10000)
+	// @Extension(optional = true, ordinal = 10000)
+	@OptionalExtension(requirePlugins = { "cloudbees-folder" }, ordinal = 10000)
 	public static class ArtifactSigningFolderConfigurationProvider implements ArtifactSigningConfigurationProvider {
 
 		@Override

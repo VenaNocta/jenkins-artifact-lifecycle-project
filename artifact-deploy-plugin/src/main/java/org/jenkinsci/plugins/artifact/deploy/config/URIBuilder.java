@@ -52,31 +52,31 @@ public class URIBuilder implements Cloneable {
 	// ----------------------------------------
 
 	public String getScheme() {
-		return scheme;
+		return this.scheme;
 	}
 
 	public String getUserInfo() {
-		return userInfo;
+		return this.userInfo;
 	}
 
 	public String getHost() {
-		return host;
+		return this.host;
 	}
 
 	public int getPort() {
-		return port;
+		return this.port;
 	}
 
 	public String getPath() {
-		return path;
+		return this.path;
 	}
 
 	public String getQuery() {
-		return query;
+		return this.query;
 	}
 
 	public String getFragment() {
-		return fragment;
+		return this.fragment;
 	}
 
 	// ----------------------------------------
