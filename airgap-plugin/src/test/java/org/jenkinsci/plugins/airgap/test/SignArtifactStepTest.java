@@ -47,7 +47,6 @@ public class SignArtifactStepTest {
 		String pipelineScript = "node {\n" //
 				+ "writeFile file: 'file.jar', text: 'xxx' \n" //
 				+ "archiveArtifacts artifacts: '*', fingerprint: true\n" //
-				+ "signArtifacts artifacts: '*', credentialId: '" + "'\n" //
 				+ "}";
 		job.setDefinition(new CpsFlowDefinition(pipelineScript, true));
 		WorkflowRun completedBuild = jenkins.assertBuildStatusSuccess(job.scheduleBuild2(0));
