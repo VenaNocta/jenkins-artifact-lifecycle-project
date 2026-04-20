@@ -16,6 +16,7 @@
 package org.jenkinsci.plugins.airgap;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,25 +24,34 @@ import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
 import hudson.model.Node;
-import hudson.model.Run;
 
 public class LinuxNamespaceContext implements IsolationContext {
 
-	protected final Run<?, ?> run;
+	private static final long serialVersionUID = 1L;
+
 	protected SandboxInstance sandbox;
 	protected DecoratorFactory factory;
 
-	public LinuxNamespaceContext(Run<?, ?> run) {
-		this.run = run;
+	public LinuxNamespaceContext() {
 		this.factory = new DecoratorFactory();
 	}
 
-	public class DecoratorFactory extends LauncherDecorator {
+	public class DecoratorFactory extends LauncherDecorator implements Serializable {
+
+		private static final long serialVersionUID = 1L;
+
 		@Override
 		public Launcher decorate(Launcher launcher, Node node) {
 			return new Launcher.DecoratedLauncher(launcher) {
 				@Override
 				public Proc launch(ProcStarter starter) throws IOException {
+
+					launcher.getListener()
+							.getLogger()
+							.print("-- LinuxNamespaceContext -- " + factory.hashCode() + "\n");
+
+					if (true)
+						return super.launch(starter);
 
 					// Wrap command with nsenter
 					List<String> cmd = new ArrayList<>();

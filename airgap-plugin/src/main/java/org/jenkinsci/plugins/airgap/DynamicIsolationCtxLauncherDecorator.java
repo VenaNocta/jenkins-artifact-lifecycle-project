@@ -17,10 +17,12 @@ package org.jenkinsci.plugins.airgap;
 
 import java.io.IOException;
 
+import org.jenkinsci.plugins.airgap.steps.DoXStep;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
 import org.jenkinsci.plugins.workflow.steps.DynamicContext;
-
+import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import hudson.Extension;
 import hudson.LauncherDecorator;
 import hudson.model.Run;
@@ -37,21 +39,23 @@ public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<L
 	protected LauncherDecorator get(final DelegatedContext context) throws IOException, InterruptedException {
 		final Run<?, ?> run = context.get(Run.class);
 		final FlowNode flowNode = context.get(FlowNode.class);
-		final IsolationContextAction action = getContextAction(run, flowNode);
+		// apply overrides if available
+		IsolationContextAction action = injectContext(context, run, flowNode);
+		if (action == null)
+			action = getContextAction(run, flowNode);
 		if (action == null)
 			return null;
 		final IsolationContext isolation = action.getContext();
 		if (isolation == null)
 			return null;
-		return isolation.launcherDecorator();
+		final LauncherDecorator decorator = isolation.launcherDecorator();
+		if (decorator == null)
+			return null;
+		return BodyInvoker.mergeLauncherDecorators(context.get(LauncherDecorator.class), decorator);
 	}
 
 	protected IsolationContextAction getContextAction(final Run<?, ?> run, final FlowNode flowNode) {
-		// apply overrides if available
-		IsolationContextAction action = injectContext(run, flowNode);
-		if (action != null)
-			return action;
-		action = findAction(flowNode);
+		IsolationContextAction action = findAction(flowNode);
 		if (action != null)
 			return action;
 		action = run.getAction(IsolationContextAction.class);
@@ -60,19 +64,26 @@ public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<L
 		return null;
 	}
 
-	protected IsolationContextAction injectContext(final Run<?, ?> run, final FlowNode flowNode) {
-		final IsolationContext context = contextOverride(run, flowNode);
-		if (context == null)
+	protected IsolationContextAction injectContext(final DelegatedContext context, final Run<?, ?> run,
+			final FlowNode flowNode) throws IOException, InterruptedException {
+		final IsolationContext isolation = contextOverride(context, run, flowNode);
+		if (isolation == null)
 			return null;
-		final IsolationContextAction action = new IsolationContextAction(context);
+		final IsolationContextAction action = new IsolationContextAction(isolation);
 		flowNode.addAction(action);
 		return action;
 	}
 
-	protected IsolationContext contextOverride(final Run<?, ?> run, final FlowNode flowNode) {
+	protected IsolationContext contextOverride(final DelegatedContext context, final Run<?, ?> run,
+			final FlowNode flowNode) throws IOException, InterruptedException {
 		// TODO check via ExtensionPoints if another IsolationContext has to be
 		// injected!
 		// EX: if Step=="withDockerContainer" -> NOOP or Adapter for Docker!
+
+		if (context.get(StepDescriptor.class) instanceof DoXStep.SignArtifactDescriptor) {
+			return new NoOpIsolationContext();
+		}
+
 		return null;
 	}
 

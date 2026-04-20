@@ -15,21 +15,15 @@
  */
 package org.jenkinsci.plugins.airgap;
 
-import hudson.Launcher;
 import hudson.LauncherDecorator;
-import hudson.model.Node;
 
 public class NoOpIsolationContext implements IsolationContext {
 
+	private static final long serialVersionUID = 1L;
+
 	@Override
 	public LauncherDecorator launcherDecorator() {
-		return new LauncherDecorator() {
-
-			@Override
-			public Launcher decorate(Launcher launcher, Node node) {
-				// NOOP
-				return launcher;
-			}
-		};
+		// NOOP
+		return null;
 	}
 }

@@ -15,7 +15,11 @@
  */
 package org.jenkinsci.plugins.airgap;
 
-public class SandboxInstance {
+import java.io.Serializable;
+
+public class SandboxInstance implements Serializable {
+
+	private static final long serialVersionUID = 1L;
 
 	public String getPid() {
 		// TODO Auto-generated method stub

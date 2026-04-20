@@ -18,14 +18,11 @@ package org.jenkinsci.plugins.airgap.steps;
 import java.io.Serializable;
 import java.util.Set;
 
-import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.DataBoundSetter;
-
 import com.google.common.collect.ImmutableSet;
 
 import hudson.EnvVars;
@@ -34,76 +31,17 @@ import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 
-public class SignArtifactStep extends Step implements Serializable {
+public class DoXStep extends Step implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
-	/**
-	 * Comma- or space-separated list of patterns of files/directories to be
-	 * archived.
-	 */
-	private String artifacts = null;
-
-	private String credentialId = null;
-
-	private String prefix = null;
-	private String suffix = null;
-
-	private boolean fingerprint = true;
-
 	@DataBoundConstructor
-	public SignArtifactStep(String artifacts) {
-		if (artifacts != null)
-			this.artifacts = artifacts.trim();
-	}
-
-	public String getArtifacts() {
-		return this.artifacts;
-	}
-
-	public String getCredentialId() {
-		return this.credentialId;
-	}
-
-	public boolean getFingerprint() {
-		return this.fingerprint;
-	}
-
-	public String getSignaturePrefix() {
-		if (StringUtils.isBlank(this.prefix))
-			return "";
-		return this.prefix;
-	}
-
-	public String getSignatureSuffix() {
-		if (StringUtils.isBlank(this.suffix))
-			return "asc";
-		return this.suffix;
-	}
-
-	@DataBoundSetter
-	public void setCredentialId(String credentialId) {
-		this.credentialId = credentialId;
-	}
-
-	@DataBoundSetter
-	public void setSignaturePrefix(String prefix) {
-		this.prefix = prefix;
-	}
-
-	@DataBoundSetter
-	public void setSignatureSuffix(String suffix) {
-		this.suffix = suffix;
-	}
-
-	@DataBoundSetter
-	public void setFingerprint(boolean fingerprint) {
-		this.fingerprint = fingerprint;
+	public DoXStep() {
 	}
 
 	@Override
 	public StepExecution start(StepContext context) throws Exception {
-		return new SignArtifactStepExecution(context, this);
+		return new DoXStepExecution(context, this);
 	}
 
 	@Extension
@@ -111,7 +49,7 @@ public class SignArtifactStep extends Step implements Serializable {
 
 		@Override
 		public String getFunctionName() {
-			return "xxx";
+			return "doX";
 		}
 
 		@Override
@@ -127,6 +65,16 @@ public class SignArtifactStep extends Step implements Serializable {
 		@Override
 		public Set<? extends Class<?>> getProvidedContext() {
 			return ImmutableSet.of();
+		}
+
+		@Override
+		public boolean takesImplicitBlockArgument() {
+			return true;
+		}
+
+		@Override
+		public boolean isAdvanced() {
+			return true;
 		}
 	}
 }

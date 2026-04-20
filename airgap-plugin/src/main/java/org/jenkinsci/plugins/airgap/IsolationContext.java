@@ -15,9 +15,11 @@
  */
 package org.jenkinsci.plugins.airgap;
 
+import java.io.Serializable;
+
 import hudson.LauncherDecorator;
 
-public interface IsolationContext {
+public interface IsolationContext extends Serializable {
 
 	public LauncherDecorator launcherDecorator();
 

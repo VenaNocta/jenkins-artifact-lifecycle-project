@@ -26,12 +26,12 @@ public class IsolationContextRunListener extends RunListener<Run<?, ?>> {
 
 	@Override
 	public void onStarted(Run<?, ?> run, TaskListener listener) {
-		if (!isAirgapEnabled(run)) {
-			return;
-		}
+		// if (!isAirgapEnabled(run)) {
+		// return;
+		// }
 
 		// TODO switch to expandable selector
-		IsolationContext context = new LinuxNamespaceContext(run);
+		IsolationContext context = new LinuxNamespaceContext();
 
 		run.addAction(new IsolationContextAction(context));
 	}
