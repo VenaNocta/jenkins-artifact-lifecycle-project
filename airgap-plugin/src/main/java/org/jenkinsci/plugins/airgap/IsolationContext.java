@@ -18,9 +18,15 @@ package org.jenkinsci.plugins.airgap;
 import java.io.Serializable;
 
 import hudson.LauncherDecorator;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 
 public interface IsolationContext extends Serializable {
 
 	public LauncherDecorator launcherDecorator();
+
+	public void setup(final Run<?, ?> run, final TaskListener listener);
+
+	public void destroy(final Run<?, ?> run, final TaskListener listener);
 
 }

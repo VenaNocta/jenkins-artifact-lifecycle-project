@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.airgap;
+package org.jenkinsci.plugins.airgap.config;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -22,12 +22,12 @@ import hudson.model.Job;
 import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
 
-public class AirgapJobProperty extends JobProperty<Job<?, ?>> {
+public class IsolationProperty extends JobProperty<Job<?, ?>> {
 
 	private final boolean enabled;
 
 	@DataBoundConstructor
-	public AirgapJobProperty(boolean enabled) {
+	public IsolationProperty(boolean enabled) {
 		this.enabled = enabled;
 	}
 
@@ -39,7 +39,7 @@ public class AirgapJobProperty extends JobProperty<Job<?, ?>> {
 	public static class DescriptorImpl extends JobPropertyDescriptor {
 		@Override
 		public String getDisplayName() {
-			return "Force Airgap Sandbox";
+			return "Context Isolation Defaults";
 		}
 	}
 }

@@ -24,13 +24,16 @@ import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
 import hudson.model.Node;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 
 public class LinuxNamespaceContext implements IsolationContext {
 
 	private static final long serialVersionUID = 1L;
 
-	protected SandboxInstance sandbox;
-	protected DecoratorFactory factory;
+	protected final DecoratorFactory factory;
+
+	protected int processId = -1;
 
 	public LinuxNamespaceContext() {
 		this.factory = new DecoratorFactory();
@@ -41,10 +44,10 @@ public class LinuxNamespaceContext implements IsolationContext {
 		private static final long serialVersionUID = 1L;
 
 		@Override
-		public Launcher decorate(Launcher launcher, Node node) {
+		public Launcher decorate(final Launcher launcher, final Node node) {
 			return new Launcher.DecoratedLauncher(launcher) {
 				@Override
-				public Proc launch(ProcStarter starter) throws IOException {
+				public Proc launch(final ProcStarter starter) throws IOException {
 
 					launcher.getListener()
 							.getLogger()
@@ -56,7 +59,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 					// Wrap command with nsenter
 					List<String> cmd = new ArrayList<>();
 					cmd.add("nsenter");
-					cmd.add("--target=" + sandbox.getPid());
+					cmd.add("--target=" + processId);
 					cmd.add("--mount");
 					cmd.add("--net");
 					cmd.add("--pid");
@@ -77,5 +80,15 @@ public class LinuxNamespaceContext implements IsolationContext {
 	@Override
 	public LauncherDecorator launcherDecorator() {
 		return this.factory;
+	}
+
+	@Override
+	public void setup(final Run<?, ?> run, final TaskListener listener) {
+		// TODO Auto-generated method stub
+	}
+
+	@Override
+	public void destroy(final Run<?, ?> run, final TaskListener listener) {
+		// TODO Auto-generated method stub
 	}
 }

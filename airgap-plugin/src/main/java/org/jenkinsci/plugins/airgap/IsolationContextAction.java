@@ -15,32 +15,14 @@
  */
 package org.jenkinsci.plugins.airgap;
 
-import hudson.model.Action;
+import hudson.model.InvisibleAction;
 
-public class IsolationContextAction implements Action {
+public class IsolationContextAction extends InvisibleAction {
 
 	protected final IsolationContext context;
 
 	public IsolationContextAction(final IsolationContext context) {
 		this.context = context;
-	}
-
-	@Override
-	public String getIconFileName() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public String getDisplayName() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public String getUrlName() {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 	public IsolationContext getContext() {

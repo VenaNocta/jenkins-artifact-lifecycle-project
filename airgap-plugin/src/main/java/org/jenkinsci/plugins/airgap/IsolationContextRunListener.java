@@ -15,6 +15,7 @@
  */
 package org.jenkinsci.plugins.airgap;
 
+import org.jenkinsci.plugins.airgap.config.IsolationProperty;
 import hudson.Extension;
 import hudson.model.Job;
 import hudson.model.Run;
@@ -26,24 +27,37 @@ public class IsolationContextRunListener extends RunListener<Run<?, ?>> {
 
 	@Override
 	public void onStarted(Run<?, ?> run, TaskListener listener) {
-		// if (!isAirgapEnabled(run)) {
-		// return;
-		// }
+		if (!isIsolationForced(run))
+			return;
 
-		// TODO switch to expandable selector
-		IsolationContext context = new LinuxNamespaceContext();
+		IsolationContext context = contextOverride(run, listener);
+		if (context == null)
+			context = new UnsupportedContext();
 
 		run.addAction(new IsolationContextAction(context));
+		context.setup(run, listener);
 	}
 
 	@Override
-	public void onCompleted(Run<?, ?> run, TaskListener listener) {
-		// TODO find a way to teardown all IsolationContext instances
+	public void onCompleted(final Run<?, ?> run, final TaskListener listener) {
+		final IsolationContextAction action = run.getAction(IsolationContextAction.class);
+		if (action == null)
+			return;
+		action.getContext()
+				.destroy(run, listener);
 	}
 
-	private boolean isAirgapEnabled(Run<?, ?> run) {
-		Job<?, ?> job = run.getParent();
-		AirgapJobProperty prop = job.getProperty(AirgapJobProperty.class);
+	private boolean isIsolationForced(final Run<?, ?> run) {
+		final Job<?, ?> job = run.getParent();
+		final IsolationProperty prop = job.getProperty(IsolationProperty.class);
 		return prop != null && prop.isEnabled();
+	}
+
+	protected IsolationContext contextOverride(final Run<?, ?> run, final TaskListener listener) {
+		// TODO check via ExtensionPoints if another IsolationContext has to be
+		// injected!
+		// EX: if Step=="withDockerContainer" -> NOOP or Adapter for Docker!
+
+		return null;
 	}
 }
