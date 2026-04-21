@@ -30,12 +30,8 @@ public class IsolationContextRunListener extends RunListener<Run<?, ?>> {
 		if (!isIsolationForced(run))
 			return;
 
-		IsolationContext context = contextOverride(run, listener);
-		if (context == null)
-			context = new UnsupportedContext();
-
+		final IsolationContext context = new UnsupportedContext();
 		run.addAction(new IsolationContextAction(context));
-		context.setup(run, listener);
 	}
 
 	@Override
@@ -47,17 +43,12 @@ public class IsolationContextRunListener extends RunListener<Run<?, ?>> {
 				.destroy(run, listener);
 	}
 
-	private boolean isIsolationForced(final Run<?, ?> run) {
-		final Job<?, ?> job = run.getParent();
-		final IsolationProperty prop = job.getProperty(IsolationProperty.class);
-		return prop != null && prop.isEnabled();
+	public static boolean isIsolationForced(final Run<?, ?> run) {
+		return isIsolationForced(run.getParent());
 	}
 
-	protected IsolationContext contextOverride(final Run<?, ?> run, final TaskListener listener) {
-		// TODO check via ExtensionPoints if another IsolationContext has to be
-		// injected!
-		// EX: if Step=="withDockerContainer" -> NOOP or Adapter for Docker!
-
-		return null;
+	public static boolean isIsolationForced(final Job<?, ?> job) {
+		final IsolationProperty prop = job.getProperty(IsolationProperty.class);
+		return prop != null && prop.isEnabled();
 	}
 }

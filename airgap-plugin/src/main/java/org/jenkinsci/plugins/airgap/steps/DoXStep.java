@@ -15,9 +15,14 @@
  */
 package org.jenkinsci.plugins.airgap.steps;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Set;
 
+import org.jenkinsci.plugins.airgap.IsolationContext;
+import org.jenkinsci.plugins.airgap.IsolationContextProvider;
+import org.jenkinsci.plugins.airgap.NoOpIsolationContext;
+import org.jenkinsci.plugins.workflow.steps.DynamicContext.DelegatedContext;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -75,6 +80,21 @@ public class DoXStep extends Step implements Serializable {
 		@Override
 		public boolean isAdvanced() {
 			return true;
+		}
+	}
+
+	@Extension
+	public static class Provider implements IsolationContextProvider {
+
+		@Override
+		public boolean isApplicable(final StepDescriptor descriptor) {
+			return descriptor instanceof SignArtifactDescriptor;
+		}
+
+		@Override
+		public IsolationContext buildIsolationContext(DelegatedContext context)
+				throws IOException, InterruptedException {
+			return new NoOpIsolationContext();
 		}
 	}
 }

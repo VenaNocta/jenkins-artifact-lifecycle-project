@@ -17,7 +17,6 @@ package org.jenkinsci.plugins.airgap;
 
 import java.io.IOException;
 
-import org.jenkinsci.plugins.airgap.steps.DoXStep;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
@@ -26,6 +25,7 @@ import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import hudson.Extension;
 import hudson.LauncherDecorator;
 import hudson.model.Run;
+import hudson.model.TaskListener;
 
 @Extension
 public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<LauncherDecorator> {
@@ -66,22 +66,31 @@ public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<L
 
 	protected IsolationContextAction injectContext(final DelegatedContext context, final Run<?, ?> run,
 			final FlowNode flowNode) throws IOException, InterruptedException {
-		final IsolationContext isolation = contextOverride(context, run, flowNode);
+		final IsolationContext isolation = contextOverride(context, flowNode);
 		if (isolation == null)
 			return null;
+
 		final IsolationContextAction action = new IsolationContextAction(isolation);
+
 		flowNode.addAction(action);
+		isolation.setup(run, context.get(TaskListener.class));
+
 		return action;
 	}
 
-	protected IsolationContext contextOverride(final DelegatedContext context, final Run<?, ?> run,
-			final FlowNode flowNode) throws IOException, InterruptedException {
-		// TODO check via ExtensionPoints if another IsolationContext has to be
-		// injected!
-		// EX: if Step=="withDockerContainer" -> NOOP or Adapter for Docker!
+	protected IsolationContext contextOverride(final DelegatedContext context, final FlowNode flowNode)
+			throws IOException, InterruptedException {
+		final StepDescriptor descriptor = context.get(StepDescriptor.class);
+		if (descriptor == null)
+			return null;
 
-		if (context.get(StepDescriptor.class) instanceof DoXStep.SignArtifactDescriptor) {
-			return new NoOpIsolationContext();
+		IsolationContext isolation = null;
+		for (IsolationContextProvider provider : IsolationContextProvider.all()) {
+			if (provider.isApplicable(descriptor)) {
+				isolation = provider.buildIsolationContext(context);
+				if (isolation != null)
+					return isolation;
+			}
 		}
 
 		return null;
