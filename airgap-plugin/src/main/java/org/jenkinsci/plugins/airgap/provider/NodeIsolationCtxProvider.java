@@ -28,7 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.airgap.IsolationContext;
 import org.jenkinsci.plugins.airgap.IsolationContextProvider;
 import org.jenkinsci.plugins.airgap.IsolationContextRunListener;
-import org.jenkinsci.plugins.airgap.LinuxNamespaceContext;
+import org.jenkinsci.plugins.airgap.ctx.LinuxNamespaceContext;
 import org.jenkinsci.plugins.variant.OptionalExtension;
 
 import hudson.model.Computer;

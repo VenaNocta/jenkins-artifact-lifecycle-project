@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.airgap;
+package org.jenkinsci.plugins.airgap.ctx;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jenkinsci.plugins.airgap.IsolationContext;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
 import hudson.Launcher;

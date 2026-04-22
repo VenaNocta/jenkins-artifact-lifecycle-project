@@ -21,7 +21,7 @@ import java.util.Set;
 
 import org.jenkinsci.plugins.airgap.IsolationContext;
 import org.jenkinsci.plugins.airgap.IsolationContextProvider;
-import org.jenkinsci.plugins.airgap.NoOpIsolationContext;
+import org.jenkinsci.plugins.airgap.ctx.NoOpIsolationContext;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;

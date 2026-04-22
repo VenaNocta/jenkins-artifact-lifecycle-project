@@ -16,6 +16,8 @@
 package org.jenkinsci.plugins.airgap;
 
 import org.jenkinsci.plugins.airgap.config.IsolationProperty;
+import org.jenkinsci.plugins.airgap.ctx.UnsupportedContext;
+
 import hudson.Extension;
 import hudson.model.Job;
 import hudson.model.Run;
