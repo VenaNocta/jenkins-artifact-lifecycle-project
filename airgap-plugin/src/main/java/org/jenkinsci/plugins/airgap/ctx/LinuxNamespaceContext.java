@@ -16,8 +16,10 @@
 package org.jenkinsci.plugins.airgap.ctx;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.jenkinsci.plugins.airgap.IsolationContext;
@@ -34,11 +36,17 @@ public class LinuxNamespaceContext implements IsolationContext {
 	private static final long serialVersionUID = 1L;
 
 	protected final DecoratorFactory factory;
+	protected final Node node;
+	protected final WorkspaceAction ws;
+	protected final TaskListener listener;
 
-	protected int processId = -1;
+	protected long processId = -1;
 
 	public LinuxNamespaceContext(final Node node, final WorkspaceAction ws, final TaskListener listener) {
 		this.factory = new DecoratorFactory();
+		this.node = node;
+		this.ws = ws;
+		this.listener = listener;
 	}
 
 	public class DecoratorFactory extends LauncherDecorator implements Serializable {
@@ -63,10 +71,13 @@ public class LinuxNamespaceContext implements IsolationContext {
 					cmd.add("nsenter");
 					cmd.add("--target=" + processId);
 					cmd.add("--mount");
+					cmd.add("--uts");
+					cmd.add("--ipc");
 					cmd.add("--net");
 					cmd.add("--pid");
-					cmd.add("--ipc");
-					cmd.add("--uts");
+					cmd.add("--fork");
+					cmd.add("--mount-proc");
+					cmd.add("--user");
 					cmd.add("--");
 
 					cmd.addAll(starter.cmds());
@@ -86,11 +97,67 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	@Override
 	public void setup() {
-		// TODO Auto-generated method stub
+		if (this.processId != -1)
+			return;
+
+		final PrintStream out = this.listener.getLogger();
+		out.println("[Linux-Namespace] starting isolated environment...");
+
+		final List<String> cmd = new ArrayList<>();
+
+		cmd.add("setsid");
+		cmd.add("unshare");
+		cmd.add("--mount");
+		cmd.add("--uts");
+		cmd.add("--ipc");
+		cmd.add("--net");
+		cmd.add("--pid");
+		cmd.add("--fork");
+		cmd.add("--mount-proc");
+		cmd.add("--user");
+		// cmd.add("--map-root-user");
+		cmd.add("--");
+
+		// Keep namespace alive
+		cmd.add("bash");
+		cmd.add("-c");
+		cmd.add("\"ip link set lo up && tail -f /dev/null\"");
+
+		final ProcessBuilder pb = new ProcessBuilder(cmd);
+		pb.redirectErrorStream(true);
+
+		try {
+			final Process process = pb.start();
+			this.processId = process.pid();
+		} catch (IOException e) {
+			out.println("[Linux-Namespace] Failed to start isolated environment!");
+			e.printStackTrace(out);
+			return;
+		}
+
+		out.println("[Linux-Namespace] Started isolated environment [ PID=" + this.processId + " ]");
 	}
 
 	@Override
 	public void destroy() {
-		// TODO Auto-generated method stub
+		if (this.processId == -1)
+			return;
+		if (true)
+			return;
+
+		final PrintStream out = this.listener.getLogger();
+		out.println("[Linux-Namespace] stopping isolated environment [ PID=" + this.processId + " ]");
+
+		// Kill process tree
+		final ProcessBuilder pb = new ProcessBuilder(Arrays.asList("kill", "-KILL", "-" + this.processId));
+		try {
+			pb.start()
+					.waitFor();
+		} catch (InterruptedException | IOException e) {
+			out.println("[Linux-Namespace] Failed to stop isolated environment!");
+			e.printStackTrace(out);
+		}
+
+		out.println("[Linux-Namespace] Stopped isolated environment [ PID=" + this.processId + " ]");
 	}
 }
