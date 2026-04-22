@@ -27,7 +27,7 @@ public class IsolationContextRunListener extends RunListener<Run<?, ?>> {
 
 	@Override
 	public void onStarted(Run<?, ?> run, TaskListener listener) {
-		if (!isIsolationForced(run))
+		if (!isIsolationForced(run) || run.getAction(IsolationContextAction.class) != null)
 			return;
 
 		final IsolationContext context = new UnsupportedContext();
@@ -40,7 +40,7 @@ public class IsolationContextRunListener extends RunListener<Run<?, ?>> {
 		if (action == null)
 			return;
 		action.getContext()
-				.destroy(run, listener);
+				.destroy();
 	}
 
 	public static boolean isIsolationForced(final Run<?, ?> run) {

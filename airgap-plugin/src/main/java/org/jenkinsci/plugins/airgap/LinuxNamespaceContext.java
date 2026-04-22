@@ -20,11 +20,12 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
+
 import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
 import hudson.model.Node;
-import hudson.model.Run;
 import hudson.model.TaskListener;
 
 public class LinuxNamespaceContext implements IsolationContext {
@@ -35,7 +36,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	protected int processId = -1;
 
-	public LinuxNamespaceContext() {
+	public LinuxNamespaceContext(final Node node, final WorkspaceAction ws, final TaskListener listener) {
 		this.factory = new DecoratorFactory();
 	}
 
@@ -83,12 +84,12 @@ public class LinuxNamespaceContext implements IsolationContext {
 	}
 
 	@Override
-	public void setup(final Run<?, ?> run, final TaskListener listener) {
+	public void setup() {
 		// TODO Auto-generated method stub
 	}
 
 	@Override
-	public void destroy(final Run<?, ?> run, final TaskListener listener) {
+	public void destroy() {
 		// TODO Auto-generated method stub
 	}
 }

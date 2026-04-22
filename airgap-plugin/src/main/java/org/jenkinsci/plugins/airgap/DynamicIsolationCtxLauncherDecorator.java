@@ -21,11 +21,9 @@ import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
 import org.jenkinsci.plugins.workflow.steps.DynamicContext;
-import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import hudson.Extension;
 import hudson.LauncherDecorator;
 import hudson.model.Run;
-import hudson.model.TaskListener;
 
 @Extension
 public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<LauncherDecorator> {
@@ -40,9 +38,7 @@ public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<L
 		final Run<?, ?> run = context.get(Run.class);
 		final FlowNode flowNode = context.get(FlowNode.class);
 		// apply overrides if available
-		IsolationContextAction action = injectContext(context, run, flowNode);
-		if (action == null)
-			action = getContextAction(run, flowNode);
+		final IsolationContextAction action = getContextAction(run, flowNode);
 		if (action == null)
 			return null;
 		final IsolationContext isolation = action.getContext();
@@ -61,38 +57,6 @@ public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<L
 		action = run.getAction(IsolationContextAction.class);
 		if (action != null)
 			return action;
-		return null;
-	}
-
-	protected IsolationContextAction injectContext(final DelegatedContext context, final Run<?, ?> run,
-			final FlowNode flowNode) throws IOException, InterruptedException {
-		final IsolationContext isolation = contextOverride(context, flowNode);
-		if (isolation == null)
-			return null;
-
-		final IsolationContextAction action = new IsolationContextAction(isolation);
-
-		flowNode.addAction(action);
-		isolation.setup(run, context.get(TaskListener.class));
-
-		return action;
-	}
-
-	protected IsolationContext contextOverride(final DelegatedContext context, final FlowNode flowNode)
-			throws IOException, InterruptedException {
-		final StepDescriptor descriptor = context.get(StepDescriptor.class);
-		if (descriptor == null)
-			return null;
-
-		IsolationContext isolation = null;
-		for (IsolationContextProvider provider : IsolationContextProvider.all()) {
-			if (provider.isApplicable(descriptor)) {
-				isolation = provider.buildIsolationContext(context);
-				if (isolation != null)
-					return isolation;
-			}
-		}
-
 		return null;
 	}
 

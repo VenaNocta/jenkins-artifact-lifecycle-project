@@ -16,67 +16,65 @@
 package org.jenkinsci.plugins.airgap.provider;
 
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
-import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
-import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
-import java.io.IOException;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
+import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
+import org.jenkinsci.plugins.workflow.support.steps.ExecutorStep;
 
+import java.io.IOException;
+import java.io.PrintStream;
+
+import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.airgap.IsolationContext;
-import org.jenkinsci.plugins.airgap.IsolationContextAction;
+import org.jenkinsci.plugins.airgap.IsolationContextProvider;
 import org.jenkinsci.plugins.airgap.IsolationContextRunListener;
 import org.jenkinsci.plugins.airgap.LinuxNamespaceContext;
-import hudson.Extension;
+import org.jenkinsci.plugins.variant.OptionalExtension;
+
 import hudson.model.Computer;
 import hudson.model.Node;
 import hudson.model.Run;
+import hudson.model.TaskListener;
 import jenkins.model.Jenkins;
 
-@Extension
-public class NodeIsolationCtxGraphListener implements GraphListener {
+@OptionalExtension(requireClasses = ExecutorStep.class)
+public class NodeIsolationCtxProvider implements IsolationContextProvider {
 
 	@Override
-	public void onNewHead(final FlowNode flowNode) {
-		final Run<?, ?> run = getRun(flowNode);
-		if (!IsolationContextRunListener.isIsolationForced(run))
-			return;
+	public boolean isApplicable(final StepDescriptor descriptor) {
+		return descriptor instanceof ExecutorStep.DescriptorImpl;
+	}
+
+	@Override
+	public IsolationContext buildIsolationContext(final StepContext context) throws IOException, InterruptedException {
+		final Run<?, ?> run = context.get(Run.class);
+		final FlowNode flowNode = context.get(FlowNode.class);
+		if (run == null || !IsolationContextRunListener.isIsolationForced(run))
+			return null;
 
 		final WorkspaceAction ws = flowNode.getAction(WorkspaceAction.class);
 		if (ws == null)
-			return;
-
-		final Node node = Jenkins.get()
-				.getNode(ws.getNode());
-
-		final IsolationContext isolation = selectIsolationContext(flowNode, node, ws);
-		if (isolation == null)
-			return;
-
-		final IsolationContextAction action = new IsolationContextAction(isolation);
-
-		flowNode.addAction(action);
-		// TODO consider on-demand setup -> start only when needed!
-		isolation.setup(run, null);
-	}
-
-	protected static Run<?, ?> getRun(final FlowNode flowNode) {
-		try {
-			final FlowExecutionOwner owner = flowNode.getExecution()
-					.getOwner();
-			return (Run<?, ?>) owner.getExecutable();
-		} catch (Exception ignored) {
 			return null;
-		}
+
+		final Node node = StringUtils.trimToNull(ws.getNode()) == null ? Jenkins.get()
+				: Jenkins.get()
+						.getNode(ws.getNode());
+
+		return selectIsolationContext(flowNode, node, context, ws);
 	}
 
 	protected IsolationContext selectIsolationContext(final FlowNode flowNode, final Node node,
-			final WorkspaceAction ws) {
-		if (isLinux(node)) {
-			return new LinuxNamespaceContext();
+			final StepContext context, final WorkspaceAction ws) throws IOException, InterruptedException {
+		final TaskListener listener = context.get(TaskListener.class);
+		final PrintStream log = listener.getLogger();
+
+		if (isLinux(node, log)) {
+			return new LinuxNamespaceContext(node, ws, listener);
 		}
 		return null;
 	}
 
-	protected boolean isLinux(final Node node) {
+	protected boolean isLinux(final Node node, final PrintStream log) {
 		if (node == null)
 			return false;
 		final Computer computer = node.toComputer();

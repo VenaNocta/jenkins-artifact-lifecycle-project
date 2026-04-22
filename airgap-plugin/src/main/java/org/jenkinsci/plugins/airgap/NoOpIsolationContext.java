@@ -16,8 +16,6 @@
 package org.jenkinsci.plugins.airgap;
 
 import hudson.LauncherDecorator;
-import hudson.model.Run;
-import hudson.model.TaskListener;
 
 public class NoOpIsolationContext implements IsolationContext {
 
@@ -30,10 +28,10 @@ public class NoOpIsolationContext implements IsolationContext {
 	}
 
 	@Override
-	public void setup(Run<?, ?> run, TaskListener listener) {
+	public void setup() {
 	}
 
 	@Override
-	public void destroy(Run<?, ?> run, TaskListener listener) {
+	public void destroy() {
 	}
 }

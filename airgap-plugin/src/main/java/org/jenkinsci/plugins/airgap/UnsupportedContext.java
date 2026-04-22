@@ -23,8 +23,6 @@ import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
 import hudson.model.Node;
-import hudson.model.Run;
-import hudson.model.TaskListener;
 
 public class UnsupportedContext implements IsolationContext {
 
@@ -42,11 +40,11 @@ public class UnsupportedContext implements IsolationContext {
 	}
 
 	@Override
-	public void setup(Run<?, ?> run, TaskListener listener) {
+	public void setup() {
 	}
 
 	@Override
-	public void destroy(Run<?, ?> run, TaskListener listener) {
+	public void destroy() {
 	}
 
 	protected static class DecoratorFactory extends LauncherDecorator implements Serializable {

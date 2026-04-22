@@ -22,7 +22,6 @@ import java.util.Set;
 import org.jenkinsci.plugins.airgap.IsolationContext;
 import org.jenkinsci.plugins.airgap.IsolationContextProvider;
 import org.jenkinsci.plugins.airgap.NoOpIsolationContext;
-import org.jenkinsci.plugins.workflow.steps.DynamicContext.DelegatedContext;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -45,7 +44,7 @@ public class DoXStep extends Step implements Serializable {
 	}
 
 	@Override
-	public StepExecution start(StepContext context) throws Exception {
+	public StepExecution start(final StepContext context) throws Exception {
 		return new DoXStepExecution(context, this);
 	}
 
@@ -92,7 +91,7 @@ public class DoXStep extends Step implements Serializable {
 		}
 
 		@Override
-		public IsolationContext buildIsolationContext(DelegatedContext context)
+		public IsolationContext buildIsolationContext(final StepContext context)
 				throws IOException, InterruptedException {
 			return new NoOpIsolationContext();
 		}

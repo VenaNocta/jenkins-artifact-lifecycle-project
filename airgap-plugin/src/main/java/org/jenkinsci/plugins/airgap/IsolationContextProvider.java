@@ -18,7 +18,7 @@ package org.jenkinsci.plugins.airgap;
 import java.io.IOException;
 
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
-import org.jenkinsci.plugins.workflow.steps.DynamicContext.DelegatedContext;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import hudson.ExtensionList;
 import hudson.ExtensionPoint;
@@ -27,7 +27,7 @@ public interface IsolationContextProvider extends ExtensionPoint {
 
 	public boolean isApplicable(StepDescriptor descriptor);
 
-	public IsolationContext buildIsolationContext(DelegatedContext context) throws IOException, InterruptedException;
+	public IsolationContext buildIsolationContext(StepContext context) throws IOException, InterruptedException;
 
 	public static ExtensionList<IsolationContextProvider> all() {
 		return ExtensionList.lookup(IsolationContextProvider.class);
