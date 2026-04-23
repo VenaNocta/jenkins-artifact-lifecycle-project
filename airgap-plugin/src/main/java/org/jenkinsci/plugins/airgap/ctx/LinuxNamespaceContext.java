@@ -15,13 +15,14 @@
  */
 package org.jenkinsci.plugins.airgap.ctx;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
+import java.util.concurrent.CompletableFuture;
 import org.jenkinsci.plugins.airgap.IsolationContext;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
@@ -30,15 +31,17 @@ import hudson.LauncherDecorator;
 import hudson.Proc;
 import hudson.model.Node;
 import hudson.model.TaskListener;
+import hudson.remoting.VirtualChannel;
+import jenkins.MasterToSlaveFileCallable;
 
 public class LinuxNamespaceContext implements IsolationContext {
 
 	private static final long serialVersionUID = 1L;
 
-	protected final DecoratorFactory factory;
-	protected final Node node;
-	protected final WorkspaceAction ws;
-	protected final TaskListener listener;
+	protected transient final DecoratorFactory factory;
+	protected transient final Node node;
+	protected transient final WorkspaceAction ws;
+	protected transient final TaskListener listener;
 
 	protected long processId = -1;
 
@@ -100,8 +103,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 		if (this.processId != -1)
 			return;
 
-		final PrintStream out = this.listener.getLogger();
-		out.println("[Linux-Namespace] starting isolated environment...");
+		final PrintStream log = this.listener.getLogger();
 
 		final List<String> cmd = new ArrayList<>();
 
@@ -115,49 +117,104 @@ public class LinuxNamespaceContext implements IsolationContext {
 		cmd.add("--fork");
 		cmd.add("--mount-proc");
 		cmd.add("--user");
-		// cmd.add("--map-root-user");
+		cmd.add("--map-root-user");
+		cmd.add("--propagation=private");
+		cmd.add("--wd=" + this.ws.getPath());
 		cmd.add("--");
 
 		// Keep namespace alive
-		cmd.add("bash");
+		cmd.add("/usr/bin/bash");
 		cmd.add("-c");
-		cmd.add("\"ip link set lo up && tail -f /dev/null\"");
-
-		final ProcessBuilder pb = new ProcessBuilder(cmd);
-		pb.redirectErrorStream(true);
+		cmd.add("ip link set lo up && exec tail -f /dev/null");
 
 		try {
-			final Process process = pb.start();
-			this.processId = process.pid();
-		} catch (IOException e) {
-			out.println("[Linux-Namespace] Failed to start isolated environment!");
-			e.printStackTrace(out);
+			ExecRemoteProcess remoteProcess = new ExecRemoteProcess(cmd);
+			CompletableFuture<Process> future = this.ws.getWorkspace()
+					.act(remoteProcess);
+			this.processId = remoteProcess.processId();
+			future.thenAccept(p -> {
+				int exitCode = p.exitValue();
+				if (exitCode == 0)
+					return;
+				log.println("exitCode=" + exitCode);
+				try {
+					p.getInputStream()
+							.transferTo(log);
+				} catch (IOException e) {
+					e.printStackTrace(log);
+				}
+			});
+		} catch (IOException | InterruptedException e) {
+			log.println("[Linux-Namespace] Failed to start isolated environment!");
+			e.printStackTrace(log);
 			return;
 		}
 
-		out.println("[Linux-Namespace] Started isolated environment [ PID=" + this.processId + " ]");
+		log.println("[Linux-Namespace] Started isolated environment [ PID=" + this.processId + " ]");
 	}
 
 	@Override
 	public void destroy() {
 		if (this.processId == -1)
 			return;
-		if (true)
-			return;
 
-		final PrintStream out = this.listener.getLogger();
-		out.println("[Linux-Namespace] stopping isolated environment [ PID=" + this.processId + " ]");
+		final PrintStream log = this.listener.getLogger();
 
 		// Kill process tree
-		final ProcessBuilder pb = new ProcessBuilder(Arrays.asList("kill", "-KILL", "-" + this.processId));
 		try {
-			pb.start()
-					.waitFor();
+			ExecRemoteProcess remoteProcess = new ExecRemoteProcess(
+					Arrays.asList("kill", "-KILL", "-" + this.processId));
+			this.ws.getWorkspace()
+					.act(remoteProcess.await(true));
+
+			log.println("[Linux-Namespace] Stopped isolated environment [ PID=" + this.processId + " ]");
+			this.processId = -1;
 		} catch (InterruptedException | IOException e) {
-			out.println("[Linux-Namespace] Failed to stop isolated environment!");
-			e.printStackTrace(out);
+			log.println("[Linux-Namespace] Failed to stop isolated environment! [ PID=" + this.processId + " ]");
+			e.printStackTrace(log);
+		}
+	}
+
+	public static class ExecRemoteProcess extends MasterToSlaveFileCallable<CompletableFuture<Process>> {
+
+		private static final long serialVersionUID = 1L;
+
+		protected final List<String> cmd;
+
+		protected boolean await = false;
+		protected long processId = -1;
+
+		public ExecRemoteProcess(final List<String> cmd) {
+			this.cmd = cmd;
 		}
 
-		out.println("[Linux-Namespace] Stopped isolated environment [ PID=" + this.processId + " ]");
+		@Override
+		public CompletableFuture<Process> invoke(File wsDir, VirtualChannel channel)
+				throws IOException, InterruptedException {
+			final ProcessBuilder pb = new ProcessBuilder(cmd);
+
+			// final Map<String, String> env = pb.environment();
+			// env.clear();
+			// env.put("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin");
+			// env.put("LANG", "C");
+			// env.put("LC_ALL", "C");
+
+			pb.directory(wsDir);
+			pb.redirectErrorStream(true);
+			final Process process = pb.start();
+			this.processId = process.pid();
+			if (this.await)
+				process.waitFor();
+			return process.onExit();
+		}
+
+		public long processId() {
+			return this.processId;
+		}
+
+		public ExecRemoteProcess await(boolean value) {
+			this.await = value;
+			return this;
+		}
 	}
 }

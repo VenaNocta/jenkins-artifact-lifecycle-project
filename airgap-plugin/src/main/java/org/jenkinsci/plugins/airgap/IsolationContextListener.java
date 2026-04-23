@@ -113,7 +113,8 @@ public class IsolationContextListener extends FlowExecutionListener {
 		final StepEndNode end = (StepEndNode) flowNode;
 		final StepDescriptor stepDescriptor = end.getDescriptor();
 		final FlowExecution flowExec = end.getExecution();
-		final IsolationContextAction action = flowNode.getAction(IsolationContextAction.class);
+		final IsolationContextAction action = end.getStartNode()
+				.getAction(IsolationContextAction.class);
 
 		if (stepDescriptor == null //
 				|| !(flowExec instanceof CpsFlowExecution) //
