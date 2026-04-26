@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.jenkinsci.plugins.airgap.IsolationContext;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
+import hudson.AbortException;
 import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
@@ -61,18 +62,17 @@ public class LinuxNamespaceContext implements IsolationContext {
 			return new Launcher.DecoratedLauncher(launcher) {
 				@Override
 				public Proc launch(final ProcStarter starter) throws IOException {
+					if (LinuxNamespaceContext.this.processId == -1)
+						throw new AbortException("[Linux-Namespace] Namespace unavailable!");
 
 					launcher.getListener()
 							.getLogger()
 							.print("-- LinuxNamespaceContext -- " + factory.hashCode() + "\n");
 
-					if (true)
-						return super.launch(starter);
-
 					// Wrap command with nsenter
 					List<String> cmd = new ArrayList<>();
 					cmd.add("nsenter");
-					cmd.add("--target=" + processId);
+					cmd.add("--target=" + LinuxNamespaceContext.this.processId);
 					cmd.add("--mount");
 					cmd.add("--uts");
 					cmd.add("--ipc");
@@ -86,6 +86,8 @@ public class LinuxNamespaceContext implements IsolationContext {
 					cmd.addAll(starter.cmds());
 
 					starter.cmds(cmd);
+
+					System.out.println("======== " + String.join(" ", cmd));
 
 					return super.launch(starter);
 				}
