@@ -23,15 +23,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+
 import org.jenkinsci.plugins.airgap.IsolationContext;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
 import hudson.AbortException;
+import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
 import hudson.model.Node;
 import hudson.model.TaskListener;
+import hudson.remoting.Future;
 import hudson.remoting.VirtualChannel;
 import jenkins.MasterToSlaveFileCallable;
 
@@ -46,6 +51,8 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	protected long processId = -1;
 
+	protected transient CompletableFuture<LnxIdentity> _lnxIdentityFuture = null;
+
 	public LinuxNamespaceContext(final Node node, final WorkspaceAction ws, final TaskListener listener) {
 		this.factory = new DecoratorFactory();
 		this.node = node;
@@ -53,51 +60,88 @@ public class LinuxNamespaceContext implements IsolationContext {
 		this.listener = listener;
 	}
 
-	public class DecoratorFactory extends LauncherDecorator implements Serializable {
-
-		private static final long serialVersionUID = 1L;
-
-		@Override
-		public Launcher decorate(final Launcher launcher, final Node node) {
-			return new Launcher.DecoratedLauncher(launcher) {
-				@Override
-				public Proc launch(final ProcStarter starter) throws IOException {
-					if (LinuxNamespaceContext.this.processId == -1)
-						throw new AbortException("[Linux-Namespace] Namespace unavailable!");
-
-					launcher.getListener()
-							.getLogger()
-							.print("-- LinuxNamespaceContext -- " + factory.hashCode() + "\n");
-
-					// Wrap command with nsenter
-					List<String> cmd = new ArrayList<>();
-					cmd.add("nsenter");
-					cmd.add("--target=" + LinuxNamespaceContext.this.processId);
-					cmd.add("--mount");
-					cmd.add("--uts");
-					cmd.add("--ipc");
-					cmd.add("--net");
-					cmd.add("--pid");
-					cmd.add("--fork");
-					cmd.add("--mount-proc");
-					cmd.add("--user");
-					cmd.add("--");
-
-					cmd.addAll(starter.cmds());
-
-					starter.cmds(cmd);
-
-					System.out.println("======== " + String.join(" ", cmd));
-
-					return super.launch(starter);
-				}
-			};
-		}
-	}
-
 	@Override
 	public LauncherDecorator launcherDecorator() {
 		return this.factory;
+	}
+
+	public synchronized CompletableFuture<LnxIdentity> lnxIdentityFuture() {
+		if (this._lnxIdentityFuture != null)
+			return this._lnxIdentityFuture;
+
+		final CompletableFuture<LnxIdentity> future = new CompletableFuture<>();
+		final LnxIdentity id = new LnxIdentity();
+
+		final CompletableFuture<?>[] lst = new CompletableFuture[3];
+
+		// get user
+		try {
+			lst[0] = this.ws.getWorkspace()
+					.act(new ExecRemoteProcess(Arrays.asList("id", "-r", "--user")))
+					.thenApply(LinuxNamespaceContext::outputToString)
+					.thenAccept(id::setUser);
+			// get group
+			lst[1] = this.ws.getWorkspace()
+					.act(new ExecRemoteProcess(Arrays.asList("id", "-r", "--group")))
+					.thenApply(LinuxNamespaceContext::outputToString)
+					.thenAccept(id::setGroup);
+			// get groups
+			lst[2] = this.ws.getWorkspace()
+					.act(new ExecRemoteProcess(Arrays.asList("id", "-r", "--groups")))
+					.thenApply(LinuxNamespaceContext::outputToString)
+					.thenApply(s -> s.split(" "))
+					.thenAccept(id::setGroups);
+		} catch (IOException | InterruptedException e) {
+			future.completeExceptionally(e);
+		}
+
+		CompletableFuture.allOf(lst)
+				.handle((result, error) -> {
+					if (error != null)
+						future.completeExceptionally(error);
+					future.complete(id);
+					return null;
+				});
+
+		return this._lnxIdentityFuture = future;
+	}
+
+	public LnxIdentity lnxIdentity() throws Throwable {
+		try {
+			return lnxIdentityFuture().get();
+		} catch (ExecutionException e) {
+			throw e.getCause();
+		}
+	}
+
+	public List<String> nsenterCmd() throws Throwable {
+		final List<String> cmd = new ArrayList<>();
+
+		final LnxIdentity lnxIdentity = lnxIdentity();
+
+		// sudo nsenter --target=75008 --mount --uts --ipc --net --pid --
+		cmd.add("sudo");
+		cmd.add("nsenter");
+		cmd.add("--target=" + LinuxNamespaceContext.this.processId);
+		cmd.add("--mount");
+		cmd.add("--uts");
+		cmd.add("--ipc");
+		cmd.add("--net");
+		cmd.add("--pid");
+		cmd.add("--wd");
+		cmd.add("--");
+		// setpriv --reuid=<uid> --regid=<gid> --groups=<groups> --inh-caps=-all
+		// --reset-env
+		// --
+		cmd.add("setpriv");
+		cmd.add("--reuid=" + lnxIdentity.getUser());
+		cmd.add("--regid=" + lnxIdentity.getGroup());
+		cmd.add("--groups=" + String.join(",", lnxIdentity.getGroups()));
+		cmd.add("--inh-caps=-all");
+		cmd.add("--reset-env");
+		cmd.add("--");
+
+		return cmd;
 	}
 
 	@Override
@@ -118,8 +162,8 @@ public class LinuxNamespaceContext implements IsolationContext {
 		cmd.add("--pid");
 		cmd.add("--fork");
 		cmd.add("--mount-proc");
-		cmd.add("--user");
-		cmd.add("--map-root-user");
+		// cmd.add("--user");
+		// cmd.add("--map-root-user");
 		cmd.add("--propagation=private");
 		cmd.add("--wd=" + this.ws.getPath());
 		cmd.add("--");
@@ -127,7 +171,11 @@ public class LinuxNamespaceContext implements IsolationContext {
 		// Keep namespace alive
 		cmd.add("/usr/bin/bash");
 		cmd.add("-c");
-		cmd.add("ip link set lo up && exec tail -f /dev/null");
+		// //log.print(String.join(" ", cmd));
+		cmd.add("exec tail -f /dev/null");
+		// ip link set lo up &&
+
+		// //log.println(" \"exec tail -f /dev/null\"\n");
 
 		try {
 			ExecRemoteProcess remoteProcess = new ExecRemoteProcess(cmd);
@@ -136,7 +184,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 			this.processId = remoteProcess.processId();
 			future.thenAccept(p -> {
 				int exitCode = p.exitValue();
-				if (exitCode == 0)
+				if (exitCode == 137)
 					return;
 				log.println("exitCode=" + exitCode);
 				try {
@@ -146,6 +194,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 					e.printStackTrace(log);
 				}
 			});
+
 		} catch (IOException | InterruptedException e) {
 			log.println("[Linux-Namespace] Failed to start isolated environment!");
 			e.printStackTrace(log);
@@ -175,6 +224,108 @@ public class LinuxNamespaceContext implements IsolationContext {
 			log.println("[Linux-Namespace] Failed to stop isolated environment! [ PID=" + this.processId + " ]");
 			e.printStackTrace(log);
 		}
+	}
+
+	@Override
+	public <T> T actInContext(final FileCallable<T> callable) throws IOException, InterruptedException {
+		return this.ws.getWorkspace()
+				.act(callable);
+	}
+
+	@Override
+	public <T> Future<T> actInContextAsync(final FileCallable<T> callable) throws IOException, InterruptedException {
+		return this.ws.getWorkspace()
+				.actAsync(callable);
+	}
+
+	protected static String outputToString(final Process process) {
+		try {
+			return new String(process.getInputStream()
+					.readAllBytes()).trim();
+		} catch (IOException e) {
+			throw new CompletionException(e);
+		}
+	}
+
+	public class DecoratorFactory extends LauncherDecorator implements Serializable {
+
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		public Launcher decorate(final Launcher launcher, final Node node) {
+			return new Launcher.DecoratedLauncher(launcher) {
+				@Override
+				public Proc launch(final ProcStarter starter) throws IOException {
+					if (LinuxNamespaceContext.this.processId == -1)
+						throw new AbortException("[Linux-Namespace] Namespace unavailable!");
+
+					// Wrap command with nsenter
+					final List<String> cmd;
+					try {
+						cmd = LinuxNamespaceContext.this.nsenterCmd();
+					} catch (Throwable e) {
+						if (e instanceof RuntimeException runE)
+							throw runE;
+						throw new RuntimeException(e);
+					}
+
+					// recalculate mask: based on nsenter cmd prefix
+					boolean[] oldMasks = starter.masks();
+					int oldSize = oldMasks == null ? 0 : oldMasks.length;
+					int cmdSize = cmd.size();
+					boolean[] masks = new boolean[cmdSize + oldSize];
+					for (int i = 0; i < cmdSize; i++)
+						masks[i] = false;
+					for (int i = 0; i < oldSize; i++)
+						masks[cmdSize + i] = oldMasks[i];
+					starter.masks(masks);
+
+					// merge: nsenter with actual cmd
+
+					cmd.addAll(starter.cmds());
+
+					starter.cmds(cmd);
+
+					// launcher.getListener()
+					// .getLogger()
+					// .println("======== " + String.join(" ", cmd));
+
+					return super.launch(starter);
+				}
+			};
+		}
+	}
+
+	public static class LnxIdentity {
+
+		protected String user = "";
+		protected String group = "";
+		protected String[] groups = new String[0];
+
+		public String getUser() {
+			return this.user;
+		}
+
+		public String getGroup() {
+			return this.group;
+		}
+
+		public String[] getGroups() {
+			return this.groups;
+		}
+
+		public void setUser(final String user) {
+			this.user = user;
+		}
+
+		public void setGroup(final String group) {
+			this.group = group;
+		}
+
+		public void setGroups(final String[] groups) {
+			this.groups = groups;
+		}
+
 	}
 
 	public static class ExecRemoteProcess extends MasterToSlaveFileCallable<CompletableFuture<Process>> {

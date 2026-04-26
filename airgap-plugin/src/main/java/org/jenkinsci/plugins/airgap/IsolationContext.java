@@ -15,9 +15,11 @@
  */
 package org.jenkinsci.plugins.airgap;
 
+import java.io.IOException;
 import java.io.Serializable;
-
 import hudson.LauncherDecorator;
+import hudson.FilePath.FileCallable;
+import hudson.remoting.Future;
 
 public interface IsolationContext extends Serializable {
 
@@ -26,5 +28,9 @@ public interface IsolationContext extends Serializable {
 	public void setup();
 
 	public void destroy();
+
+	public <T> T actInContext(FileCallable<T> callable) throws IOException, InterruptedException;
+
+	public <T> Future<T> actInContextAsync(FileCallable<T> callable) throws IOException, InterruptedException;
 
 }

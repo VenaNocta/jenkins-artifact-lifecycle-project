@@ -15,9 +15,13 @@
  */
 package org.jenkinsci.plugins.airgap.ctx;
 
+import java.io.IOException;
+
 import org.jenkinsci.plugins.airgap.IsolationContext;
 
+import hudson.FilePath.FileCallable;
 import hudson.LauncherDecorator;
+import hudson.remoting.Future;
 
 public class NoOpIsolationContext implements IsolationContext {
 
@@ -35,5 +39,15 @@ public class NoOpIsolationContext implements IsolationContext {
 
 	@Override
 	public void destroy() {
+	}
+
+	@Override
+	public <T> T actInContext(FileCallable<T> callable) throws IOException, InterruptedException {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public <T> Future<T> actInContextAsync(FileCallable<T> callable) throws IOException, InterruptedException {
+		throw new UnsupportedOperationException();
 	}
 }

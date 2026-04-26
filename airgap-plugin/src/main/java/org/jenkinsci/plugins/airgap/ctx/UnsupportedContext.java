@@ -21,10 +21,12 @@ import java.io.Serializable;
 import org.jenkinsci.plugins.airgap.IsolationContext;
 
 import hudson.AbortException;
+import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
 import hudson.model.Node;
+import hudson.remoting.Future;
 
 public class UnsupportedContext implements IsolationContext {
 
@@ -62,5 +64,15 @@ public class UnsupportedContext implements IsolationContext {
 				}
 			};
 		}
+	}
+
+	@Override
+	public <T> T actInContext(FileCallable<T> callable) throws IOException, InterruptedException {
+		throw new AbortException("Forced Sandbox-Isolation active! - Current Sandbox not isolated!");
+	}
+
+	@Override
+	public <T> Future<T> actInContextAsync(FileCallable<T> callable) throws IOException, InterruptedException {
+		throw new AbortException("Forced Sandbox-Isolation active! - Current Sandbox not isolated!");
 	}
 }
