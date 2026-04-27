@@ -17,6 +17,11 @@ package org.jenkinsci.plugins.airgap;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.UnixDomainSocketAddress;
+
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.LauncherDecorator;
 import hudson.FilePath.FileCallable;
 import hudson.remoting.Future;
@@ -33,4 +38,34 @@ public interface IsolationContext extends Serializable {
 
 	public <T> Future<T> actInContextAsync(FileCallable<T> callable) throws IOException, InterruptedException;
 
+	public UnixDomainSocketAddress connectUnixSocket(String path);
+
+	public InetLink connectInetLink();
+
+	public static interface InetLink extends Serializable {
+
+		public int getNetworkPrefixV4();
+
+		public int getNetworkPrefixV6();
+
+		@CheckForNull
+		public Inet4Address getHostAddressV4();
+
+		@CheckForNull
+		public Inet6Address getHostAddressV6();
+
+		@CheckForNull
+		public Inet4Address getContextAddressV4();
+
+		@CheckForNull
+		public Inet6Address getContextAddressV6();
+
+		public default boolean hasIpv4Support() {
+			return getNetworkPrefixV4() != -1;
+		}
+
+		public default boolean hasIpv6Support() {
+			return getNetworkPrefixV6() != -1;
+		}
+	}
 }

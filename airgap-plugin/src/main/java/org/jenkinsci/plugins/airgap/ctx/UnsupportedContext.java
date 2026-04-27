@@ -17,6 +17,7 @@ package org.jenkinsci.plugins.airgap.ctx;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.net.UnixDomainSocketAddress;
 
 import org.jenkinsci.plugins.airgap.IsolationContext;
 
@@ -31,6 +32,8 @@ import hudson.remoting.Future;
 public class UnsupportedContext implements IsolationContext {
 
 	private static final long serialVersionUID = 1L;
+
+	public static final String ERR_FORCED_ISOLATION = "Forced Sandbox-Isolation active! - Current Sandbox not isolated!";
 
 	protected DecoratorFactory factory;
 
@@ -56,23 +59,33 @@ public class UnsupportedContext implements IsolationContext {
 		private static final long serialVersionUID = 1L;
 
 		@Override
-		public Launcher decorate(Launcher launcher, Node node) {
+		public Launcher decorate(final Launcher launcher, final Node node) {
 			return new Launcher.DecoratedLauncher(launcher) {
 				@Override
-				public Proc launch(ProcStarter starter) throws IOException {
-					throw new AbortException("Forced Sandbox-Isolation active! - Current Sandbox not isolated!");
+				public Proc launch(final ProcStarter starter) throws IOException {
+					throw new AbortException(ERR_FORCED_ISOLATION);
 				}
 			};
 		}
 	}
 
 	@Override
-	public <T> T actInContext(FileCallable<T> callable) throws IOException, InterruptedException {
-		throw new AbortException("Forced Sandbox-Isolation active! - Current Sandbox not isolated!");
+	public <T> T actInContext(final FileCallable<T> callable) throws IOException, InterruptedException {
+		throw new AbortException(ERR_FORCED_ISOLATION);
 	}
 
 	@Override
-	public <T> Future<T> actInContextAsync(FileCallable<T> callable) throws IOException, InterruptedException {
-		throw new AbortException("Forced Sandbox-Isolation active! - Current Sandbox not isolated!");
+	public <T> Future<T> actInContextAsync(final FileCallable<T> callable) throws IOException, InterruptedException {
+		throw new AbortException(ERR_FORCED_ISOLATION);
+	}
+
+	@Override
+	public UnixDomainSocketAddress connectUnixSocket(final String path) {
+		throw new UnsupportedOperationException(ERR_FORCED_ISOLATION);
+	}
+
+	@Override
+	public InetLink connectInetLink() {
+		throw new UnsupportedOperationException(ERR_FORCED_ISOLATION);
 	}
 }

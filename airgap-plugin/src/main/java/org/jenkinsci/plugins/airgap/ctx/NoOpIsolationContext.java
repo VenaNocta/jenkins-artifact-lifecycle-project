@@ -16,8 +16,11 @@
 package org.jenkinsci.plugins.airgap.ctx;
 
 import java.io.IOException;
+import java.net.UnixDomainSocketAddress;
 
+import org.apache.commons.lang3.NotImplementedException;
 import org.jenkinsci.plugins.airgap.IsolationContext;
+import org.jenkinsci.plugins.airgap.ctx.net.DefaultInetLink;
 
 import hudson.FilePath.FileCallable;
 import hudson.LauncherDecorator;
@@ -42,12 +45,23 @@ public class NoOpIsolationContext implements IsolationContext {
 	}
 
 	@Override
-	public <T> T actInContext(FileCallable<T> callable) throws IOException, InterruptedException {
+	public <T> T actInContext(final FileCallable<T> callable) throws IOException, InterruptedException {
 		throw new UnsupportedOperationException();
 	}
 
 	@Override
-	public <T> Future<T> actInContextAsync(FileCallable<T> callable) throws IOException, InterruptedException {
+	public <T> Future<T> actInContextAsync(final FileCallable<T> callable) throws IOException, InterruptedException {
 		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public UnixDomainSocketAddress connectUnixSocket(final String path) {
+		// TODO provide localhost Socket
+		throw new NotImplementedException();
+	}
+
+	@Override
+	public InetLink connectInetLink() {
+		return DefaultInetLink.createLoopback(true, true);
 	}
 }

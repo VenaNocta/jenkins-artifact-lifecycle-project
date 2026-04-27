@@ -19,17 +19,22 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Serializable;
+import java.net.UnixDomainSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 import org.jenkinsci.plugins.airgap.IsolationContext;
+import org.jenkinsci.plugins.airgap.ctx.net.LnxInetLink;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
 import hudson.AbortException;
+import hudson.FilePath;
 import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.LauncherDecorator;
@@ -51,6 +56,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	protected long processId = -1;
 
+	protected transient final Set<LnxInetLink> _activeLinks = new LinkedHashSet<>();
 	protected transient CompletableFuture<LnxIdentity> _lnxIdentityFuture = null;
 
 	public LinuxNamespaceContext(final Node node, final WorkspaceAction ws, final TaskListener listener) {
@@ -144,6 +150,19 @@ public class LinuxNamespaceContext implements IsolationContext {
 		return cmd;
 	}
 
+	protected List<String> nsenterNetCmd(final long processId) throws Throwable {
+		final List<String> cmd = new ArrayList<>();
+
+		// sudo nsenter --target=75008 --net --
+		cmd.add("sudo");
+		cmd.add("nsenter");
+		cmd.add("--target=" + processId);
+		cmd.add("--net");
+		cmd.add("--");
+
+		return cmd;
+	}
+
 	@Override
 	public void setup() {
 		if (this.processId != -1)
@@ -201,6 +220,36 @@ public class LinuxNamespaceContext implements IsolationContext {
 			return;
 		}
 
+		try {
+			final List<String> netCmd = nsenterNetCmd(this.processId);
+
+			netCmd.add("ip");
+			netCmd.add("link");
+			netCmd.add("set");
+			netCmd.add("lo");
+			netCmd.add("up");
+
+			this.ws.getWorkspace()
+					.act(new ExecRemoteProcess(netCmd).await(true))
+					.thenAccept(p -> {
+						int exitCode = p.exitValue();
+						if (exitCode == 0)
+							return;
+						log.println("exitCode=" + exitCode);
+						try {
+							p.getInputStream()
+									.transferTo(log);
+						} catch (IOException e) {
+							e.printStackTrace(log);
+						}
+					});
+
+		} catch (Throwable e) {
+			log.println("[Linux-Namespace] Network Setup Failed!");
+			e.printStackTrace(log);
+			return;
+		}
+
 		log.println("[Linux-Namespace] Started isolated environment [ PID=" + this.processId + " ]");
 	}
 
@@ -236,6 +285,21 @@ public class LinuxNamespaceContext implements IsolationContext {
 	public <T> Future<T> actInContextAsync(final FileCallable<T> callable) throws IOException, InterruptedException {
 		return this.ws.getWorkspace()
 				.actAsync(callable);
+	}
+
+	@Override
+	public UnixDomainSocketAddress connectUnixSocket(final String path) {
+		final FilePath wsPath = this.ws.getWorkspace();
+		// TODO use FilePath of overlay mount!
+		return UnixDomainSocketAddress.of(wsPath.child(path)
+				.getRemote());
+	}
+
+	@Override
+	public InetLink connectInetLink() {
+
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	protected static String outputToString(final Process process) {
@@ -325,7 +389,6 @@ public class LinuxNamespaceContext implements IsolationContext {
 		public void setGroups(final String[] groups) {
 			this.groups = groups;
 		}
-
 	}
 
 	public static class ExecRemoteProcess extends MasterToSlaveFileCallable<CompletableFuture<Process>> {
