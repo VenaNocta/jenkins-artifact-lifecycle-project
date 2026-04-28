@@ -65,11 +65,12 @@ public class NodeIsolationCtxProvider implements IsolationContextProvider {
 
 	protected IsolationContext selectIsolationContext(final FlowNode flowNode, final Node node,
 			final StepContext context, final WorkspaceAction ws) throws IOException, InterruptedException {
+		final Run<?, ?> run = context.get(Run.class);
 		final TaskListener listener = context.get(TaskListener.class);
 		final PrintStream log = listener.getLogger();
 
 		if (isLinux(node, log)) {
-			return new LinuxNamespaceContext(node, ws, listener);
+			return new LinuxNamespaceContext(run, node, ws, listener);
 		}
 		return null;
 	}

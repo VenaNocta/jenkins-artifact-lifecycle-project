@@ -17,14 +17,16 @@ package org.jenkinsci.plugins.airgap;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.net.Inet4Address;
-import java.net.Inet6Address;
 import java.net.UnixDomainSocketAddress;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.LauncherDecorator;
 import hudson.FilePath.FileCallable;
 import hudson.remoting.Future;
+import net.runeduniverse.lib.utils.net.api.Ip4Address;
+import net.runeduniverse.lib.utils.net.api.Ip6Address;
+import net.runeduniverse.lib.utils.net.api.IpNet4Address;
+import net.runeduniverse.lib.utils.net.api.IpNet6Address;
 
 public interface IsolationContext extends Serializable {
 
@@ -44,21 +46,27 @@ public interface IsolationContext extends Serializable {
 
 	public static interface InetLink extends Serializable {
 
-		public int getNetworkPrefixV4();
+		public short getNetworkPrefixV4();
 
-		public int getNetworkPrefixV6();
-
-		@CheckForNull
-		public Inet4Address getHostAddressV4();
+		public short getNetworkPrefixV6();
 
 		@CheckForNull
-		public Inet6Address getHostAddressV6();
+		public IpNet4Address getSubnetV4();
 
 		@CheckForNull
-		public Inet4Address getContextAddressV4();
+		public IpNet6Address getSubnetV6();
 
 		@CheckForNull
-		public Inet6Address getContextAddressV6();
+		public Ip4Address getHostAddressV4();
+
+		@CheckForNull
+		public Ip6Address getHostAddressV6();
+
+		@CheckForNull
+		public Ip4Address getContextAddressV4();
+
+		@CheckForNull
+		public Ip6Address getContextAddressV6();
 
 		public default boolean hasIpv4Support() {
 			return getNetworkPrefixV4() != -1;

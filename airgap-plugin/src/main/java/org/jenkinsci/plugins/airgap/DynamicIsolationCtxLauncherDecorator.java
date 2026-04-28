@@ -17,7 +17,6 @@ package org.jenkinsci.plugins.airgap;
 
 import java.io.IOException;
 
-import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
 import org.jenkinsci.plugins.workflow.steps.DynamicContext;
@@ -38,7 +37,7 @@ public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<L
 		final Run<?, ?> run = context.get(Run.class);
 		final FlowNode flowNode = context.get(FlowNode.class);
 		// apply overrides if available
-		final IsolationContextAction action = getContextAction(run, flowNode);
+		final IsolationContextAction action = WorkflowUtils.findContextAction(run, flowNode);
 		if (action == null)
 			return null;
 		final IsolationContext isolation = action.getContext();
@@ -48,28 +47,5 @@ public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<L
 		if (decorator == null)
 			return null;
 		return BodyInvoker.mergeLauncherDecorators(context.get(LauncherDecorator.class), decorator);
-	}
-
-	protected IsolationContextAction getContextAction(final Run<?, ?> run, final FlowNode flowNode) {
-		IsolationContextAction action = findAction(flowNode);
-		if (action != null)
-			return action;
-		action = run.getAction(IsolationContextAction.class);
-		if (action != null)
-			return action;
-		return null;
-	}
-
-	public static IsolationContextAction findAction(final FlowNode flowNode) {
-		IsolationContextAction action = flowNode.getAction(IsolationContextAction.class);
-		if (action != null)
-			return action;
-
-		for (BlockStartNode node : flowNode.iterateEnclosingBlocks()) {
-			action = node.getAction(IsolationContextAction.class);
-			if (action != null)
-				return action;
-		}
-		return null;
 	}
 }

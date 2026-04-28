@@ -22,14 +22,15 @@ import java.io.Serializable;
 import java.net.UnixDomainSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 import org.jenkinsci.plugins.airgap.IsolationContext;
+import org.jenkinsci.plugins.airgap.config.LnxNodeIsolationProperty;
 import org.jenkinsci.plugins.airgap.ctx.net.LnxInetLink;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
@@ -40,27 +41,35 @@ import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
 import hudson.model.Node;
+import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.Future;
 import hudson.remoting.VirtualChannel;
 import jenkins.MasterToSlaveFileCallable;
+import net.runeduniverse.lib.utils.net.api.Ip4Address;
+import net.runeduniverse.lib.utils.net.api.Ip6Address;
+import net.runeduniverse.lib.utils.net.api.IpNet4Address;
+import net.runeduniverse.lib.utils.net.api.IpNet6Address;
 
 public class LinuxNamespaceContext implements IsolationContext {
 
 	private static final long serialVersionUID = 1L;
 
 	protected transient final DecoratorFactory factory;
+	protected transient final Run<?, ?> run;
 	protected transient final Node node;
 	protected transient final WorkspaceAction ws;
 	protected transient final TaskListener listener;
 
 	protected long processId = -1;
 
-	protected transient final Set<LnxInetLink> _activeLinks = new LinkedHashSet<>();
+	protected transient final SortedMap<Integer, LnxInetLink> _activeLinks = new TreeMap<>();
 	protected transient CompletableFuture<LnxIdentity> _lnxIdentityFuture = null;
 
-	public LinuxNamespaceContext(final Node node, final WorkspaceAction ws, final TaskListener listener) {
+	public LinuxNamespaceContext(final Run<?, ?> run, final Node node, final WorkspaceAction ws,
+			final TaskListener listener) {
 		this.factory = new DecoratorFactory();
+		this.run = run;
 		this.node = node;
 		this.ws = ws;
 		this.listener = listener;
@@ -250,6 +259,10 @@ public class LinuxNamespaceContext implements IsolationContext {
 			return;
 		}
 
+		LnxInetLink link = connectInetLink();
+		log.println("Run Subnet: " + link.getHostIfaceName() + " - " + link.getSubnetV4()
+				.toCidrNotation());
+
 		log.println("[Linux-Namespace] Started isolated environment [ PID=" + this.processId + " ]");
 	}
 
@@ -272,6 +285,19 @@ public class LinuxNamespaceContext implements IsolationContext {
 		} catch (InterruptedException | IOException e) {
 			log.println("[Linux-Namespace] Failed to stop isolated environment! [ PID=" + this.processId + " ]");
 			e.printStackTrace(log);
+		}
+
+		// Cleanup active LnxLinks
+		final LnxNodeIsolationProperty lnxProp = this.node.getNodeProperty(LnxNodeIsolationProperty.class);
+		if (lnxProp != null) {
+			for (LnxInetLink link : this._activeLinks.values()) {
+				// Remove veth interfaces
+				// TODO implement
+
+				// Free IP Addresses
+				lnxProp.freeIpv4Subnet(link.getSubnetV4());
+				lnxProp.freeIpv6Subnet(link.getSubnetV6());
+			}
 		}
 	}
 
@@ -296,10 +322,37 @@ public class LinuxNamespaceContext implements IsolationContext {
 	}
 
 	@Override
-	public InetLink connectInetLink() {
+	public synchronized LnxInetLink connectInetLink() {
+		final LnxNodeIsolationProperty lnxProp = this.node.getNodeProperty(LnxNodeIsolationProperty.class);
+		if (lnxProp == null)
+			return null;
 
-		// TODO Auto-generated method stub
-		return null;
+		int linkNum = this._activeLinks.isEmpty() ? 0 : this._activeLinks.lastKey() + 1;
+
+		final String hostIfaceName = String.format("veth-h%d-%d", this.processId, linkNum);
+		final String contextIfaceName = String.format("veth-n%d-%d", this.processId, linkNum);
+
+		final IpNet4Address subnet4 = lnxProp.reserveIpv4Subnet(this.run);
+		Ip4Address hostAddr4 = null, contextAddr4 = null;
+		if (subnet4 != null) {
+			hostAddr4 = subnet4.getLowestAddress()
+					.increment();
+			contextAddr4 = hostAddr4.increment();
+		}
+		final IpNet6Address subnet6 = lnxProp.reserveIpv6Subnet(run);
+		Ip6Address hostAddr6 = null, contextAddr6 = null;
+		if (subnet6 != null) {
+			hostAddr6 = subnet6.getLowestAddress()
+					.increment();
+			contextAddr6 = hostAddr6.increment();
+		}
+
+		final LnxInetLink link = new LnxInetLink(hostIfaceName, contextIfaceName, //
+				subnet4, hostAddr4, contextAddr4, //
+				subnet6, hostAddr6, contextAddr6);
+		this._activeLinks.put(linkNum, link);
+
+		return link;
 	}
 
 	protected static String outputToString(final Process process) {
