@@ -45,7 +45,7 @@
 		<module>artifact-bundle-steps</module>
 		<module>artifact-signing-plugin</module>
 		<module>artifact-deploy-plugin</module>
-		<module>airgap-plugin</module>
+		<module>context-isolation-plugin</module>
 	</modules>
 
 	<licenses>
