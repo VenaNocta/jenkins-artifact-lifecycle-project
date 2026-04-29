@@ -31,7 +31,7 @@ import java.util.concurrent.ExecutionException;
 
 import org.jenkinsci.plugins.airgap.IsolationContext;
 import org.jenkinsci.plugins.airgap.config.LnxNodeIsolationProperty;
-import org.jenkinsci.plugins.airgap.ctx.net.LnxInetLink;
+import org.jenkinsci.plugins.airgap.ctx.net.LnxNetLink;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
 import hudson.AbortException;
@@ -55,6 +55,10 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	private static final long serialVersionUID = 1L;
 
+	public static final String TEMPL_LINE = "[ Linux-Namespace » %d ] %s";
+
+	protected transient final Object linkLock = new Object();
+
 	protected transient final DecoratorFactory factory;
 	protected transient final Run<?, ?> run;
 	protected transient final Node node;
@@ -63,7 +67,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	protected long processId = -1;
 
-	protected transient final SortedMap<Integer, LnxInetLink> _activeLinks = new TreeMap<>();
+	protected transient final SortedMap<Integer, LnxNetLink> _activeLinks = new TreeMap<>();
 	protected transient CompletableFuture<LnxIdentity> _lnxIdentityFuture = null;
 
 	public LinuxNamespaceContext(final Run<?, ?> run, final Node node, final WorkspaceAction ws,
@@ -89,8 +93,8 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 		final CompletableFuture<?>[] lst = new CompletableFuture[3];
 
-		// get user
 		try {
+			// get user
 			lst[0] = this.ws.getWorkspace()
 					.act(new ExecRemoteProcess(Arrays.asList("id", "-r", "--user")))
 					.thenApply(LinuxNamespaceContext::outputToString)
@@ -159,7 +163,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 		return cmd;
 	}
 
-	protected List<String> nsenterNetCmd(final long processId) throws Throwable {
+	protected List<String> nsenterNetCmd(final long processId) {
 		final List<String> cmd = new ArrayList<>();
 
 		// sudo nsenter --target=75008 --net --
@@ -210,18 +214,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 			CompletableFuture<Process> future = this.ws.getWorkspace()
 					.act(remoteProcess);
 			this.processId = remoteProcess.processId();
-			future.thenAccept(p -> {
-				int exitCode = p.exitValue();
-				if (exitCode == 137)
-					return;
-				log.println("exitCode=" + exitCode);
-				try {
-					p.getInputStream()
-							.transferTo(log);
-				} catch (IOException e) {
-					e.printStackTrace(log);
-				}
-			});
+			future.thenAccept(p -> logProcessException(p, 137));
 
 		} catch (IOException | InterruptedException e) {
 			log.println("[Linux-Namespace] Failed to start isolated environment!");
@@ -238,32 +231,19 @@ public class LinuxNamespaceContext implements IsolationContext {
 			netCmd.add("lo");
 			netCmd.add("up");
 
-			this.ws.getWorkspace()
-					.act(new ExecRemoteProcess(netCmd).await(true))
-					.thenAccept(p -> {
-						int exitCode = p.exitValue();
-						if (exitCode == 0)
-							return;
-						log.println("exitCode=" + exitCode);
-						try {
-							p.getInputStream()
-									.transferTo(log);
-						} catch (IOException e) {
-							e.printStackTrace(log);
-						}
-					});
+			actInContext(new ExecRemoteProcess(netCmd).await(true)).thenAccept(this::logProcessException);
 
 		} catch (Throwable e) {
-			log.println("[Linux-Namespace] Network Setup Failed!");
+			log.println(String.format(TEMPL_LINE, this.processId, "Network Setup Failed!"));
 			e.printStackTrace(log);
 			return;
 		}
 
-		LnxInetLink link = connectInetLink();
-		log.println("Run Subnet: " + link.getHostIfaceName() + " - " + link.getSubnetV4()
-				.toCidrNotation());
+		// LnxNetLink link = connectNetLink();
+		// log.println("Run Subnet: " + link.getHostIfaceName() + " - "
+		// + link.getSubnetV4().toCidrNotation());
 
-		log.println("[Linux-Namespace] Started isolated environment [ PID=" + this.processId + " ]");
+		log.println(String.format(TEMPL_LINE, this.processId, "Started isolated environment"));
 	}
 
 	@Override
@@ -280,23 +260,19 @@ public class LinuxNamespaceContext implements IsolationContext {
 			this.ws.getWorkspace()
 					.act(remoteProcess.await(true));
 
-			log.println("[Linux-Namespace] Stopped isolated environment [ PID=" + this.processId + " ]");
+			log.println(String.format(TEMPL_LINE, this.processId, "Stopped isolated environment"));
 			this.processId = -1;
 		} catch (InterruptedException | IOException e) {
-			log.println("[Linux-Namespace] Failed to stop isolated environment! [ PID=" + this.processId + " ]");
+			log.println(String.format(TEMPL_LINE, this.processId, "Failed to stop isolated environment!"));
 			e.printStackTrace(log);
 		}
 
 		// Cleanup active LnxLinks
 		final LnxNodeIsolationProperty lnxProp = this.node.getNodeProperty(LnxNodeIsolationProperty.class);
 		if (lnxProp != null) {
-			for (LnxInetLink link : this._activeLinks.values()) {
+			for (LnxNetLink link : this._activeLinks.values()) {
 				// Remove veth interfaces
-				// TODO implement
-
-				// Free IP Addresses
-				lnxProp.freeIpv4Subnet(link.getSubnetV4());
-				lnxProp.freeIpv6Subnet(link.getSubnetV6());
+				disconnectNetLink(link);
 			}
 		}
 	}
@@ -322,37 +298,136 @@ public class LinuxNamespaceContext implements IsolationContext {
 	}
 
 	@Override
-	public synchronized LnxInetLink connectInetLink() {
+	public LnxNetLink connectNetLink() {
 		final LnxNodeIsolationProperty lnxProp = this.node.getNodeProperty(LnxNodeIsolationProperty.class);
 		if (lnxProp == null)
 			return null;
 
-		int linkNum = this._activeLinks.isEmpty() ? 0 : this._activeLinks.lastKey() + 1;
+		synchronized (this.linkLock) {
+			int linkNum = this._activeLinks.isEmpty() ? 0 : this._activeLinks.lastKey() + 1;
 
-		final String hostIfaceName = String.format("veth-h%d-%d", this.processId, linkNum);
-		final String contextIfaceName = String.format("veth-n%d-%d", this.processId, linkNum);
+			final String hostIfaceName = String.format("veth-h%d-%d", this.processId, linkNum);
+			final String contextIfaceName = String.format("veth-n%d-%d", this.processId, linkNum);
 
-		final IpNet4Address subnet4 = lnxProp.reserveIpv4Subnet(this.run);
-		Ip4Address hostAddr4 = null, contextAddr4 = null;
-		if (subnet4 != null) {
-			hostAddr4 = subnet4.getLowestAddress()
-					.increment();
-			contextAddr4 = hostAddr4.increment();
+			final IpNet4Address subnet4 = lnxProp.reserveIpv4Subnet(this.run);
+			Ip4Address hostAddr4 = null, contextAddr4 = null;
+			if (subnet4 != null) {
+				hostAddr4 = subnet4.getLowestAddress()
+						.increment();
+				contextAddr4 = hostAddr4.increment();
+			}
+
+			final IpNet6Address subnet6 = lnxProp.reserveIpv6Subnet(this.run);
+			Ip6Address hostAddr6 = null, contextAddr6 = null;
+			if (subnet6 != null) {
+				hostAddr6 = subnet6.getLowestAddress()
+						.increment();
+				contextAddr6 = hostAddr6.increment();
+			}
+
+			final LnxNetLink link = new LnxNetLink(hostIfaceName, contextIfaceName, //
+					subnet4, hostAddr4, contextAddr4, //
+					subnet6, hostAddr6, contextAddr6);
+			this._activeLinks.put(linkNum, link);
+
+			try {
+
+				actInContext(new ExecRemoteProcess(//
+						Arrays.asList("sudo", "ip", "link", "add", hostIfaceName, "type", "veth", "peer", "name",
+								contextIfaceName)//
+				).await(true)).thenAccept(this::logProcessException);
+				actInContext(new ExecRemoteProcess(//
+						Arrays.asList("sudo", "ip", "link", "set", contextIfaceName, "netns",
+								Long.toString(this.processId))//
+				).await(true)).thenAccept(this::logProcessException);
+				if (subnet4 != null) {
+					actInContext(new ExecRemoteProcess(//
+							Arrays.asList("sudo", "ip", "addr", "add", link.getHostAddressV4()
+									.toCidrNotation() + "/30", "dev", hostIfaceName)//
+					).await(true)).thenAccept(this::logProcessException);
+				}
+				if (subnet6 != null) {
+					actInContext(new ExecRemoteProcess(//
+							Arrays.asList("sudo", "ip", "addr", "add", link.getHostAddressV6()
+									.toCidrNotation() + "/126", "dev", hostIfaceName)//
+					).await(true)).thenAccept(this::logProcessException);
+				}
+				actInContext(new ExecRemoteProcess(//
+						Arrays.asList("sudo", "ip", "link", "set", hostIfaceName, "up")//
+				).await(true)).thenAccept(this::logProcessException);
+				List<String> cmd;
+				if (subnet4 != null) {
+					cmd = nsenterNetCmd(this.processId);
+					cmd.addAll(Arrays.asList("ip", "addr", "add", link.getContextAddressV4()
+							.toCidrNotation() + "/30", "dev", contextIfaceName));
+					actInContext(new ExecRemoteProcess(cmd).await(true)).thenAccept(this::logProcessException);
+				}
+				if (subnet6 != null) {
+					cmd = nsenterNetCmd(this.processId);
+					cmd.addAll(Arrays.asList("ip", "addr", "add", link.getContextAddressV6()
+							.toCidrNotation() + "/126", "dev", contextIfaceName));
+					actInContext(new ExecRemoteProcess(cmd).await(true)).thenAccept(this::logProcessException);
+				}
+				cmd = nsenterNetCmd(this.processId);
+				cmd.addAll(Arrays.asList("ip", "link", "set", contextIfaceName, "up"));
+				actInContext(new ExecRemoteProcess(cmd).await(true)).thenAccept(this::logProcessException);
+
+			} catch (InterruptedException | IOException e) {
+				final PrintStream log = this.listener.getLogger();
+				log.println(String.format(TEMPL_LINE, this.processId,
+						"Failed to connect host-only veth-link to isolated environment!"));
+				e.printStackTrace(log);
+
+				disconnectNetLink(link);
+				return null;
+			}
+			return link;
 		}
-		final IpNet6Address subnet6 = lnxProp.reserveIpv6Subnet(run);
-		Ip6Address hostAddr6 = null, contextAddr6 = null;
-		if (subnet6 != null) {
-			hostAddr6 = subnet6.getLowestAddress()
-					.increment();
-			contextAddr6 = hostAddr6.increment();
+	}
+
+	@Override
+	public void disconnectNetLink(final NetLink anyLink) {
+		if (!(anyLink instanceof LnxNetLink))
+			return;
+		final LnxNetLink link = (LnxNetLink) anyLink;
+		final PrintStream log = this.listener.getLogger();
+		final LnxNodeIsolationProperty lnxProp = this.node.getNodeProperty(LnxNodeIsolationProperty.class);
+
+		synchronized (this.linkLock) {
+			if (!this._activeLinks.containsValue(link))
+				return;
+
+			try {
+				actInContext(new ExecRemoteProcess(//
+						Arrays.asList("sudo", "ip", "link", "del", link.getHostIfaceName())//
+				).await(true));
+			} catch (IOException | InterruptedException e) {
+				e.printStackTrace(log);
+			}
+
+			if (lnxProp != null) {
+				lnxProp.freeIpv4Subnet(link.getSubnetV4());
+				lnxProp.freeIpv6Subnet(link.getSubnetV6());
+			}
 		}
+	}
 
-		final LnxInetLink link = new LnxInetLink(hostIfaceName, contextIfaceName, //
-				subnet4, hostAddr4, contextAddr4, //
-				subnet6, hostAddr6, contextAddr6);
-		this._activeLinks.put(linkNum, link);
+	protected void logProcessException(final Process process) {
+		logProcessException(process, 0);
+	}
 
-		return link;
+	protected void logProcessException(final Process process, final int expectedExitCode) {
+		final PrintStream log = this.listener.getLogger();
+		final int exitCode = process.exitValue();
+		if (exitCode == expectedExitCode)
+			return;
+		log.println("exitCode=" + exitCode);
+		try {
+			process.getInputStream()
+					.transferTo(log);
+		} catch (IOException e) {
+			e.printStackTrace(log);
+		}
 	}
 
 	protected static String outputToString(final Process process) {

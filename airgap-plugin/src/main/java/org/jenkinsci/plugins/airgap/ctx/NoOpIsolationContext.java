@@ -20,7 +20,7 @@ import java.net.UnixDomainSocketAddress;
 
 import org.apache.commons.lang3.NotImplementedException;
 import org.jenkinsci.plugins.airgap.IsolationContext;
-import org.jenkinsci.plugins.airgap.ctx.net.DefaultInetLink;
+import org.jenkinsci.plugins.airgap.ctx.net.DefaultNetLink;
 
 import hudson.FilePath.FileCallable;
 import hudson.LauncherDecorator;
@@ -61,7 +61,11 @@ public class NoOpIsolationContext implements IsolationContext {
 	}
 
 	@Override
-	public InetLink connectInetLink() {
-		return DefaultInetLink.createLoopback(true, true);
+	public NetLink connectNetLink() {
+		return DefaultNetLink.createLoopback(true, true);
+	}
+
+	@Override
+	public void disconnectNetLink(final NetLink link) {
 	}
 }

@@ -20,14 +20,14 @@ import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpNet4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet6Address;
 
-public class LnxInetLink extends DefaultInetLink {
+public class LnxNetLink extends DefaultNetLink {
 
 	private static final long serialVersionUID = 1L;
 
 	protected final String hostIfaceName;
 	protected final String contextIfaceName;
 
-	public LnxInetLink(final String hostIfaceName, final String contextIfaceName, //
+	public LnxNetLink(final String hostIfaceName, final String contextIfaceName, //
 			final IpNet4Address subnet4, final Ip4Address hostAddr4, final Ip4Address contextAddr4, //
 			final IpNet6Address subnet6, final Ip6Address hostAddr6, final Ip6Address contextAddr6) {
 		super( //

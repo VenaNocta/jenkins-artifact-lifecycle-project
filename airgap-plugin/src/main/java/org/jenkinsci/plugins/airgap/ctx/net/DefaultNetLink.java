@@ -15,7 +15,7 @@
  */
 package org.jenkinsci.plugins.airgap.ctx.net;
 
-import org.jenkinsci.plugins.airgap.IsolationContext.InetLink;
+import org.jenkinsci.plugins.airgap.IsolationContext.NetLink;
 
 import net.runeduniverse.lib.utils.net.IpNetworkUtils;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
@@ -23,7 +23,7 @@ import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpNet4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet6Address;
 
-public class DefaultInetLink implements InetLink {
+public class DefaultNetLink implements NetLink {
 
 	private static final long serialVersionUID = 1L;
 
@@ -34,7 +34,7 @@ public class DefaultInetLink implements InetLink {
 	protected final Ip4Address contextAddr4;
 	protected final Ip6Address contextAddr6;
 
-	public DefaultInetLink(//
+	public DefaultNetLink(//
 			final IpNet4Address subnet4, final Ip4Address hostAddr4, final Ip4Address contextAddr4, //
 			final IpNet6Address subnet6, final Ip6Address hostAddr6, final Ip6Address contextAddr6) {
 		this.subnet4 = subnet4;
@@ -85,7 +85,7 @@ public class DefaultInetLink implements InetLink {
 		return this.contextAddr6;
 	}
 
-	public static DefaultInetLink createLoopback(final boolean ipv4, final boolean ipv6) {
+	public static DefaultNetLink createLoopback(final boolean ipv4, final boolean ipv6) {
 		Ip4Address addr4 = null;
 		IpNet4Address subnet4 = null;
 		if (ipv4) {
@@ -100,7 +100,7 @@ public class DefaultInetLink implements InetLink {
 					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 });
 			subnet6 = IpNetworkUtils.createIpNet6Address(addr6, (short) 128);
 		}
-		return new DefaultInetLink(//
+		return new DefaultNetLink(//
 				subnet4, addr4, addr4, //
 				subnet6, addr6, addr6);
 	}

@@ -85,7 +85,11 @@ public class UnsupportedContext implements IsolationContext {
 	}
 
 	@Override
-	public InetLink connectInetLink() {
+	public NetLink connectNetLink() {
 		throw new UnsupportedOperationException(ERR_FORCED_ISOLATION);
+	}
+
+	@Override
+	public void disconnectNetLink(final NetLink link) {
 	}
 }

@@ -42,9 +42,11 @@ public interface IsolationContext extends Serializable {
 
 	public UnixDomainSocketAddress connectUnixSocket(String path);
 
-	public InetLink connectInetLink();
+	public NetLink connectNetLink();
 
-	public static interface InetLink extends Serializable {
+	public void disconnectNetLink(NetLink link);
+
+	public static interface NetLink extends Serializable {
 
 		public short getNetworkPrefixV4();
 
