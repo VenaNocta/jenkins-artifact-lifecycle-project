@@ -1,0 +1,40 @@
+/*
+ * Copyright © 2026 VenaNocta (venanocta@gmail.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.jenkinsci.plugins.ctx.isolation.converters;
+
+import com.thoughtworks.xstream.converters.SingleValueConverter;
+
+import net.runeduniverse.lib.utils.net.IpNetworkUtils;
+import net.runeduniverse.lib.utils.net.api.IpNet6Address;
+
+public class IpNet6AddressConverter implements SingleValueConverter {
+
+	@SuppressWarnings("rawtypes")
+	@Override
+	public boolean canConvert(final Class type) {
+		return IpNet6Address.class.isAssignableFrom(type);
+	}
+
+	@Override
+	public String toString(final Object obj) {
+		return ((IpNet6Address) obj).toCidrNotation();
+	}
+
+	@Override
+	public Object fromString(final String str) {
+		return IpNetworkUtils.tryParseIpNet4Address(str);
+	}
+}

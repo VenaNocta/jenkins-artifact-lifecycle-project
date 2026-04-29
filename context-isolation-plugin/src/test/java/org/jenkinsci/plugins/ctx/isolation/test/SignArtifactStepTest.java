@@ -17,21 +17,20 @@ package org.jenkinsci.plugins.ctx.isolation.test;
 
 import hudson.model.Label;
 import java.io.IOException;
-
+import org.jenkinsci.plugins.ctx.isolation.config.IsolationProperty;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.rules.TemporaryFolder;
-import org.jvnet.hudson.test.JenkinsRule;
 
 public class SignArtifactStepTest {
 
-	@Rule
-	public JenkinsRule jenkins = new JenkinsRule();
-	@Rule
+	@RegisterExtension
+	static PatchedJenkinsRule jenkins = new PatchedJenkinsRule();
+	// @Rule
 	public TemporaryFolder tmp = new TemporaryFolder();
 
 	@Before
@@ -40,9 +39,11 @@ public class SignArtifactStepTest {
 
 	@Test
 	public void testScriptedPipeline() throws Exception {
+
 		String agentLabel = "my-agent";
 		jenkins.createOnlineSlave(Label.get(agentLabel));
 		WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-scripted-pipeline");
+		job.addProperty(new IsolationProperty(true));
 
 		String pipelineScript = "node {\n" //
 				+ "writeFile file: 'file.jar', text: 'xxx' \n" //

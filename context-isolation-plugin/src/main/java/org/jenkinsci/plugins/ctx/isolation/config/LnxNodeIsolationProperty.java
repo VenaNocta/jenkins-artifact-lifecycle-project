@@ -15,32 +15,36 @@
  */
 package org.jenkinsci.plugins.ctx.isolation.config;
 
+import java.io.Serializable;
 import java.net.UnknownHostException;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.SortedSet;
+import java.util.Map.Entry;
 import java.util.TreeSet;
 import java.util.function.Predicate;
 
+import hudson.Extension;
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.slaves.NodeProperty;
+import hudson.slaves.NodePropertyDescriptor;
 import net.runeduniverse.lib.utils.net.IpNetworkUtils;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet6Address;
-import net.runeduniverse.lib.utils.net.api.IpNetAddress;
 
 // stores data required for per Run Context Isolation on this Node!
-public class LnxNodeIsolationProperty extends NodeProperty<Node> {
+public class LnxNodeIsolationProperty extends NodeProperty<Node> implements Serializable {
+
+	private static final long serialVersionUID = 1L;
 
 	protected transient final Object lock4 = new Object();
 	protected transient final Object lock6 = new Object();
 
 	protected final SortedSet<IpNet4Address> subnet4Stack = //
-			new TreeSet<>(IpNetAddress.compareByLowestAddress());
+			new TreeSet<>();
 	protected final Map<IpNet4Address, String> subnet4Reservations = //
 			new LinkedHashMap<>();
 
@@ -143,5 +147,10 @@ public class LnxNodeIsolationProperty extends NodeProperty<Node> {
 					i.remove();
 			}
 		}
+	}
+
+	@Extension
+	public static class Descriptor extends NodePropertyDescriptor {
+
 	}
 }
