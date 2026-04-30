@@ -1,0 +1,159 @@
+<!--
+
+    Copyright © 2026 VenaNocta (venanocta@gmail.com)
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
+		<artifactId>artifact-signing-parent</artifactId>
+		<version>0.0.0</version>
+	</parent>
+
+	<groupId>org.jenkins-ci.plugins.context</groupId>
+	<artifactId>repo-proxy-plugin</artifactId>
+	<version>0.0.0</version>
+	<packaging>hpi</packaging>
+
+	<name>Jenkins Repo-Proxy Plugin</name>
+	<description>Provides RepoProxy StepContext</description>
+	<url>https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
+	<inceptionYear>2026</inceptionYear>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<root-dir>..</root-dir>
+		<!-- VERSIONS -->
+		<sbom>0</sbom>
+		<context-isolation-version>0.0.0</context-isolation-version>
+	</properties>
+
+	<licenses>
+		<license>
+			<name>Apache License, Version 2</name>
+			<url>https://www.apache.org/licenses/LICENSE-2.0</url>
+		</license>
+	</licenses>
+
+	<organization>
+		<name>RunedUniverse</name>
+		<url>https://www.runeduniverse.net</url>
+	</organization>
+
+	<developers>
+		<developer>
+			<id>venanocta</id>
+			<name>VenaNocta</name>
+			<email>venanocta@gmail.com</email>
+			<organization>RunedUniverse</organization>
+			<organizationUrl>https://www.runeduniverse.net</organizationUrl>
+			<timezone>Europe/Vienna</timezone>
+			<roles>
+				<role>Maintainer</role>
+				<role>Developer</role>
+			</roles>
+		</developer>
+	</developers>
+
+	<scm>
+		<url>
+			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin
+		</url>
+		<connection>
+			scm:git:https://github.com/RunedUniverse/jenkins-artifact-signing-plugin.git
+		</connection>
+		<developerConnection>
+			scm:git:git@github.com:RunedUniverse/jenkins-artifact-signing-plugin.git
+		</developerConnection>
+	</scm>
+	<issueManagement>
+		<system>GitHub Issues</system>
+		<url>
+			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin/issues
+		</url>
+	</issueManagement>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.context</groupId>
+			<artifactId>context-isolation-plugin</artifactId>
+			<version>${context-isolation-version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>structs</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.workflow</groupId>
+			<artifactId>workflow-job</artifactId>
+		</dependency>
+
+		<!-- OPTIONAL -->
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.workflow</groupId>
+			<artifactId>workflow-cps</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>cloudbees-folder</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+		<!-- non packaged dependencies -->
+
+		<!-- COMPILER -->
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.workflow</groupId>
+			<artifactId>workflow-durable-task-step</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- TRYING -->
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.workflow</groupId>
+			<artifactId>workflow-basic-steps</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
+				<artifactId>artifact-signing-sbom</artifactId>
+				<version>${major-version}.${minor-version}.${sbom}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+		</resources>
+	</build>
+</project>

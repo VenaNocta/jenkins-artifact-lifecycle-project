@@ -46,6 +46,7 @@
 		<module>artifact-signing-plugin</module>
 		<module>artifact-deploy-plugin</module>
 		<module>context-isolation-plugin</module>
+		<module>repo-proxy-plugin</module>
 	</modules>
 
 	<licenses>
