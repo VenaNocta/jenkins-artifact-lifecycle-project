@@ -16,9 +16,8 @@
 package org.jenkinsci.plugins.ctx.isolation.hooks;
 
 import java.io.IOException;
-
 import org.apache.commons.lang3.StringUtils;
-import org.jenkinsci.plugins.ctx.isolation.config.NodeIsolationProperty;
+import org.jenkinsci.plugins.ctx.isolation.config.NodeIsolationRuntimeAction;
 
 import hudson.EnvVars;
 import hudson.Extension;
@@ -37,23 +36,21 @@ public class IsolationContextComputerListener extends ComputerListener {
 	public void onOnline(final Computer computer, final TaskListener listener)
 			throws IOException, InterruptedException {
 
-		EnvVars env = computer.getEnvironment();
+		final EnvVars env = computer.getEnvironment();
+		final Node node = computer.getNode();
 
-		Node node = computer.getNode();
-		NodeIsolationProperty isolationProp = node.getNodeProperty(NodeIsolationProperty.class);
-		if (isolationProp == null) {
-			node.getNodeProperties()
-					.add(isolationProp = new NodeIsolationProperty());
-		}
+		final NodeIsolationRuntimeAction runtime = NodeIsolationRuntimeAction.get(node);
+		if (runtime == null)
+			return;
 
 		String subnet = StringUtils.trimToNull(env.get(ENV_ISOLATION_SUBNET4));
 		if (subnet != null) {
-			isolationProp.setIpv4Subnet(subnet);
+			runtime.setIpv4Subnet(subnet);
 		}
 
 		subnet = StringUtils.trimToNull(env.get(ENV_ISOLATION_SUBNET6));
 		if (subnet != null) {
-			isolationProp.setIpv6Subnet(subnet);
+			runtime.setIpv6Subnet(subnet);
 		}
 	}
 }

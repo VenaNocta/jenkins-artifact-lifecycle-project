@@ -15,6 +15,7 @@
  */
 package org.jenkinsci.plugins.ctx.isolation;
 
+import org.jenkinsci.plugins.ctx.isolation.config.IsolationContextAction;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 

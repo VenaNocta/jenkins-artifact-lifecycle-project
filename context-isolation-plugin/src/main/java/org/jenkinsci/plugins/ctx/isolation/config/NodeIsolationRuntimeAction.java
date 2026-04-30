@@ -15,6 +15,8 @@
  */
 package org.jenkinsci.plugins.ctx.isolation.config;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.UnknownHostException;
 import java.util.Collection;
@@ -32,13 +34,13 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import org.kohsuke.stapler.DataBoundConstructor;
-
-import hudson.Extension;
+import hudson.XmlFile;
+import hudson.model.Computer;
+import hudson.model.InvisibleAction;
 import hudson.model.Node;
 import hudson.model.Run;
-import hudson.slaves.NodeProperty;
-import hudson.slaves.NodePropertyDescriptor;
+import hudson.model.Saveable;
+import hudson.model.listeners.SaveableListener;
 import net.runeduniverse.lib.utils.net.IpNetworkUtils;
 import net.runeduniverse.lib.utils.net.api.CidrObject;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
@@ -48,12 +50,14 @@ import net.runeduniverse.lib.utils.net.api.IpNet6Address;
 import net.runeduniverse.lib.utils.net.api.IpNetAddress;
 
 // stores data required for per Run Context Isolation on this Node!
-public class NodeIsolationProperty extends NodeProperty<Node> implements Serializable {
+public class NodeIsolationRuntimeAction extends InvisibleAction implements Saveable, Serializable {
 
 	private static final long serialVersionUID = 1L;
 
 	protected transient final Object lock4 = new Object();
 	protected transient final Object lock6 = new Object();
+
+	protected transient Node node;
 
 	protected final SortedSet<IpNet4Address> subnet4Stack;
 	protected final Map<IpNet4Address, String> subnet4Reservations;
@@ -61,9 +65,8 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 	protected IpNet4Address subnet4;
 	protected IpNet6Address subnet6;
 
-	@DataBoundConstructor
-	public NodeIsolationProperty() {
-		this(//
+	public NodeIsolationRuntimeAction(final Node owner) {
+		this(owner,
 				// Ipv4
 				IpNetworkUtils.createIpNet4Address(new byte[] { 0x7f, 0x14, 0x00, 0x01 }, (short) 16), new TreeSet<>(),
 				new LinkedHashMap<>(), //
@@ -71,10 +74,11 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 				null);
 	}
 
-	protected NodeIsolationProperty(//
+	protected NodeIsolationRuntimeAction(final Node node, //
 			final IpNet4Address subnet4, final SortedSet<IpNet4Address> subnet4Stack,
 			final Map<IpNet4Address, String> subnet4Reservations, //
 			final IpNet6Address subnet6) {
+		this.node = node;
 		// Ipv4
 		this.subnet4 = subnet4;
 		this.subnet4Stack = subnet4Stack;
@@ -83,8 +87,8 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 		this.subnet6 = subnet6;
 	}
 
-	private Object writeReplace() {
-		return NodeIsolationPropertyState.marshal(this);
+	public Node node() {
+		return this.node;
 	}
 
 	public IpNet4Address getIpv4Subnet() {
@@ -98,24 +102,28 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 	public void setIpv4Subnet(final String value) throws UnknownHostException {
 		synchronized (this.lock4) {
 			this.subnet4 = IpNetworkUtils.parseIpNet4Address(value);
+			trySave();
 		}
 	}
 
 	public void setIpv4Subnet(final IpNet4Address subnet) throws UnknownHostException {
 		synchronized (this.lock4) {
 			this.subnet4 = subnet;
+			trySave();
 		}
 	}
 
 	public void setIpv6Subnet(final String value) throws UnknownHostException {
 		synchronized (this.lock6) {
 			this.subnet6 = IpNetworkUtils.parseIpNet6Address(value);
+			trySave();
 		}
 	}
 
 	public void setIpv6Subnet(final IpNet6Address subnet) throws UnknownHostException {
 		synchronized (this.lock6) {
 			this.subnet6 = subnet;
+			trySave();
 		}
 	}
 
@@ -146,7 +154,9 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 				return null;
 			}
 			// reserve subnet
+			this.subnet4Stack.add(net);
 			this.subnet4Reservations.put(net, id);
+			trySave();
 			return net;
 		}
 	}
@@ -157,6 +167,7 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 
 		synchronized (this.lock6) {
 			// TODO implement
+			trySave();
 			return null;
 		}
 	}
@@ -164,12 +175,14 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 	public void freeIpv4Subnet(final IpNet4Address subnet) {
 		synchronized (this.lock4) {
 			this.subnet4Reservations.remove(subnet);
+			trySave();
 		}
 	}
 
 	public void freeIpv6Subnet(final IpNet6Address subnet) {
 		synchronized (this.lock6) {
 			// TODO implement
+			trySave();
 		}
 	}
 
@@ -181,15 +194,57 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 				if (extId.equals(entry.getValue()))
 					i.remove();
 			}
+			trySave();
 		}
 	}
 
-	@Extension
-	public static class Descriptor extends NodePropertyDescriptor {
-
+	protected void trySave() {
+		try {
+			save();
+		} catch (IOException ignored) {
+			ignored.printStackTrace();
+		}
 	}
 
-	public static class NodeIsolationPropertyState {
+	@Override
+	public void save() throws IOException {
+		final XmlFile configFile = getConfigFile(this.node);
+		configFile.write(this);
+		SaveableListener.fireOnChange(this, configFile);
+	}
+
+	// XStream2 hook -> handles marshal on save()
+	private Object writeReplace() {
+		return NodeIsolationRuntimeSnapshot.marshal(this);
+	}
+
+	protected static XmlFile getConfigFile(final Node node) {
+		return new XmlFile(new File(node.getRootDir(), "ctx-isolation.xml"));
+	}
+
+	protected static NodeIsolationRuntimeAction load(final Node node) throws IOException {
+		final XmlFile f = getConfigFile(node);
+		if (!f.exists())
+			return new NodeIsolationRuntimeAction(node);
+
+		final NodeIsolationRuntimeAction action = (NodeIsolationRuntimeAction) f.read();
+		action.node = node;
+		return action;
+	}
+
+	public static NodeIsolationRuntimeAction get(final Node node) throws IOException {
+		if (node == null)
+			return null;
+		final Computer computer = node.toComputer();
+		if (computer == null)
+			return null;
+		NodeIsolationRuntimeAction action = computer.getAction(NodeIsolationRuntimeAction.class);
+		if (action == null)
+			computer.addAction(action = load(node));
+		return action;
+	}
+
+	public static class NodeIsolationRuntimeSnapshot {
 
 		protected final String subnet4;
 		protected final String subnet6;
@@ -197,7 +252,7 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 		protected final List<String> subnet4Stack;
 		protected final Map<String, String> subnet4Reservations;
 
-		public NodeIsolationPropertyState(//
+		public NodeIsolationRuntimeSnapshot(//
 				final String subnet4, final List<String> subnet4Stack, final Map<String, String> subnet4Reservations, //
 				final String subnet6) {
 			this.subnet4 = subnet4;
@@ -206,8 +261,9 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 			this.subnet6 = subnet6;
 		}
 
+		// XStream2 hook -> handles unmarshal on load()
 		private Object readResolve() {
-			return new NodeIsolationProperty(//
+			return new NodeIsolationRuntimeAction(null, //
 					// Ipv4
 					IPNET4_PARSER.apply(this.subnet4), unmarshal(TreeSet::new, this.subnet4Stack, IPNET4_PARSER),
 					unmarshal(LinkedHashMap::new, this.subnet4Reservations, IPNET4_PARSER),
@@ -215,8 +271,8 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 					IPNET6_PARSER.apply(this.subnet6));
 		}
 
-		public static NodeIsolationPropertyState marshal(final NodeIsolationProperty prop) {
-			return new NodeIsolationPropertyState(//
+		public static NodeIsolationRuntimeSnapshot marshal(final NodeIsolationRuntimeAction prop) {
+			return new NodeIsolationRuntimeSnapshot(//
 					// Ipv4
 					prop.subnet4 == null ? null : prop.subnet4.toCidrNotation(), marshal(prop.subnet4Stack),
 					marshal(prop.subnet4Reservations),

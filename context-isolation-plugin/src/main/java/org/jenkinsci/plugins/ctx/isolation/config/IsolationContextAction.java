@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.isolation;
+package org.jenkinsci.plugins.ctx.isolation.config;
+
+import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
 
 import hudson.model.InvisibleAction;
 

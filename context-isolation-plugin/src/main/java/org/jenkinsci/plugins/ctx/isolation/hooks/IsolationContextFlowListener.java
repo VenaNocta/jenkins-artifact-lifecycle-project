@@ -20,8 +20,8 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
-import org.jenkinsci.plugins.ctx.isolation.IsolationContextAction;
 import org.jenkinsci.plugins.ctx.isolation.IsolationContextProvider;
+import org.jenkinsci.plugins.ctx.isolation.config.IsolationContextAction;
 import org.jenkinsci.plugins.variant.OptionalExtension;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;

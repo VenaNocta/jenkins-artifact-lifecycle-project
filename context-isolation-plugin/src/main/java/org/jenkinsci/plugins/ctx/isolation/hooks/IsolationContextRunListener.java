@@ -16,7 +16,7 @@
 package org.jenkinsci.plugins.ctx.isolation.hooks;
 
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
-import org.jenkinsci.plugins.ctx.isolation.IsolationContextAction;
+import org.jenkinsci.plugins.ctx.isolation.config.IsolationContextAction;
 import org.jenkinsci.plugins.ctx.isolation.config.IsolationProperty;
 import org.jenkinsci.plugins.ctx.isolation.ctx.UnsupportedContext;
 

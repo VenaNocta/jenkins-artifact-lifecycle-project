@@ -17,6 +17,7 @@ package org.jenkinsci.plugins.ctx.isolation;
 
 import java.io.IOException;
 
+import org.jenkinsci.plugins.ctx.isolation.config.IsolationContextAction;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
 import org.jenkinsci.plugins.workflow.steps.DynamicContext;
