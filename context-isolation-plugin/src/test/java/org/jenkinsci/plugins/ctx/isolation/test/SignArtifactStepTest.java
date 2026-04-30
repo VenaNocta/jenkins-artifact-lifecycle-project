@@ -17,29 +17,31 @@ package org.jenkinsci.plugins.ctx.isolation.test;
 
 import hudson.model.Label;
 import java.io.IOException;
+import java.nio.file.Path;
+
 import org.jenkinsci.plugins.ctx.isolation.config.IsolationProperty;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
+@WithJenkins
 public class SignArtifactStepTest {
 
-	@RegisterExtension
-	static PatchedJenkinsRule jenkins = new PatchedJenkinsRule();
-	// @Rule
-	public TemporaryFolder tmp = new TemporaryFolder();
+	@TempDir
+	protected Path tempDir;
 
-	@Before
+	@BeforeEach
 	public void setup() throws IOException {
 	}
 
 	@Test
-	public void testScriptedPipeline() throws Exception {
-
+	public void testScriptedPipeline(final JenkinsRule jenkins) throws Exception {
+		System.out.println(jenkins);
 		String agentLabel = "my-agent";
 		jenkins.createOnlineSlave(Label.get(agentLabel));
 		WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-scripted-pipeline");

@@ -37,6 +37,7 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<root-dir>..</root-dir>
+		<hpi.bundledArtifacts>utils-net,utils-net-api</hpi.bundledArtifacts>
 		<!-- VERSIONS -->
 		<sbom>0</sbom>
 	</properties>

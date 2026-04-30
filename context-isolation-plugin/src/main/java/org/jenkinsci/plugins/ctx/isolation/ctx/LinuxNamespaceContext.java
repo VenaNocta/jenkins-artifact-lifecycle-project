@@ -30,7 +30,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
-import org.jenkinsci.plugins.ctx.isolation.config.LnxNodeIsolationProperty;
+import org.jenkinsci.plugins.ctx.isolation.config.NodeIsolationProperty;
 import org.jenkinsci.plugins.ctx.isolation.ctx.net.LnxNetLink;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
@@ -268,8 +268,8 @@ public class LinuxNamespaceContext implements IsolationContext {
 		}
 
 		// Cleanup active LnxLinks
-		final LnxNodeIsolationProperty lnxProp = this.node.getNodeProperty(LnxNodeIsolationProperty.class);
-		if (lnxProp != null) {
+		final NodeIsolationProperty nodeProp = this.node.getNodeProperty(NodeIsolationProperty.class);
+		if (nodeProp != null) {
 			for (LnxNetLink link : this._activeLinks.values()) {
 				// Remove veth interfaces
 				disconnectNetLink(link);
@@ -299,8 +299,8 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	@Override
 	public LnxNetLink connectNetLink() {
-		final LnxNodeIsolationProperty lnxProp = this.node.getNodeProperty(LnxNodeIsolationProperty.class);
-		if (lnxProp == null)
+		final NodeIsolationProperty nodeProp = this.node.getNodeProperty(NodeIsolationProperty.class);
+		if (nodeProp == null)
 			return null;
 
 		synchronized (this.linkLock) {
@@ -309,7 +309,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 			final String hostIfaceName = String.format("veth-h%d-%d", this.processId, linkNum);
 			final String contextIfaceName = String.format("veth-n%d-%d", this.processId, linkNum);
 
-			final IpNet4Address subnet4 = lnxProp.reserveIpv4Subnet(this.run);
+			final IpNet4Address subnet4 = nodeProp.reserveIpv4Subnet(this.run);
 			Ip4Address hostAddr4 = null, contextAddr4 = null;
 			if (subnet4 != null) {
 				hostAddr4 = subnet4.getLowestAddress()
@@ -317,7 +317,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 				contextAddr4 = hostAddr4.increment();
 			}
 
-			final IpNet6Address subnet6 = lnxProp.reserveIpv6Subnet(this.run);
+			final IpNet6Address subnet6 = nodeProp.reserveIpv6Subnet(this.run);
 			Ip6Address hostAddr6 = null, contextAddr6 = null;
 			if (subnet6 != null) {
 				hostAddr6 = subnet6.getLowestAddress()
@@ -391,7 +391,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 			return;
 		final LnxNetLink link = (LnxNetLink) anyLink;
 		final PrintStream log = this.listener.getLogger();
-		final LnxNodeIsolationProperty lnxProp = this.node.getNodeProperty(LnxNodeIsolationProperty.class);
+		final NodeIsolationProperty nodeProp = this.node.getNodeProperty(NodeIsolationProperty.class);
 
 		synchronized (this.linkLock) {
 			if (!this._activeLinks.containsValue(link))
@@ -405,9 +405,9 @@ public class LinuxNamespaceContext implements IsolationContext {
 				e.printStackTrace(log);
 			}
 
-			if (lnxProp != null) {
-				lnxProp.freeIpv4Subnet(link.getSubnetV4());
-				lnxProp.freeIpv6Subnet(link.getSubnetV6());
+			if (nodeProp != null) {
+				nodeProp.freeIpv4Subnet(link.getSubnetV4());
+				nodeProp.freeIpv6Subnet(link.getSubnetV6());
 			}
 		}
 	}

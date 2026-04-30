@@ -18,7 +18,7 @@ package org.jenkinsci.plugins.ctx.isolation.hooks;
 import java.io.IOException;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jenkinsci.plugins.ctx.isolation.config.LnxNodeIsolationProperty;
+import org.jenkinsci.plugins.ctx.isolation.config.NodeIsolationProperty;
 
 import hudson.EnvVars;
 import hudson.Extension;
@@ -40,10 +40,10 @@ public class IsolationContextComputerListener extends ComputerListener {
 		EnvVars env = computer.getEnvironment();
 
 		Node node = computer.getNode();
-		LnxNodeIsolationProperty isolationProp = node.getNodeProperty(LnxNodeIsolationProperty.class);
+		NodeIsolationProperty isolationProp = node.getNodeProperty(NodeIsolationProperty.class);
 		if (isolationProp == null) {
 			node.getNodeProperties()
-					.add(isolationProp = new LnxNodeIsolationProperty());
+					.add(isolationProp = new NodeIsolationProperty());
 		}
 
 		String subnet = StringUtils.trimToNull(env.get(ENV_ISOLATION_SUBNET4));
