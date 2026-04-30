@@ -26,6 +26,7 @@
 		<version>0.0.0</version>
 	</parent>
 
+	<groupId>org.jenkins-ci.plugins.context</groupId>
 	<artifactId>context-isolation-plugin</artifactId>
 	<version>0.0.0</version>
 	<packaging>hpi</packaging>
@@ -72,8 +73,7 @@
 	</developers>
 
 	<scm>
-		<url>
-			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
+		<url>https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
 		<connection>
 			scm:git:https://github.com/RunedUniverse/jenkins-artifact-signing-plugin.git</connection>
 		<developerConnection>
@@ -90,23 +90,16 @@
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>variant</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>org.jenkins-ci.plugins</groupId>
-			<artifactId>structs</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.jenkins-ci.plugins.workflow</groupId>
-			<artifactId>workflow-job</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>net.runeduniverse.lib.utils</groupId>
-			<artifactId>utils-net</artifactId>
-		</dependency>
 
 		<!-- OPTIONAL -->
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.workflow</groupId>
 			<artifactId>workflow-cps</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.workflow</groupId>
+			<artifactId>workflow-durable-task-step</artifactId>
 			<optional>true</optional>
 		</dependency>
 		<dependency>
@@ -116,6 +109,10 @@
 		</dependency>
 
 		<!-- non packaged dependencies -->
+		<dependency>
+			<groupId>net.runeduniverse.lib.utils</groupId>
+			<artifactId>utils-net</artifactId>
+		</dependency>
 
 		<!-- COMPILER -->
 		<dependency>
@@ -123,12 +120,12 @@
 			<artifactId>junit-jupiter</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- TRYING -->
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.workflow</groupId>
-			<artifactId>workflow-durable-task-step</artifactId>
-			<!-- <scope>test</scope>-->
+			<artifactId>workflow-job</artifactId>
+			<scope>test</scope>
 		</dependency>
-		<!-- TRYING -->
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.workflow</groupId>
 			<artifactId>workflow-basic-steps</artifactId>

@@ -23,16 +23,21 @@ import java.net.UnixDomainSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
 import org.jenkinsci.plugins.ctx.isolation.config.NodeIsolationRuntimeAction;
 import org.jenkinsci.plugins.ctx.isolation.ctx.net.LnxNetLink;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
+
+import com.google.common.io.Files;
 
 import hudson.AbortException;
 import hudson.FilePath;
@@ -64,6 +69,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 	protected transient final Node node;
 	protected transient final WorkspaceAction ws;
 	protected transient final TaskListener listener;
+	protected transient final FilePath envCachePath;
 
 	protected long processId = -1;
 
@@ -72,11 +78,13 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	public LinuxNamespaceContext(final Run<?, ?> run, final Node node, final WorkspaceAction ws,
 			final TaskListener listener) {
-		this.factory = new DecoratorFactory();
+		this.factory = new DecoratorFactory(this);
 		this.run = run;
 		this.node = node;
 		this.ws = ws;
 		this.listener = listener;
+		this.envCachePath = ws.getWorkspace()
+				.withSuffix("@env_cache");
 	}
 
 	@Override
@@ -95,18 +103,15 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 		try {
 			// get user
-			lst[0] = this.ws.getWorkspace()
-					.act(new ExecRemoteProcess(Arrays.asList("id", "-r", "--user")))
+			lst[0] = actInContext(new ExecRemoteProcess(Arrays.asList("id", "-r", "--user")))
 					.thenApply(LinuxNamespaceContext::outputToString)
 					.thenAccept(id::setUser);
 			// get group
-			lst[1] = this.ws.getWorkspace()
-					.act(new ExecRemoteProcess(Arrays.asList("id", "-r", "--group")))
+			lst[1] = actInContext(new ExecRemoteProcess(Arrays.asList("id", "-r", "--group")))
 					.thenApply(LinuxNamespaceContext::outputToString)
 					.thenAccept(id::setGroup);
 			// get groups
-			lst[2] = this.ws.getWorkspace()
-					.act(new ExecRemoteProcess(Arrays.asList("id", "-r", "--groups")))
+			lst[2] = actInContext(new ExecRemoteProcess(Arrays.asList("id", "-r", "--groups")))
 					.thenApply(LinuxNamespaceContext::outputToString)
 					.thenApply(s -> s.split(" "))
 					.thenAccept(id::setGroups);
@@ -203,8 +208,6 @@ public class LinuxNamespaceContext implements IsolationContext {
 		cmd.add("--pid");
 		cmd.add("--fork");
 		cmd.add("--mount-proc");
-		// cmd.add("--user");
-		// cmd.add("--map-root-user");
 		cmd.add("--propagation=private");
 		cmd.add("--wd=" + this.ws.getPath());
 		cmd.add("--");
@@ -221,6 +224,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 		try {
 			this.ws.getWorkspace()
 					.mkdirs();
+			this.envCachePath.mkdirs();
 
 			ExecRemoteProcess remoteProcess = new ExecRemoteProcess(cmd);
 			CompletableFuture<Process> future = this.ws.getWorkspace()
@@ -267,10 +271,11 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 		// Kill process tree
 		try {
-			ExecRemoteProcess remoteProcess = new ExecRemoteProcess(
+			final ExecRemoteProcess remoteProcess = new ExecRemoteProcess(
 					Arrays.asList("kill", "-KILL", "-" + this.processId));
 			this.ws.getWorkspace()
 					.act(remoteProcess.await(true));
+			this.envCachePath.deleteRecursive();
 
 			log.println(String.format(TEMPL_LINE, this.processId, "Stopped isolated environment"));
 			this.processId = -1;
@@ -455,23 +460,40 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 		private static final long serialVersionUID = 1L;
 
+		private final LinuxNamespaceContext ctx;
+
+		protected DecoratorFactory(final LinuxNamespaceContext lnxContext) {
+			this.ctx = lnxContext;
+		}
+
 		@Override
 		public Launcher decorate(final Launcher launcher, final Node node) {
 			return new Launcher.DecoratedLauncher(launcher) {
 				@Override
 				public Proc launch(final ProcStarter starter) throws IOException {
-					if (LinuxNamespaceContext.this.processId == -1)
+					if (DecoratorFactory.this.ctx.processId == -1)
 						throw new AbortException("[Linux-Namespace] Namespace unavailable!");
+
+					final Map<String, String> env = Arrays.asList(starter.envs())
+							.stream()
+							.map(s -> s.split("=", 2))
+							// Filter out bash functions
+							.filter(arr -> !arr[0].endsWith("%%"))
+							.collect(Collectors.toMap(arr -> arr[0], arr -> arr[1]));
 
 					// Wrap command with nsenter
 					final List<String> cmd;
+					final String envFileName;
 					try {
-						cmd = LinuxNamespaceContext.this.nsenterCmd();
+						cmd = DecoratorFactory.this.ctx.nsenterCmd();
+						envFileName = DecoratorFactory.this.ctx.envCachePath.act(new WriteEnvFile(env));
 					} catch (Throwable e) {
 						if (e instanceof RuntimeException runE)
 							throw runE;
 						throw new RuntimeException(e);
 					}
+
+					cmd.addAll(Arrays.asList("sh", "-c", "(. " + envFileName + "; exec \"$@\")"));
 
 					// recalculate mask: based on nsenter cmd prefix
 					boolean[] oldMasks = starter.masks();
@@ -492,7 +514,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 					// launcher.getListener()
 					// .getLogger()
-					// .println("======== " + String.join(" ", cmd));
+					// .println("============= \n" + String.join("\n", cmd));
 
 					return super.launch(starter);
 				}
@@ -571,6 +593,39 @@ public class LinuxNamespaceContext implements IsolationContext {
 		public ExecRemoteProcess await(boolean value) {
 			this.await = value;
 			return this;
+		}
+	}
+
+	public static class WriteEnvFile extends MasterToSlaveFileCallable<String> {
+
+		private static final long serialVersionUID = 1L;
+
+		protected final Map<String, String> env;
+
+		public WriteEnvFile(final Map<String, String> env) {
+			this.env = env;
+		}
+
+		@Override
+		public String invoke(final File wsDir, final VirtualChannel channel) throws IOException, InterruptedException {
+			final File envFile = File.createTempFile("cmd-", ".env", wsDir);
+
+			final StringBuilder builder = new StringBuilder();
+			for (Entry<String, String> entry : this.env.entrySet())
+				builder.append("export " + entry.getKey() + "=" + singleQuote(entry.getValue()) + "\n");
+
+			Files.write(builder.toString()
+					.getBytes(), envFile);
+
+			return envFile.getAbsolutePath();
+		}
+
+		public static String singleQuote(final String value) {
+			if (value == null) {
+				return "''";
+			}
+			// replace ' with '\'' (close quote, escaped quote, reopen)
+			return "'" + value.replace("'", "'\"'\"'") + "'";
 		}
 	}
 }
