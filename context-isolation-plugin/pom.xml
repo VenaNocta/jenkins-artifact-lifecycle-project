@@ -31,8 +31,10 @@
 	<packaging>hpi</packaging>
 
 	<name>Jenkins Context Isolation Plugin</name>
+	<description>Provides per Run Context Isolation thereby Air-Gapping the
+		execution context</description>
 	<url>https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
-	<inceptionYear>2025</inceptionYear>
+	<inceptionYear>2026</inceptionYear>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

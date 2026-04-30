@@ -32,6 +32,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import org.kohsuke.stapler.DataBoundConstructor;
+
 import hudson.Extension;
 import hudson.model.Node;
 import hudson.model.Run;
@@ -59,6 +61,7 @@ public class NodeIsolationProperty extends NodeProperty<Node> implements Seriali
 	protected IpNet4Address subnet4;
 	protected IpNet6Address subnet6;
 
+	@DataBoundConstructor
 	public NodeIsolationProperty() {
 		this(//
 				// Ipv4
