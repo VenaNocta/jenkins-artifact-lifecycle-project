@@ -15,34 +15,53 @@
  */
 package org.jenkinsci.plugins.ctx.proxy.repo.steps;
 
+import java.io.IOException;
 import java.io.PrintStream;
-import java.io.Serializable;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext.NetLink;
 import org.jenkinsci.plugins.ctx.isolation.WorkflowUtils;
 import org.jenkinsci.plugins.ctx.isolation.config.IsolationContextAction;
+import org.jenkinsci.plugins.ctx.proxy.repo.ProxyConfig;
+import org.jenkinsci.plugins.ctx.proxy.repo.ProxyConfigDescriptor;
+import org.jenkinsci.plugins.ctx.proxy.repo.ProxyInstance;
+import org.jenkinsci.plugins.ctx.proxy.repo.ProxyProvider;
+import org.jenkinsci.plugins.ctx.proxy.repo.maven.MvnProxyConfig;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
+import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
-import com.google.common.util.concurrent.FutureCallback;
-
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import jenkins.model.CauseOfInterruption;
+import net.runeduniverse.lib.utils.net.api.IpAddress;
 
 public class RepoProxyStepExecution extends StepExecution {
 
 	private static final long serialVersionUID = 1L;
 
-	private final RepoProxyStep step;
+	protected final transient CompletableFuture<CauseOfInterruption> runFuture = new CompletableFuture<>();
+	protected final transient Map<String, ProxyInstance> activeProxies = new LinkedHashMap<>();
 
-	protected RepoProxyStepExecution(@NonNull StepContext context, @NonNull RepoProxyStep step) {
+	protected final RepoProxyStep step;
+
+	protected RepoProxyStepExecution(@NonNull final StepContext context, @NonNull final RepoProxyStep step) {
 		super(context);
 		this.step = step;
 	}
@@ -64,53 +83,129 @@ public class RepoProxyStepExecution extends StepExecution {
 		if (link == null)
 			throw new RuntimeException("Failed to connect the Proxy to the IsolationContext!");
 
-		log.println("[ RepoProxy ] Started Proxy on " + link.getHostAddressV4()
-				.toCidrNotation());
+		this.runFuture.handle((v, e) -> {
+			if (v != null) {
+				context.onFailure(new FlowInterruptedException(Result.FAILURE, true, v));
+			} else if (e != null) {
+				context.onFailure(e);
+			}
+			isoContext.disconnectNetLink(link);
+			return null;
+		});
 
 		final Map<String, String> proxyEnv = new LinkedHashMap<>();
-		proxyEnv.put("MVN_PROXY_central_URL", String.format("http://%s:%d/%s/", link.getHostAddressV4()
-				.toCidrNotation(), 8080, "central"));
+		final List<IpAddress<?>> proxyIps = Arrays.asList(link.getHostAddressV4(), link.getHostAddressV6())
+				.stream()
+				.filter(Objects::nonNull)
+				.toList();
+		if (proxyIps.isEmpty()) {
+			log.println("[ RepoProxy ] NOTICE: No Proxy IPs are available! Proxy Startup skipped!");
+		} else {
+			final Map<String, ProxyConfig> configs = new LinkedHashMap<>();
+			for (Entry<String, String> entry : this.step.getRequestedRepos()
+					.entrySet()) {
+				final String id = entry.getKey();
+				final ProxyConfig config = getConfigForId(id);
+				if (config == null)
+					log.println("[ RepoProxy ] Proxy unavailable! ID: " + id);
+				else
+					configs.put(id, config);
+			}
 
-		// TODO implement
+			spawnProxies(proxyEnv, configs, proxyIps);
+		}
 
-		getContext().newBodyInvoker()
+		context.newBodyInvoker()
 				.withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class),
 						EnvironmentExpander.constant(proxyEnv)))
-				.withCallback(new BlockCallback(getContext(), isoContext, link))
+				.withCallback(new BlockCallback(this))
 				.start();
 		return false;
+	}
+
+	protected void spawnProxies(final Map<String, String> proxyEnv, final Map<String, ProxyConfig> configs,
+			final List<IpAddress<?>> ips) throws IOException, InterruptedException {
+		final StepContext context = getContext();
+		final FlowNode flowNode = context.get(FlowNode.class);
+		final TaskListener listener = context.get(TaskListener.class);
+		final PrintStream log = listener.getLogger();
+
+		for (Entry<String, ProxyConfig> entry : configs.entrySet()) {
+			final ProxyConfig config = entry.getValue();
+			final ProxyProvider provider = findProvider(config.getDescriptor());
+			if (provider == null) {
+				log.println("[ RepoProxy ] Proxy unsupported! ID: " + config.getId());
+				continue;
+			}
+
+			final ProxyInstance instance = provider.createInstance(flowNode, entry.getKey(), config, this.runFuture);
+			if (instance == null) {
+				log.println("[ RepoProxy ] Proxy Configuration failed! ID: " + config.getId());
+				continue;
+			}
+
+			this.activeProxies.put(config.getId(), instance);
+			for (IpAddress<?> ip : ips) {
+				instance.bind(ip, proxyEnv, listener);
+			}
+		}
+	}
+
+	protected ProxyProvider findProvider(final ProxyConfigDescriptor configDescriptor) {
+		for (ProxyProvider provider : ProxyProvider.all()) {
+			if (provider.isApplicable(configDescriptor))
+				return provider;
+		}
+		return null;
+	}
+
+	protected ProxyConfig getConfigForId(final String id) {
+		// TODO implement
+
+		ProxyConfig config = new MvnProxyConfig();
+
+		return config;
+	}
+
+	public void shutdown() {
+		if (this.runFuture != null) {
+			this.runFuture.complete(null);
+			final List<CompletableFuture<?>> lst = new LinkedList<>();
+			for (ProxyInstance instance : this.activeProxies.values()) {
+				final CompletableFuture<?> future = instance.onStop();
+				if (future != null)
+					lst.add(future);
+			}
+			try {
+				CompletableFuture.allOf(lst.toArray(new CompletableFuture<?>[lst.size()]))
+						.get(60, TimeUnit.SECONDS);
+			} catch (InterruptedException | ExecutionException | TimeoutException ignored) {
+			}
+		}
 	}
 
 	private static class BlockCallback extends BodyExecutionCallback {
 
 		private static final long serialVersionUID = 1L;
 
-		protected final FutureCallback<Object> v;
-		protected final IsolationContext isoContext;
-		protected final NetLink link;
+		protected final RepoProxyStepExecution exec;
 
-		public BlockCallback(final FutureCallback<Object> v, final IsolationContext isoContext, final NetLink link) {
-			if (!(v instanceof Serializable))
-				throw new IllegalArgumentException(v.getClass() + " is not serializable");
-			this.v = v;
-			this.isoContext = isoContext;
-			this.link = link;
+		public BlockCallback(final RepoProxyStepExecution exec) {
+			this.exec = exec;
 		}
 
 		@Override
 		public void onSuccess(final StepContext context, final Object result) {
-			v.onSuccess(result);
-			free();
+			this.exec.shutdown();
+			this.exec.getContext()
+					.onSuccess(result);
 		}
 
 		@Override
 		public void onFailure(final StepContext context, final Throwable t) {
-			v.onFailure(t);
-			free();
-		}
-
-		protected void free() {
-			this.isoContext.disconnectNetLink(this.link);
+			this.exec.shutdown();
+			this.exec.getContext()
+					.onFailure(t);
 		}
 	}
 }

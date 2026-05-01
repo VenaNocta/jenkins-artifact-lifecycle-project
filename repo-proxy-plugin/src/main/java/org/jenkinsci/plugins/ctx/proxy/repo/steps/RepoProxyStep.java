@@ -16,8 +16,12 @@
 package org.jenkinsci.plugins.ctx.proxy.repo.steps;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -26,7 +30,6 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.stapler.DataBoundConstructor;
 import com.google.common.collect.ImmutableSet;
 
-import hudson.EnvVars;
 import hudson.Extension;
 import hudson.model.Node;
 import hudson.model.Run;
@@ -36,8 +39,29 @@ public class RepoProxyStep extends Step implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
+	protected final Map<String, String> requestedRepos;
+
 	@DataBoundConstructor
-	public RepoProxyStep() {
+	public RepoProxyStep(final Map<String, String> reqRepos) {
+		if (reqRepos == null)
+			this.requestedRepos = Collections.emptyMap();
+		else
+			this.requestedRepos = reqRepos.entrySet()
+					.stream()
+					.filter(RepoProxyStep::entryFilter)
+					.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+	}
+
+	public Map<String, String> getRequestedRepos() {
+		return this.requestedRepos;
+	}
+
+	protected static boolean entryFilter(final Map.Entry<String, String> entry) {
+		if (entry == null)
+			return false;
+		if (StringUtils.isAllBlank(entry.getKey()) || StringUtils.isAllBlank(entry.getValue()))
+			return false;
+		return true;
 	}
 
 	@Override
@@ -46,7 +70,7 @@ public class RepoProxyStep extends Step implements Serializable {
 	}
 
 	@Extension
-	public static class SignArtifactDescriptor extends StepDescriptor {
+	public static class Descriptor extends StepDescriptor {
 
 		@Override
 		public String getFunctionName() {
@@ -60,7 +84,7 @@ public class RepoProxyStep extends Step implements Serializable {
 
 		@Override
 		public Set<? extends Class<?>> getRequiredContext() {
-			return ImmutableSet.of(Node.class, Run.class, FlowNode.class, EnvVars.class, TaskListener.class);
+			return ImmutableSet.of(Node.class, Run.class, FlowNode.class, TaskListener.class);
 		}
 
 		@Override

@@ -42,6 +42,8 @@
 		<!-- VERSIONS -->
 		<sbom>0</sbom>
 		<context-isolation-version>0.0.0</context-isolation-version>
+		<maven-repo-bom-version>0.1.0</maven-repo-bom-version>
+		<netty-version>4.2.10.Final</netty-version>
 	</properties>
 
 	<licenses>
@@ -117,6 +119,73 @@
 		</dependency>
 
 		<!-- non packaged dependencies -->
+		<dependency>
+			<groupId>commons-codec</groupId>
+			<artifactId>commons-codec</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>net.runeduniverse.lib.repo</groupId>
+			<artifactId>maven-repo-proxy-core</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>net.runeduniverse.lib.repo</groupId>
+			<artifactId>maven-repo-client-http</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>net.runeduniverse.lib.repo</groupId>
+			<artifactId>maven-repo-server-http</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>net.runeduniverse.lib.repo</groupId>
+			<artifactId>maven-repo-validation-pgp</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>net.runeduniverse.lib.repo</groupId>
+			<artifactId>maven-repo-validation-cyclonedx</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-io</groupId>
+					<artifactId>commons-io</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<!-- netty-transport-native has to be handled differently! -->
+		<!-- = out of scope of the prototype! -->
+		<!-- 
+		<dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty-transport-native-unix-common</artifactId>
+			<version>${netty-version}</version>
+		</dependency>
+		-->
 
 		<!-- COMPILER -->
 		<dependency>
@@ -143,6 +212,13 @@
 				<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
 				<artifactId>artifact-signing-sbom</artifactId>
 				<version>${major-version}.${minor-version}.${sbom}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>net.runeduniverse.lib.repo</groupId>
+				<artifactId>maven-repo-project-bom</artifactId>
+				<version>${maven-repo-bom-version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
