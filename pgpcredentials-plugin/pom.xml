@@ -91,12 +91,6 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.jenkins-ci.plugins.pgpcredentials</groupId>
-			<artifactId>pgpcredentials-api</artifactId>
-			<version>${major-version}.${minor-version}.${api-version}</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>structs</artifactId>
 		</dependency>
@@ -130,6 +124,20 @@
 		</dependency>
 
 		<!-- non packaged dependencies -->
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcpg-jdk18on</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcprov-jdk18on</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcutil-jdk18on</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 
 		<!-- COMPILER -->
 		<!-- TEST -->
