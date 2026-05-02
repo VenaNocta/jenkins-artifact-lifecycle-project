@@ -15,17 +15,25 @@
  */
 package org.jenkinsci.plugins.ctx.proxy.repo.maven;
 
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyConfig;
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyConfigDescriptor;
+import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
+import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
+import org.kohsuke.stapler.DataBoundConstructor;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 
 public class MvnProxyConfig extends ProxyConfig {
 
-	@Override
-	public String getId() {
-		// TODO implement
-		return "maven>central";
+	private static final long serialVersionUID = 1L;
+
+	public MvnProxyConfig(@NonNull final String id) {
+		super(id);
+	}
+
+	@DataBoundConstructor
+	public MvnProxyConfig(@NonNull final String id, @CheckForNull final String description) {
+		super(id, description);
 	}
 
 	@Extension

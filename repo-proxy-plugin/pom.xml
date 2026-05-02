@@ -41,6 +41,7 @@
 		<root-dir>..</root-dir>
 		<!-- VERSIONS -->
 		<sbom>0</sbom>
+		<pgpcredentials-version>0.0.2</pgpcredentials-version>
 		<context-isolation-version>0.0.0</context-isolation-version>
 		<maven-repo-bom-version>0.1.0</maven-repo-bom-version>
 		<netty-version>4.2.10.Final</netty-version>
@@ -92,6 +93,11 @@
 	</issueManagement>
 
 	<dependencies>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.pgpcredentials</groupId>
+			<artifactId>pgpcredentials-plugin</artifactId>
+			<version>${pgpcredentials-version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.context</groupId>
 			<artifactId>context-isolation-plugin</artifactId>

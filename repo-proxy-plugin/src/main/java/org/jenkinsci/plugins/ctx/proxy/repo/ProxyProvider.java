@@ -17,6 +17,8 @@ package org.jenkinsci.plugins.ctx.proxy.repo;
 
 import java.util.concurrent.CompletableFuture;
 
+import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
+import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 
 import hudson.ExtensionList;

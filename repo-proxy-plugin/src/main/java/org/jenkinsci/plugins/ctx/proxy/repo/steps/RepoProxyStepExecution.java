@@ -33,11 +33,11 @@ import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext.NetLink;
 import org.jenkinsci.plugins.ctx.isolation.WorkflowUtils;
 import org.jenkinsci.plugins.ctx.isolation.config.IsolationContextAction;
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyConfig;
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.ctx.proxy.repo.ProxyInstance;
 import org.jenkinsci.plugins.ctx.proxy.repo.ProxyProvider;
-import org.jenkinsci.plugins.ctx.proxy.repo.maven.MvnProxyConfig;
+import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
+import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
+import org.jenkinsci.plugins.ctx.proxy.repo.config.RepoProxyConfigurationProvider;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
@@ -105,11 +105,11 @@ public class RepoProxyStepExecution extends StepExecution {
 			for (Entry<String, String> entry : this.step.getRequestedRepos()
 					.entrySet()) {
 				final String id = entry.getKey();
-				final ProxyConfig config = getConfigForId(id);
+				final ProxyConfig config = RepoProxyConfigurationProvider.findConfig(context.get(Run.class), id);
 				if (config == null)
 					log.println("[ RepoProxy ] Proxy unavailable! ID: " + id);
 				else
-					configs.put(id, config);
+					configs.put(entry.getValue(), config);
 			}
 
 			spawnProxies(proxyEnv, configs, proxyIps);
@@ -157,14 +157,6 @@ public class RepoProxyStepExecution extends StepExecution {
 				return provider;
 		}
 		return null;
-	}
-
-	protected ProxyConfig getConfigForId(final String id) {
-		// TODO implement
-
-		ProxyConfig config = new MvnProxyConfig();
-
-		return config;
 	}
 
 	public void shutdown() {
