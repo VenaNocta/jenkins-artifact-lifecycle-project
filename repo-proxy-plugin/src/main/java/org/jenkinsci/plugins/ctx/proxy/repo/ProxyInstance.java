@@ -18,11 +18,18 @@ package org.jenkinsci.plugins.ctx.proxy.repo;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import hudson.model.TaskListener;
-import net.runeduniverse.lib.utils.net.api.IpAddress;
+import jenkins.model.CauseOfInterruption;
 
 public interface ProxyInstance {
 
-	public <T extends IpAddress<T>> void bind(IpAddress<T> ip, Map<String, String> proxyEnv, TaskListener listener);
+	public void start(Map<String, String> proxyEnv, TaskListener listener,
+			CompletableFuture<CauseOfInterruption> issueCallback);
+
+	public void stop();
+
+	public default boolean isStopped() {
+		return onStop().isDone();
+	}
 
 	public CompletableFuture<?> onStop();
 

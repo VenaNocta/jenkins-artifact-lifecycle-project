@@ -24,10 +24,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext.NetLink;
@@ -66,15 +68,20 @@ public class RepoProxyStepExecution extends StepExecution {
 		this.step = step;
 	}
 
+	protected IsolationContext getIsolationContext() throws IOException, InterruptedException {
+		final StepContext context = getContext();
+		final IsolationContextAction action = WorkflowUtils.findContextAction( //
+				context.get(Run.class), context.get(FlowNode.class));
+		return action == null ? null : action.getContext();
+	}
+
 	@Override
 	public boolean start() throws Exception {
 		final StepContext context = getContext();
 		final TaskListener listener = context.get(TaskListener.class);
 		final PrintStream log = listener.getLogger();
 
-		final IsolationContextAction action = WorkflowUtils.findContextAction( //
-				context.get(Run.class), context.get(FlowNode.class));
-		final IsolationContext isoContext = action == null ? null : action.getContext();
+		final IsolationContext isoContext = getIsolationContext();
 		if (isoContext == null)
 			throw new RuntimeException("IsolationContext unavailable!");
 
@@ -89,15 +96,16 @@ public class RepoProxyStepExecution extends StepExecution {
 			} else if (e != null) {
 				context.onFailure(e);
 			}
+			RepoProxyStepExecution.this.shutdown();
 			isoContext.disconnectNetLink(link);
 			return null;
 		});
 
 		final Map<String, String> proxyEnv = new LinkedHashMap<>();
-		final List<IpAddress<?>> proxyIps = Arrays.asList(link.getHostAddressV4(), link.getHostAddressV6())
+		final Set<IpAddress<?>> proxyIps = Arrays.asList(link.getHostAddressV4(), link.getHostAddressV6())
 				.stream()
 				.filter(Objects::nonNull)
-				.toList();
+				.collect(Collectors.toSet());
 		if (proxyIps.isEmpty()) {
 			log.println("[ RepoProxy ] NOTICE: No Proxy IPs are available! Proxy Startup skipped!");
 		} else {
@@ -118,13 +126,13 @@ public class RepoProxyStepExecution extends StepExecution {
 		context.newBodyInvoker()
 				.withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class),
 						EnvironmentExpander.constant(proxyEnv)))
-				.withCallback(new BlockCallback(this))
+				.withCallback(new BlockCallback(this, link))
 				.start();
 		return false;
 	}
 
 	protected void spawnProxies(final Map<String, String> proxyEnv, final Map<String, ProxyConfig> configs,
-			final List<IpAddress<?>> ips) throws IOException, InterruptedException {
+			final Set<IpAddress<?>> ips) throws IOException, InterruptedException {
 		final StepContext context = getContext();
 		final FlowNode flowNode = context.get(FlowNode.class);
 		final TaskListener listener = context.get(TaskListener.class);
@@ -138,16 +146,14 @@ public class RepoProxyStepExecution extends StepExecution {
 				continue;
 			}
 
-			final ProxyInstance instance = provider.createInstance(flowNode, entry.getKey(), config, this.runFuture);
+			final ProxyInstance instance = provider.createInstance(flowNode, entry.getKey(), config, ips);
 			if (instance == null) {
 				log.println("[ RepoProxy ] Proxy Configuration failed! ID: " + config.getId());
 				continue;
 			}
 
 			this.activeProxies.put(config.getId(), instance);
-			for (IpAddress<?> ip : ips) {
-				instance.bind(ip, proxyEnv, listener);
-			}
+			instance.start(proxyEnv, listener, this.runFuture);
 		}
 	}
 
@@ -181,23 +187,35 @@ public class RepoProxyStepExecution extends StepExecution {
 		private static final long serialVersionUID = 1L;
 
 		protected final RepoProxyStepExecution exec;
+		protected final NetLink link;
 
-		public BlockCallback(final RepoProxyStepExecution exec) {
+		public BlockCallback(final RepoProxyStepExecution exec, final NetLink link) {
 			this.exec = exec;
+			this.link = link;
 		}
 
 		@Override
 		public void onSuccess(final StepContext context, final Object result) {
-			this.exec.shutdown();
+			shutdown();
 			this.exec.getContext()
 					.onSuccess(result);
 		}
 
 		@Override
 		public void onFailure(final StepContext context, final Throwable t) {
-			this.exec.shutdown();
+			shutdown();
 			this.exec.getContext()
 					.onFailure(t);
+		}
+
+		protected void shutdown() {
+			this.exec.shutdown();
+			try {
+				final IsolationContext isoContext = this.exec.getIsolationContext();
+				if (isoContext != null)
+					isoContext.disconnectNetLink(this.link);
+			} catch (IOException | InterruptedException ignored) {
+			}
 		}
 	}
 }

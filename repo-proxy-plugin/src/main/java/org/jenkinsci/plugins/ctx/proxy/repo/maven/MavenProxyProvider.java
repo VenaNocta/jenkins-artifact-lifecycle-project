@@ -15,8 +15,7 @@
  */
 package org.jenkinsci.plugins.ctx.proxy.repo.maven;
 
-import java.util.concurrent.CompletableFuture;
-
+import java.util.Set;
 import org.jenkinsci.plugins.ctx.proxy.repo.ProxyInstance;
 import org.jenkinsci.plugins.ctx.proxy.repo.ProxyProvider;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
@@ -24,7 +23,7 @@ import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 
 import hudson.Extension;
-import jenkins.model.CauseOfInterruption;
+import net.runeduniverse.lib.utils.net.api.IpAddress;
 
 @Extension
 public class MavenProxyProvider implements ProxyProvider {
@@ -35,10 +34,19 @@ public class MavenProxyProvider implements ProxyProvider {
 	}
 
 	@Override
-	public ProxyInstance createInstance(final FlowNode flowNode, final String refId, final ProxyConfig config,
-			final CompletableFuture<CauseOfInterruption> runFuture) {
+	public ProxyInstance createInstance(FlowNode flowNode, String refId, ProxyConfig config,
+			Set<IpAddress<?>> availableIps) {
 		if (!(config instanceof MvnProxyConfig))
 			return null;
-		return new MvnProxyInstance();
+
+		MvnProxyInstance instance = flowNode.getAction(MvnProxyInstance.class);
+		if (instance == null) {
+			flowNode.addAction(instance = new MvnProxyInstance(availableIps, 0));
+		} else if (instance.canSupport(refId, availableIps, 8080))
+			return null;
+
+		instance.addRepoInstance(refId);
+
+		return instance;
 	}
 }

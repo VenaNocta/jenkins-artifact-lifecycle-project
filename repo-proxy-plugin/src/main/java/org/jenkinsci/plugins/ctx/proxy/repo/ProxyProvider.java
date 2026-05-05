@@ -15,22 +15,21 @@
  */
 package org.jenkinsci.plugins.ctx.proxy.repo;
 
-import java.util.concurrent.CompletableFuture;
-
+import java.util.Set;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 
 import hudson.ExtensionList;
 import hudson.ExtensionPoint;
-import jenkins.model.CauseOfInterruption;
+import net.runeduniverse.lib.utils.net.api.IpAddress;
 
 public interface ProxyProvider extends ExtensionPoint {
 
 	public boolean isApplicable(ProxyConfigDescriptor descriptor);
 
 	public ProxyInstance createInstance(FlowNode flowNode, String refId, ProxyConfig config,
-			CompletableFuture<CauseOfInterruption> runFuture);
+			Set<IpAddress<?>> availableIps);
 
 	public static ExtensionList<ProxyProvider> all() {
 		return ExtensionList.lookup(ProxyProvider.class);
