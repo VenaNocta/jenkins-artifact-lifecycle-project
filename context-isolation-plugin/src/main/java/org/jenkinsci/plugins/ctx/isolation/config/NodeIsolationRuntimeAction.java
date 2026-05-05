@@ -19,20 +19,14 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.UnknownHostException;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.TreeSet;
-import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import hudson.XmlFile;
 import hudson.model.Computer;
@@ -42,12 +36,9 @@ import hudson.model.Run;
 import hudson.model.Saveable;
 import hudson.model.listeners.SaveableListener;
 import net.runeduniverse.lib.utils.net.IpNetworkUtils;
-import net.runeduniverse.lib.utils.net.api.CidrObject;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
-import net.runeduniverse.lib.utils.net.api.IpAddress;
 import net.runeduniverse.lib.utils.net.api.IpNet4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet6Address;
-import net.runeduniverse.lib.utils.net.api.IpNetAddress;
 
 // stores data required for per Run Context Isolation on this Node!
 public class NodeIsolationRuntimeAction extends InvisibleAction implements Saveable, Serializable {
@@ -265,68 +256,20 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 		private Object readResolve() {
 			return new NodeIsolationRuntimeAction(null, //
 					// Ipv4
-					IPNET4_PARSER.apply(this.subnet4), unmarshal(TreeSet::new, this.subnet4Stack, IPNET4_PARSER),
-					unmarshal(LinkedHashMap::new, this.subnet4Reservations, IPNET4_PARSER),
+					IpNetUtils.IPNET4_PARSER.apply(this.subnet4),
+					IpNetUtils.unmarshalCol(TreeSet::new, this.subnet4Stack, IpNetUtils.IPNET4_PARSER),
+					IpNetUtils.unmarshalMapKeys(LinkedHashMap::new, this.subnet4Reservations, IpNetUtils.IPNET4_PARSER),
 					// Ipv6
-					IPNET6_PARSER.apply(this.subnet6));
+					IpNetUtils.IPNET6_PARSER.apply(this.subnet6));
 		}
 
 		public static NodeIsolationRuntimeSnapshot marshal(final NodeIsolationRuntimeAction prop) {
 			return new NodeIsolationRuntimeSnapshot(//
 					// Ipv4
-					prop.subnet4 == null ? null : prop.subnet4.toCidrNotation(), marshal(prop.subnet4Stack),
-					marshal(prop.subnet4Reservations),
+					prop.subnet4 == null ? null : prop.subnet4.toCidrNotation(),
+					IpNetUtils.marshalCol(prop.subnet4Stack), IpNetUtils.marshalMapKeys(prop.subnet4Reservations),
 					// Ipv6
 					prop.subnet6 == null ? null : prop.subnet6.toCidrNotation());
-		}
-
-		public static final Function<String, IpNet4Address> IPNET4_PARSER = IpNetworkUtils::tryParseIpNet4Address;
-		public static final Function<String, IpNet6Address> IPNET6_PARSER = IpNetworkUtils::tryParseIpNet6Address;
-
-		public static <A extends IpAddress<A>, N extends IpNetAddress<A, N>> List<String> marshal(
-				final Collection<N> col) {
-
-			if (col == null || col.isEmpty())
-				return Collections.emptyList();
-
-			return col.stream()
-					.map(CidrObject::toCidrNotation)
-					.toList();
-		}
-
-		public static <A extends IpAddress<A>, N extends IpNetAddress<A, N>, C extends Collection<N>> C unmarshal(
-				final Supplier<C> supplier, final List<String> data, final Function<String, N> parser) {
-
-			if (data == null || data.isEmpty())
-				return supplier.get();
-
-			return data.stream()
-					.map(parser)
-					.filter(Objects::nonNull)
-					.collect(Collectors.toCollection(supplier));
-		}
-
-		public static <A extends IpAddress<A>, N extends IpNetAddress<A, N>> Map<String, String> marshal(
-				final Map<N, String> map) {
-
-			if (map == null || map.isEmpty())
-				return Collections.emptyMap();
-
-			return map.entrySet()
-					.stream()
-					.collect(Collectors.toMap(e -> e.getKey()
-							.toCidrNotation(), Entry::getValue));
-		}
-
-		public static <A extends IpAddress<A>, N extends IpNetAddress<A, N>, M extends Map<N, String>> M unmarshal(
-				final Supplier<M> supplier, final Map<String, String> data, final Function<String, N> parser) {
-
-			if (data == null || data.isEmpty())
-				return supplier.get();
-
-			return data.entrySet()
-					.stream()
-					.collect(Collectors.toMap(e -> parser.apply(e.getKey()), Entry::getValue, (a, b) -> b, supplier));
 		}
 	}
 }
