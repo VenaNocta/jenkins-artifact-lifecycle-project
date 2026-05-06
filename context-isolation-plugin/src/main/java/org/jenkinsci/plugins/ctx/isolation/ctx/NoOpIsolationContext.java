@@ -23,6 +23,7 @@ import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
 import org.jenkinsci.plugins.ctx.isolation.ctx.net.DefaultNetLink;
 
 import hudson.FilePath.FileCallable;
+import hudson.FilePath;
 import hudson.LauncherDecorator;
 import hudson.remoting.Future;
 
@@ -42,6 +43,11 @@ public class NoOpIsolationContext implements IsolationContext {
 
 	@Override
 	public void destroy() {
+	}
+
+	@Override
+	public FilePath getWorkspace() {
+		return null;
 	}
 
 	@Override

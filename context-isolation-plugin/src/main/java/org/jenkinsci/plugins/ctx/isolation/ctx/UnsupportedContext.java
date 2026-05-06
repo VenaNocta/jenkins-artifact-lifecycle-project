@@ -22,6 +22,7 @@ import java.net.UnixDomainSocketAddress;
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
 
 import hudson.AbortException;
+import hudson.FilePath;
 import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.LauncherDecorator;
@@ -67,6 +68,11 @@ public class UnsupportedContext implements IsolationContext {
 				}
 			};
 		}
+	}
+
+	@Override
+	public FilePath getWorkspace() {
+		return null;
 	}
 
 	@Override

@@ -295,6 +295,11 @@ public class LinuxNamespaceContext implements IsolationContext {
 	}
 
 	@Override
+	public FilePath getWorkspace() {
+		return this.ws.getWorkspace();
+	}
+
+	@Override
 	public <T> T actInContext(final FileCallable<T> callable) throws IOException, InterruptedException {
 		return this.ws.getWorkspace()
 				.act(callable);
