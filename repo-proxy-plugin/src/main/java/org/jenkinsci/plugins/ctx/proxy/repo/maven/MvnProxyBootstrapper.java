@@ -15,55 +15,47 @@
  */
 package org.jenkinsci.plugins.ctx.proxy.repo.maven;
 
-import java.io.PrintStream;
-import java.util.Deque;
+import java.io.IOException;
+import java.net.InetAddress;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.ctx.isolation.config.IpUtils;
-import org.jenkinsci.plugins.ctx.proxy.repo.AProxyInstance;
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyInstance;
+import org.jenkinsci.plugins.ctx.proxy.repo.AProxyBootstrapper;
+import org.jenkinsci.plugins.ctx.proxy.repo.ProxyBootstrapper;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import hudson.model.Action;
 import hudson.model.TaskListener;
-import io.netty.channel.Channel;
-import net.runeduniverse.lib.repo.maven.api.MavenRepositoryInstance;
-import net.runeduniverse.lib.repo.maven.data.DefaultFileTypeIndex;
-import net.runeduniverse.lib.repo.maven.proxy.ProxyServer;
-import net.runeduniverse.lib.repo.maven.server.http.HttpRepoServerInitializer;
+import jenkins.agents.ControllerToAgentFileCallable;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
 import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
 
-public class MvnProxyInstance extends AProxyInstance implements ProxyInstance, Action {
+public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBootstrapper, Action {
+
+	protected final Map<String, Object> instanceConfigs = new LinkedHashMap<>();
 
 	protected final Set<String> refIds;
 	protected final Set<IpAddress<?>> ipSet;
 	protected final int port;
 
-	protected transient Deque<Channel> openChannels = new ConcurrentLinkedDeque<>();
-	protected transient ProxyServer server = null;
-
-	public MvnProxyInstance(final Set<IpAddress<?>> ipSet, final int port) {
+	public MvnProxyBootstrapper(final Set<IpAddress<?>> ipSet, final int port) {
 		this.refIds = new HashSet<>();
 		this.ipSet = ipSet;
 		this.port = port;
-
-		init();
 	}
 
-	protected MvnProxyInstance(final Set<String> refIds, final Set<IpAddress<?>> ipSet, final int port) {
+	protected MvnProxyBootstrapper(final Set<String> refIds, final Set<IpAddress<?>> ipSet, final int port) {
 		this.refIds = refIds;
 		this.ipSet = ipSet;
 		this.port = port;
-	}
-
-	protected void init() {
-		this.server = new ProxyServer(new DefaultFileTypeIndex(), HttpRepoServerInitializer::new);
-
-		// TODO rehydrate proxy-instances
 	}
 
 	public boolean canSupport(final String refId, final Set<IpAddress<?>> ipSet, final int port) {
@@ -79,37 +71,27 @@ public class MvnProxyInstance extends AProxyInstance implements ProxyInstance, A
 	public void addRepoInstance(final String refId) {
 		this.refIds.add(refId);
 
-		MavenRepositoryInstance instance = null;
-		// this.server.addInstance(instance);
+		this.instanceConfigs.put(refId, null);
+		// TODO build instanceConfigs
 	}
 
 	@Override
-	public void start(final Map<String, String> proxyEnv, final TaskListener listener) {
-		final PrintStream log = listener.getLogger();
-		if (this.stopFuture.isDone()) {
-			log.println("[ RepoProxy ] Maven Proxy start skipped, already stopped!");
-			return;
-		}
+	public ControllerToAgentFileCallable<UUID> serverStartCallable(//
+			final StepContext context, final Map<String, String> proxyEnv, final TaskListener listener)
+			throws IOException, InterruptedException {
 
-		for (IpAddress<?> ip : this.ipSet) {
-			try {
-				this.openChannels.add(this.server.bindChannel(ip.toInetAddress(null), this.port)
-						.sync()
-						.channel());
-			} catch (InterruptedException e) {
-				e.printStackTrace(log);
-			}
-		}
+		final Set<InetAddress> addressSet = this.ipSet.stream()
+				.map(ip -> ip.toInetAddress(null))
+				.filter(Objects::nonNull)
+				.collect(Collectors.toSet());
+
+		final FlowNode node = context.get(FlowNode.class);
+		final MvnNettyStartCallable callable = new MvnNettyStartCallable(node.getId(), instanceConfigs, addressSet,
+				this.port);
 
 		updateEnv(this.refIds, this.ipSet, this.port, proxyEnv, "MVN");
-	}
 
-	@Override
-	public void stop() {
-		for (Channel channel : this.openChannels) {
-			channel.close();
-		}
-		announceStop();
+		return callable;
 	}
 
 	@Override
@@ -153,12 +135,11 @@ public class MvnProxyInstance extends AProxyInstance implements ProxyInstance, A
 			ips.add((IpAddress<?>) IpUtils.unmarshalCol(HashSet::new, this.ip4Set, IpUtils.IP4_PARSER));
 			ips.add((IpAddress<?>) IpUtils.unmarshalCol(HashSet::new, this.ip4Set, IpUtils.IP6_PARSER));
 
-			final MvnProxyInstance inst = new MvnProxyInstance(this.refIds, ips, this.port);
-			inst.init();
+			final MvnProxyBootstrapper inst = new MvnProxyBootstrapper(this.refIds, ips, this.port);
 			return inst;
 		}
 
-		public static Snapshot marshal(final MvnProxyInstance instance) {
+		public static Snapshot marshal(final MvnProxyBootstrapper instance) {
 			final Set<String> ip4Set = new HashSet<>();
 			final Set<String> ip6Set = new HashSet<>();
 			for (IpAddress<?> ip : instance.ipSet) {

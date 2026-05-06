@@ -16,7 +16,7 @@
 package org.jenkinsci.plugins.ctx.proxy.repo.maven;
 
 import java.util.Set;
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyInstance;
+import org.jenkinsci.plugins.ctx.proxy.repo.ProxyBootstrapper;
 import org.jenkinsci.plugins.ctx.proxy.repo.ProxyProvider;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
@@ -34,14 +34,14 @@ public class MavenProxyProvider implements ProxyProvider {
 	}
 
 	@Override
-	public ProxyInstance createInstance(FlowNode flowNode, String refId, ProxyConfig config,
+	public ProxyBootstrapper createBootstrapper(FlowNode flowNode, String refId, ProxyConfig config,
 			Set<IpAddress<?>> availableIps) {
 		if (!(config instanceof MvnProxyConfig))
 			return null;
 
-		MvnProxyInstance instance = flowNode.getAction(MvnProxyInstance.class);
+		MvnProxyBootstrapper instance = flowNode.getAction(MvnProxyBootstrapper.class);
 		if (instance == null) {
-			flowNode.addAction(instance = new MvnProxyInstance(availableIps, 0));
+			flowNode.addAction(instance = new MvnProxyBootstrapper(availableIps, 0));
 		} else if (instance.canSupport(refId, availableIps, 8080))
 			return null;
 

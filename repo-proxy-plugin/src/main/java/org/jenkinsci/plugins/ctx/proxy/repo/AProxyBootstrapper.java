@@ -21,48 +21,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.Map.Entry;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-
-import hudson.model.TaskListener;
-import jenkins.model.CauseOfInterruption;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
 
-public abstract class AProxyInstance implements ProxyInstance {
-
-	protected final transient CompletableFuture<?> stopFuture = new CompletableFuture<>();
-
-	protected transient Set<CompletableFuture<CauseOfInterruption>> issueCallbacks = ConcurrentHashMap.newKeySet();
-
-	protected void raiseIssue(final CauseOfInterruption issue) {
-		if (issue == null)
-			return;
-		for (CompletableFuture<CauseOfInterruption> callback : issueCallbacks) {
-			callback.complete(issue);
-		}
-	}
-
-	public abstract void start(final Map<String, String> proxyEnv, final TaskListener listener);
-
-	@Override
-	public void start(final Map<String, String> proxyEnv, final TaskListener listener,
-			final CompletableFuture<CauseOfInterruption> issueCallback) {
-		start(proxyEnv, listener);
-		this.issueCallbacks.add(issueCallback);
-		// add shutdown-hook
-		issueCallback.thenAccept(v -> {
-			AProxyInstance.this.stop();
-		});
-	}
-
-	protected void announceStop() {
-		this.stopFuture.complete(null);
-	}
-
-	@Override
-	public CompletableFuture<?> onStop() {
-		return this.stopFuture;
-	}
+public abstract class AProxyBootstrapper implements ProxyBootstrapper {
 
 	public static Map<Short, Set<IpAddress<?>>> groupByIpFamily(final Collection<IpAddress<?>> allIps) {
 		final Map<Short, Set<IpAddress<?>>> map = new TreeMap<>();

@@ -13,24 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo;
+package org.jenkinsci.plugins.ctx.proxy.repo.steps;
 
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import hudson.model.TaskListener;
 import jenkins.model.CauseOfInterruption;
 
-public interface ProxyInstance {
+public class ArtifactValidationInterruption extends CauseOfInterruption {
 
-	public void start(Map<String, String> proxyEnv, TaskListener listener,
-			CompletableFuture<CauseOfInterruption> issueCallback);
+	private static final long serialVersionUID = 1L;
 
-	public void stop();
+	protected final String shortDescription;
 
-	public default boolean isStopped() {
-		return onStop().isDone();
+	public ArtifactValidationInterruption(final String shortDescription) {
+		this.shortDescription = shortDescription;
 	}
 
-	public CompletableFuture<?> onStop();
-
+	@Override
+	public String getShortDescription() {
+		return this.shortDescription;
+	}
 }

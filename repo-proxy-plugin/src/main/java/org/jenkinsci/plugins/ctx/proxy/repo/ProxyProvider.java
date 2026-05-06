@@ -28,7 +28,7 @@ public interface ProxyProvider extends ExtensionPoint {
 
 	public boolean isApplicable(ProxyConfigDescriptor descriptor);
 
-	public ProxyInstance createInstance(FlowNode flowNode, String refId, ProxyConfig config,
+	public ProxyBootstrapper createBootstrapper(FlowNode flowNode, String refId, ProxyConfig config,
 			Set<IpAddress<?>> availableIps);
 
 	public static ExtensionList<ProxyProvider> all() {

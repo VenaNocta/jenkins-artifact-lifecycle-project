@@ -18,54 +18,61 @@ package org.jenkinsci.plugins.ctx.proxy.repo.steps;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext.NetLink;
 import org.jenkinsci.plugins.ctx.isolation.WorkflowUtils;
 import org.jenkinsci.plugins.ctx.isolation.config.IsolationContextAction;
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyInstance;
+import org.jenkinsci.plugins.ctx.proxy.repo.ProxyBootstrapper;
 import org.jenkinsci.plugins.ctx.proxy.repo.ProxyProvider;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.RepoProxyConfigurationProvider;
+import org.jenkinsci.plugins.ctx.proxy.repo.netty.AgentNettyStopCallable;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
-import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
-import hudson.model.Result;
+import hudson.FilePath;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import jenkins.model.CauseOfInterruption;
+import jenkins.agents.ControllerToAgentFileCallable;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
 
 public class RepoProxyStepExecution extends StepExecution {
 
 	private static final long serialVersionUID = 1L;
 
-	protected final transient CompletableFuture<CauseOfInterruption> runFuture = new CompletableFuture<>();
-	protected final transient Map<String, ProxyInstance> activeProxies = new LinkedHashMap<>();
+	protected final transient Map<String, ProxyBootstrapper> activeProxies = new LinkedHashMap<>();
+	protected final transient Map<UUID, UUID> activeNettyHandleCacheRefMap = new LinkedHashMap<>();
 
 	protected final RepoProxyStep step;
+	protected final FilePath cacheFolder;
+
+	protected transient NetLink link;
 
 	protected RepoProxyStepExecution(@NonNull final StepContext context, @NonNull final RepoProxyStep step) {
 		super(context);
 		this.step = step;
+		final IsolationContext isoContext = tryGetIsolationContext();
+		if (isoContext == null)
+			this.cacheFolder = null;
+		else {
+			this.cacheFolder = isoContext.getWorkspace()
+					.withSuffix("@proxy_cache");
+		}
 	}
 
 	protected IsolationContext getIsolationContext() throws IOException, InterruptedException {
@@ -73,6 +80,14 @@ public class RepoProxyStepExecution extends StepExecution {
 		final IsolationContextAction action = WorkflowUtils.findContextAction( //
 				context.get(Run.class), context.get(FlowNode.class));
 		return action == null ? null : action.getContext();
+	}
+
+	protected IsolationContext tryGetIsolationContext() {
+		try {
+			return getIsolationContext();
+		} catch (IOException | InterruptedException ignored) {
+		}
+		return null;
 	}
 
 	@Override
@@ -85,21 +100,9 @@ public class RepoProxyStepExecution extends StepExecution {
 		if (isoContext == null)
 			throw new RuntimeException("IsolationContext unavailable!");
 
-		final NetLink link = isoContext.connectNetLink();
-
-		if (link == null)
+		this.link = isoContext.connectNetLink();
+		if (this.link == null)
 			throw new RuntimeException("Failed to connect the Proxy to the IsolationContext!");
-
-		this.runFuture.handle((v, e) -> {
-			if (v != null) {
-				context.onFailure(new FlowInterruptedException(Result.FAILURE, true, v));
-			} else if (e != null) {
-				context.onFailure(e);
-			}
-			RepoProxyStepExecution.this.shutdown();
-			isoContext.disconnectNetLink(link);
-			return null;
-		});
 
 		final Map<String, String> proxyEnv = new LinkedHashMap<>();
 		final Set<IpAddress<?>> proxyIps = Arrays.asList(link.getHostAddressV4(), link.getHostAddressV6())
@@ -126,7 +129,7 @@ public class RepoProxyStepExecution extends StepExecution {
 		context.newBodyInvoker()
 				.withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class),
 						EnvironmentExpander.constant(proxyEnv)))
-				.withCallback(new BlockCallback(this, link))
+				.withCallback(new BlockCallback(this))
 				.start();
 		return false;
 	}
@@ -146,14 +149,27 @@ public class RepoProxyStepExecution extends StepExecution {
 				continue;
 			}
 
-			final ProxyInstance instance = provider.createInstance(flowNode, entry.getKey(), config, ips);
-			if (instance == null) {
+			final ProxyBootstrapper bootstrapper = provider.createBootstrapper(flowNode, entry.getKey(), config, ips);
+			if (bootstrapper == null) {
 				log.println("[ RepoProxy ] Proxy Configuration failed! ID: " + config.getId());
 				continue;
 			}
 
-			this.activeProxies.put(config.getId(), instance);
-			instance.start(proxyEnv, listener, this.runFuture);
+			this.activeProxies.put(config.getId(), bootstrapper);
+		}
+
+		for (ProxyBootstrapper bootstrap : new HashSet<>(this.activeProxies.values())) {
+			// find novel cacheRef
+			UUID cacheRef;
+			do {
+				cacheRef = UUID.randomUUID();
+			} while (this.activeNettyHandleCacheRefMap.containsValue(cacheRef));
+			// create new cachePath for bootstrap in context and call it
+			final ControllerToAgentFileCallable<UUID> callable = //
+					bootstrap.serverStartCallable(context, proxyEnv, listener);
+			final FilePath dir = this.cacheFolder.child(cacheRef.toString());
+			dir.mkdirs();
+			this.activeNettyHandleCacheRefMap.put(dir.act(callable), cacheRef);
 		}
 	}
 
@@ -165,21 +181,20 @@ public class RepoProxyStepExecution extends StepExecution {
 		return null;
 	}
 
-	public void shutdown() {
-		if (this.runFuture != null) {
-			this.runFuture.complete(null);
-			final List<CompletableFuture<?>> lst = new LinkedList<>();
-			for (ProxyInstance instance : this.activeProxies.values()) {
-				final CompletableFuture<?> future = instance.onStop();
-				if (future != null)
-					lst.add(future);
-			}
-			try {
-				CompletableFuture.allOf(lst.toArray(new CompletableFuture<?>[lst.size()]))
-						.get(60, TimeUnit.SECONDS);
-			} catch (InterruptedException | ExecutionException | TimeoutException ignored) {
-			}
+	@Override
+	public void stop(final Throwable cause) throws Exception {
+		System.out.println("STOPPPPPP!!!!!!!!!");
+		cause.printStackTrace(System.out);
+		shutdown();
+		super.stop(cause);
+	}
+
+	public void shutdown() throws IOException, InterruptedException {
+		final IsolationContext isoContext = getIsolationContext();
+		if (isoContext != null) {
+			isoContext.actInContext(new AgentNettyStopCallable(this.activeNettyHandleCacheRefMap.keySet()));
 		}
+		this.cacheFolder.deleteRecursive();
 	}
 
 	private static class BlockCallback extends BodyExecutionCallback {
@@ -187,35 +202,29 @@ public class RepoProxyStepExecution extends StepExecution {
 		private static final long serialVersionUID = 1L;
 
 		protected final RepoProxyStepExecution exec;
-		protected final NetLink link;
 
-		public BlockCallback(final RepoProxyStepExecution exec, final NetLink link) {
+		public BlockCallback(final RepoProxyStepExecution exec) {
 			this.exec = exec;
-			this.link = link;
 		}
 
 		@Override
 		public void onSuccess(final StepContext context, final Object result) {
-			shutdown();
+			try {
+				this.exec.shutdown();
+			} catch (IOException | InterruptedException ignored) {
+			}
 			this.exec.getContext()
 					.onSuccess(result);
 		}
 
 		@Override
 		public void onFailure(final StepContext context, final Throwable t) {
-			shutdown();
-			this.exec.getContext()
-					.onFailure(t);
-		}
-
-		protected void shutdown() {
-			this.exec.shutdown();
 			try {
-				final IsolationContext isoContext = this.exec.getIsolationContext();
-				if (isoContext != null)
-					isoContext.disconnectNetLink(this.link);
+				this.exec.shutdown();
 			} catch (IOException | InterruptedException ignored) {
 			}
+			this.exec.getContext()
+					.onFailure(t);
 		}
 	}
 }
