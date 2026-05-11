@@ -82,7 +82,8 @@
 	<issueManagement>
 		<system>GitHub Issues</system>
 		<url>
-			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin/issues</url>
+			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin/issues
+		</url>
 	</issueManagement>
 
 	<dependencies>
@@ -121,6 +122,10 @@
 		</dependency>
 
 		<!-- non packaged dependencies -->
+		<dependency>
+			<groupId>net.runeduniverse.lib.utils</groupId>
+			<artifactId>utils-common</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>net.runeduniverse.lib.utils</groupId>
 			<artifactId>utils-logging</artifactId>

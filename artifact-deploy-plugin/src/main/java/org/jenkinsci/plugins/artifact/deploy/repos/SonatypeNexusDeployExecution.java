@@ -52,7 +52,6 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
-import org.jenkinsci.plugins.artifact.deploy.config.URIBuilder;
 import org.jenkinsci.plugins.artifact.bundle.api.context.Bundle;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStepExecution;
@@ -67,6 +66,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import hudson.AbortException;
 import hudson.model.Result;
 import jenkins.util.VirtualFile;
+import net.runeduniverse.lib.utils.common.URIBuilder;
 
 public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<SonatypeNexusDeploymentRepository> {
 

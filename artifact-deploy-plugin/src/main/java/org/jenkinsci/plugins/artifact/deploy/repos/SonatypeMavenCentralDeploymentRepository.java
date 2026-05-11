@@ -29,7 +29,6 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
-import org.jenkinsci.plugins.artifact.deploy.config.URIBuilder;
 import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeployExecutionFactory;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -61,6 +60,7 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
+import net.runeduniverse.lib.utils.common.URIBuilder;
 
 public class SonatypeMavenCentralDeploymentRepository extends ArtifactDeploymentRepository {
 
