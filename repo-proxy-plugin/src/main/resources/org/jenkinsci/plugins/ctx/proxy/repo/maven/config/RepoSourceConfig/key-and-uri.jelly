@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <input type="hidden" name="currentKey" value="${instance == null ? null : instance.key}"/>
+  <f:entry title="${%Key}" field="key">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="${%Server}" field="uri">
+    <f:textbox />
+  </f:entry>
+</j:jelly>

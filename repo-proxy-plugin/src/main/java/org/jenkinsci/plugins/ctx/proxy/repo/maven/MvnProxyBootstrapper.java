@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.jenkinsci.plugins.ctx.isolation.config.IpUtils;
 import org.jenkinsci.plugins.ctx.proxy.repo.AProxyBootstrapper;
 import org.jenkinsci.plugins.ctx.proxy.repo.ProxyBootstrapper;
+import org.jenkinsci.plugins.ctx.proxy.repo.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
@@ -40,26 +41,25 @@ import net.runeduniverse.lib.utils.net.api.IpAddress;
 
 public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBootstrapper, Action {
 
-	protected final Map<String, Object> instanceConfigs = new LinkedHashMap<>();
-
-	protected final Set<String> refIds;
+	protected final Map<String, MvnProxyConfig> instConfigs;
 	protected final Set<IpAddress<?>> ipSet;
 	protected final int port;
 
 	public MvnProxyBootstrapper(final Set<IpAddress<?>> ipSet, final int port) {
-		this.refIds = new HashSet<>();
+		this.instConfigs = new LinkedHashMap<>();
 		this.ipSet = ipSet;
 		this.port = port;
 	}
 
-	protected MvnProxyBootstrapper(final Set<String> refIds, final Set<IpAddress<?>> ipSet, final int port) {
-		this.refIds = refIds;
+	protected MvnProxyBootstrapper(final Map<String, MvnProxyConfig> instanceConfigs, final Set<IpAddress<?>> ipSet,
+			final int port) {
+		this.instConfigs = instanceConfigs;
 		this.ipSet = ipSet;
 		this.port = port;
 	}
 
 	public boolean canSupport(final String refId, final Set<IpAddress<?>> ipSet, final int port) {
-		if (this.refIds.contains(refId))
+		if (this.instConfigs.containsKey(refId))
 			return false;
 		if (this.ipSet.size() != ipSet.size() || !this.ipSet.containsAll(ipSet))
 			return false;
@@ -68,11 +68,8 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBoo
 		return true;
 	}
 
-	public void addRepoInstance(final String refId) {
-		this.refIds.add(refId);
-
-		this.instanceConfigs.put(refId, null);
-		// TODO build instanceConfigs
+	public void addRepoInstance(final String refId, final MvnProxyConfig config) {
+		this.instConfigs.put(refId, config);
 	}
 
 	@Override
@@ -86,10 +83,10 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBoo
 				.collect(Collectors.toSet());
 
 		final FlowNode node = context.get(FlowNode.class);
-		final MvnNettyStartCallable callable = new MvnNettyStartCallable(node.getId(), instanceConfigs, addressSet,
-				this.port);
+		final MvnNettyStartCallable callable = new MvnNettyStartCallable(//
+				node.getId(), this.instConfigs, addressSet, this.port);
 
-		updateEnv(this.refIds, this.ipSet, this.port, proxyEnv, "MVN");
+		updateEnv(this.instConfigs.keySet(), this.ipSet, this.port, proxyEnv, "MVN");
 
 		return callable;
 	}
@@ -116,14 +113,14 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBoo
 
 	public static class Snapshot {
 
-		protected final Set<String> refIds;
+		protected final Map<String, MvnProxyConfig> instConfigs;
 		protected final Set<String> ip4Set;
 		protected final Set<String> ip6Set;
 		protected final int port;
 
-		protected Snapshot(final Set<String> refIds, final Set<String> ip4Set, final Set<String> ip6Set,
-				final int port) {
-			this.refIds = refIds;
+		protected Snapshot(final Map<String, MvnProxyConfig> instConfigs, final Set<String> ip4Set,
+				final Set<String> ip6Set, final int port) {
+			this.instConfigs = instConfigs;
 			this.ip4Set = ip4Set;
 			this.ip6Set = ip6Set;
 			this.port = port;
@@ -135,7 +132,7 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBoo
 			ips.add((IpAddress<?>) IpUtils.unmarshalCol(HashSet::new, this.ip4Set, IpUtils.IP4_PARSER));
 			ips.add((IpAddress<?>) IpUtils.unmarshalCol(HashSet::new, this.ip4Set, IpUtils.IP6_PARSER));
 
-			final MvnProxyBootstrapper inst = new MvnProxyBootstrapper(this.refIds, ips, this.port);
+			final MvnProxyBootstrapper inst = new MvnProxyBootstrapper(this.instConfigs, ips, this.port);
 			return inst;
 		}
 
@@ -148,7 +145,7 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBoo
 				else if (ip instanceof Ip6Address)
 					ip6Set.add(ip.toCidrNotation());
 			}
-			return new Snapshot(instance.refIds, ip4Set, ip6Set, instance.port);
+			return new Snapshot(instance.instConfigs, ip4Set, ip6Set, instance.port);
 		}
 	}
 }

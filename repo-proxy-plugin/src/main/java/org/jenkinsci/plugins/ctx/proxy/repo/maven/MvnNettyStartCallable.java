@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 
+import org.jenkinsci.plugins.ctx.proxy.repo.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.ctx.proxy.repo.netty.AgentNettyRegistry;
 import org.jenkinsci.plugins.ctx.proxy.repo.netty.AgentNettyStartCallable;
 import org.jenkinsci.plugins.ctx.proxy.repo.steps.ArtifactValidationInterruption;
@@ -37,11 +38,11 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 	private static final long serialVersionUID = 1L;
 
-	protected final Map<String, Object> instanceConfigs;
+	protected final Map<String, MvnProxyConfig> instanceConfigs;
 	protected final Set<InetAddress> addressSet;
 	protected final int port;
 
-	public MvnNettyStartCallable(final String flowNodeId, Map<String, Object> instanceConfigs,
+	public MvnNettyStartCallable(final String flowNodeId, Map<String, MvnProxyConfig> instanceConfigs,
 			final Set<InetAddress> addressSet, final int port) {
 		super(flowNodeId);
 		this.instanceConfigs = instanceConfigs;
@@ -54,12 +55,7 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 			throws IOException, InterruptedException {
 		final ProxyServer server = new ProxyServer(new DefaultFileTypeIndex(), HttpRepoServerInitializer::new);
 
-		for (Entry<String, Object> entry : this.instanceConfigs.entrySet()) {
-			// TODO configure with instanceConfigs
-
-			MavenRepositoryInstance instance = null;
-			// server.addInstance(instance);
-		}
+		configure(server, cacheFolder);
 
 		for (InetAddress address : this.addressSet) {
 			channelGroup.add(server.bindChannel(address, this.port)
@@ -77,5 +73,14 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 							new ArtifactValidationInterruption("SBOM: invalid artifact requested!")));
 		}
 
+	}
+
+	protected void configure(final ProxyServer server, final File cacheFolder) {
+		for (Entry<String, MvnProxyConfig> entry : this.instanceConfigs.entrySet()) {
+			// TODO configure with instanceConfigs
+
+			MavenRepositoryInstance instance = null;
+			// server.addInstance(instance);
+		}
 	}
 }

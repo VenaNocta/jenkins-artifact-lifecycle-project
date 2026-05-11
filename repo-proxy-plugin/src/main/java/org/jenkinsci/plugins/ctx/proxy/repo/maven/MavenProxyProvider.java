@@ -20,6 +20,7 @@ import org.jenkinsci.plugins.ctx.proxy.repo.ProxyBootstrapper;
 import org.jenkinsci.plugins.ctx.proxy.repo.ProxyProvider;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
+import org.jenkinsci.plugins.ctx.proxy.repo.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 
 import hudson.Extension;
@@ -34,8 +35,8 @@ public class MavenProxyProvider implements ProxyProvider {
 	}
 
 	@Override
-	public ProxyBootstrapper createBootstrapper(FlowNode flowNode, String refId, ProxyConfig config,
-			Set<IpAddress<?>> availableIps) {
+	public ProxyBootstrapper createBootstrapper(final FlowNode flowNode, final String refId, final ProxyConfig config,
+			final Set<IpAddress<?>> availableIps) {
 		if (!(config instanceof MvnProxyConfig))
 			return null;
 
@@ -45,7 +46,7 @@ public class MavenProxyProvider implements ProxyProvider {
 		} else if (instance.canSupport(refId, availableIps, 8080))
 			return null;
 
-		instance.addRepoInstance(refId);
+		instance.addRepoInstance(refId, (MvnProxyConfig) config);
 
 		return instance;
 	}
