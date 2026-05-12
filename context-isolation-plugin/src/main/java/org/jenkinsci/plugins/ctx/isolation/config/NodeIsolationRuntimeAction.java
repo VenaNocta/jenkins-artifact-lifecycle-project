@@ -59,8 +59,8 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 	public NodeIsolationRuntimeAction(final Node owner) {
 		this(owner,
 				// Ipv4
-				IpNetworkUtils.createIpNet4Address(new byte[] { 0x7f, 0x14, 0x00, 0x01 }, (short) 16), new TreeSet<>(),
-				new LinkedHashMap<>(), //
+				IpNetworkUtils.createIpNet4Address(new byte[] { (byte) 0xac, 0x14, 0x00, 0x01 }, (short) 16),
+				new TreeSet<>(), new LinkedHashMap<>(), //
 				// Ipv6
 				null);
 	}
