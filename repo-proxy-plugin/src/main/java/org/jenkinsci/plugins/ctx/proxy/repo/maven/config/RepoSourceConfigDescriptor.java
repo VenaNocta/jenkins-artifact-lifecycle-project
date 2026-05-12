@@ -21,6 +21,7 @@ import java.text.MessageFormat;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.accmod.Restricted;
@@ -57,6 +58,11 @@ public abstract class RepoSourceConfigDescriptor extends Descriptor<RepoSourceCo
 
 	public String msgUnsupportedProtocolError() {
 		return "Protocol unsupported; allowed Protocols: {0} (default){1}";
+	}
+
+	public String randomKey() {
+		return UUID.randomUUID()
+				.toString();
 	}
 
 	@Restricted(NoExternalUse.class)

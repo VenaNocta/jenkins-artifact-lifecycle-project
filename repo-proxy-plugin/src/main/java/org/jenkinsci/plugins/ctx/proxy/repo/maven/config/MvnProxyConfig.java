@@ -15,11 +15,12 @@
  */
 package org.jenkinsci.plugins.ctx.proxy.repo.maven.config;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
@@ -30,6 +31,7 @@ import org.kohsuke.stapler.DataBoundSetter;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
 
 public class MvnProxyConfig extends ProxyConfig {
 
@@ -67,11 +69,17 @@ public class MvnProxyConfig extends ProxyConfig {
 				continue;
 			while (this.sourceMap.containsKey(key)) {
 				// if id is null, skip repo
-				source.setKey(key = UUID.randomUUID()
-						.toString());
+				source.setKey(key = source.getDescriptor()
+						.randomKey());
 			}
 			this.sourceMap.put(key, source);
 		}
+	}
+
+	public Map<String, RepositorySource> buildSourceMap(final Path repoPath) {
+		return this.sourceMap.values()
+				.stream()
+				.collect(Collectors.toMap(RepoSourceConfig::getKey, c -> c.buildSource(repoPath)));
 	}
 
 	@Extension

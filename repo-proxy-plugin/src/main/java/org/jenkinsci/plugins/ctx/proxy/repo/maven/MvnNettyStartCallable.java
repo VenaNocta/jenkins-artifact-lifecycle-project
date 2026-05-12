@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.ctx.proxy.repo.maven;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -29,8 +30,9 @@ import org.jenkinsci.plugins.ctx.proxy.repo.netty.AgentNettyStartCallable;
 import org.jenkinsci.plugins.ctx.proxy.repo.steps.ArtifactValidationInterruption;
 import org.jenkinsci.plugins.ctx.proxy.repo.steps.StopStepCallable;
 import io.netty.channel.group.ChannelGroup;
-import net.runeduniverse.lib.repo.maven.api.MavenRepositoryInstance;
 import net.runeduniverse.lib.repo.maven.data.DefaultFileTypeIndex;
+import net.runeduniverse.lib.repo.maven.proxy.DefaultCache;
+import net.runeduniverse.lib.repo.maven.proxy.DefaultRepositoryProxyInstance;
 import net.runeduniverse.lib.repo.maven.proxy.ProxyServer;
 import net.runeduniverse.lib.repo.maven.server.http.HttpRepoServerInitializer;
 
@@ -54,8 +56,9 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 	protected void attachServerChannel(final UUID handleId, final File cacheFolder, final ChannelGroup channelGroup)
 			throws IOException, InterruptedException {
 		final ProxyServer server = new ProxyServer(new DefaultFileTypeIndex(), HttpRepoServerInitializer::new);
+		final Path cachePath = cacheFolder.toPath();
 
-		configure(server, cacheFolder);
+		configure(server, cachePath);
 
 		for (InetAddress address : this.addressSet) {
 			channelGroup.add(server.bindChannel(address, this.port)
@@ -69,18 +72,25 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 			// TODO use this to kill step in case of issues
 			AgentNettyRegistry.get(handleId)
 					.getJenkinsChannel()
-					.callAsync(new StopStepCallable(flowNodeId,
+					.callAsync(new StopStepCallable(this.flowNodeId,
 							new ArtifactValidationInterruption("SBOM: invalid artifact requested!")));
 		}
 
 	}
 
-	protected void configure(final ProxyServer server, final File cacheFolder) {
+	protected void configure(final ProxyServer server, final Path cachePath) {
 		for (Entry<String, MvnProxyConfig> entry : this.instanceConfigs.entrySet()) {
 			// TODO configure with instanceConfigs
+			final MvnProxyConfig config = entry.getValue();
 
-			MavenRepositoryInstance instance = null;
-			// server.addInstance(instance);
+			final DefaultRepositoryProxyInstance instance = new DefaultRepositoryProxyInstance(entry.getKey(),
+					DefaultCache::new);
+
+			final Path repoPath = cachePath.resolve(entry.getKey());
+			instance.sources()
+					.putAll(config.buildSourceMap(repoPath));
+
+			server.addInstance(instance);
 		}
 	}
 }

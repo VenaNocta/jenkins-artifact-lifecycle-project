@@ -18,14 +18,15 @@ package org.jenkinsci.plugins.ctx.proxy.repo.maven.config;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Objects;
-
+import java.nio.file.Path;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionPoint;
 import hudson.model.Describable;
+import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
+import net.runeduniverse.lib.utils.common.StringUtils;
 import net.runeduniverse.lib.utils.common.URIBuilder;
 
 public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>, Serializable, ExtensionPoint {
@@ -48,8 +49,9 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 		return this.uri;
 	}
 
-	public void setKey(@NonNull final String key) {
-		Objects.requireNonNull(key);
+	public void setKey(@NonNull String key) {
+		if ((key = StringUtils.trimToNull(key)) == null)
+			key = getDescriptor().randomKey();
 		this.key = key;
 	}
 
@@ -80,6 +82,8 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 		}
 		setUri(builder);
 	}
+
+	public abstract RepositorySource buildSource(Path repoPath);
 
 	@Override
 	public RepoSourceConfigDescriptor getDescriptor() {
