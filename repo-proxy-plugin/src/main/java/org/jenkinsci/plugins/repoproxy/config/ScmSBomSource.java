@@ -15,23 +15,41 @@
  */
 package org.jenkinsci.plugins.repoproxy.config;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 import hudson.Extension;
+import hudson.ExtensionList;
+import hudson.Util;
+import hudson.model.Item;
+import hudson.model.TaskListener;
+import jenkins.scm.api.SCMSource;
+import jenkins.scm.api.SCMSourceDescriptor;
 
 public class ScmSBomSource extends SBomSource {
 
 	private static final long serialVersionUID = 1L;
 
-	public ScmSBomSource(final UUID id, final String name) {
+	protected final String version;
+	protected final SCMSource scm;
+
+	public ScmSBomSource(final UUID id, final String name, final String version, final SCMSource scm) {
 		super(id, name);
+		this.version = Util.fixEmptyAndTrim(version);
+		this.scm = scm;
 	}
 
 	@DataBoundConstructor
-	public ScmSBomSource(final String id, final String name) {
+	public ScmSBomSource(final String id, final String name, final String version, final SCMSource scm) {
 		super(UUID.fromString(id), name);
+		this.version = Util.fixEmptyAndTrim(version);
+		this.scm = scm;
 	}
 
 	@Extension
@@ -40,6 +58,24 @@ public class ScmSBomSource extends SBomSource {
 		@Override
 		public String getDisplayName() {
 			return "SCM SBom Repository";
+		}
+
+		/**
+		 * Returns only implementations overriding
+		 * {@link SCMSource#retrieve(String, TaskListener)} or
+		 * {@link SCMSource#retrieve(String, TaskListener, Item)}.
+		 */
+		@Restricted(NoExternalUse.class) // Jelly, Hider
+		public Collection<SCMSourceDescriptor> getSCMDescriptors() {
+			final List<SCMSourceDescriptor> descriptors = new ArrayList<>();
+			for (SCMSourceDescriptor d : ExtensionList.lookup(SCMSourceDescriptor.class)) {
+				if (Util.isOverridden(SCMSource.class, d.clazz, "retrieve", String.class, TaskListener.class)
+						|| Util.isOverridden(SCMSource.class, d.clazz, "retrieve", String.class, TaskListener.class,
+								Item.class)) {
+					descriptors.add(d);
+				}
+			}
+			return descriptors;
 		}
 	}
 }
