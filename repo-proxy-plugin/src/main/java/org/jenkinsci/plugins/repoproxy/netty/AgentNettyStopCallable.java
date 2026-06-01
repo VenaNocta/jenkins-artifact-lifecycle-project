@@ -13,21 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo;
+package org.jenkinsci.plugins.repoproxy.netty;
 
+import java.io.File;
 import java.io.IOException;
-import java.util.Map;
+import java.util.Collection;
 import java.util.UUID;
 
-import org.jenkinsci.plugins.workflow.steps.StepContext;
-
-import hudson.model.TaskListener;
+import hudson.remoting.VirtualChannel;
 import jenkins.agents.ControllerToAgentFileCallable;
 
-public interface ProxyBootstrapper {
+public class AgentNettyStopCallable implements ControllerToAgentFileCallable<Void> {
 
-	public ControllerToAgentFileCallable<UUID> serverStartCallable(//
-			StepContext context, Map<String, String> proxyEnv, TaskListener listener)
-			throws IOException, InterruptedException;
+	private static final long serialVersionUID = 1L;
 
+	protected final Collection<UUID> ids;
+
+	public AgentNettyStopCallable(final Collection<UUID> ids) {
+		this.ids = ids;
+	}
+
+	@Override
+	public Void invoke(final File f, final VirtualChannel channel) throws IOException, InterruptedException {
+		AgentNettyRegistry.stopServers(this.ids);
+		return null;
+	}
 }

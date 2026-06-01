@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo.maven.config;
+package org.jenkinsci.plugins.repoproxy.maven.config;
 
 import java.net.URI;
 import java.net.URISyntaxException;

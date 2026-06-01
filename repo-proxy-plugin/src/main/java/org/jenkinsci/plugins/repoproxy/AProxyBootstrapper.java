@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo;
+package org.jenkinsci.plugins.repoproxy;
 
 import java.util.Collection;
 import java.util.HashSet;

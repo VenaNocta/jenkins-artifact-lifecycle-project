@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo.netty;
+package org.jenkinsci.plugins.repoproxy.netty;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 
-import org.jenkinsci.plugins.ctx.proxy.repo.netty.AgentNettyRegistry.ServerHandle;
+import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry.ServerHandle;
+
 import hudson.remoting.VirtualChannel;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;

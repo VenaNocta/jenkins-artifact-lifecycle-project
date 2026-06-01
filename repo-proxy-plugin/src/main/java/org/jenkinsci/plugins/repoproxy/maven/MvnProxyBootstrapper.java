@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo.maven;
+package org.jenkinsci.plugins.repoproxy.maven;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -26,9 +26,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.ctx.isolation.config.IpUtils;
-import org.jenkinsci.plugins.ctx.proxy.repo.AProxyBootstrapper;
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyBootstrapper;
-import org.jenkinsci.plugins.ctx.proxy.repo.maven.config.MvnProxyConfig;
+import org.jenkinsci.plugins.repoproxy.AProxyBootstrapper;
+import org.jenkinsci.plugins.repoproxy.ProxyBootstrapper;
+import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 

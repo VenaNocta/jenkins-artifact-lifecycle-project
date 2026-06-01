@@ -13,22 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo.steps;
+package org.jenkinsci.plugins.repoproxy;
 
-import jenkins.model.CauseOfInterruption;
+import org.jenkinsci.remoting.RoleChecker;
 
-public class ArtifactValidationInterruption extends CauseOfInterruption {
+import hudson.remoting.Callable;
+import jenkins.security.Roles;
 
-	private static final long serialVersionUID = 1L;
-
-	protected final String shortDescription;
-
-	public ArtifactValidationInterruption(final String shortDescription) {
-		this.shortDescription = shortDescription;
-	}
+// TODO replace with official once it exists upstream!
+public interface AgentToControllerCallable<V, T extends Throwable> extends Callable<V, T> {
 
 	@Override
-	public String getShortDescription() {
-		return this.shortDescription;
+	public default void checkRoles(final RoleChecker checker) throws SecurityException {
+		checker.check(this, Roles.MASTER);
 	}
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo.maven;
+package org.jenkinsci.plugins.repoproxy.maven;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,14 +21,16 @@ import java.net.InetAddress;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
+import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry;
+import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStartCallable;
+import org.jenkinsci.plugins.repoproxy.steps.ArtifactValidationInterruption;
+import org.jenkinsci.plugins.repoproxy.steps.StopStepCallable;
+
 import java.util.Set;
 import java.util.UUID;
 
-import org.jenkinsci.plugins.ctx.proxy.repo.maven.config.MvnProxyConfig;
-import org.jenkinsci.plugins.ctx.proxy.repo.netty.AgentNettyRegistry;
-import org.jenkinsci.plugins.ctx.proxy.repo.netty.AgentNettyStartCallable;
-import org.jenkinsci.plugins.ctx.proxy.repo.steps.ArtifactValidationInterruption;
-import org.jenkinsci.plugins.ctx.proxy.repo.steps.StopStepCallable;
 import io.netty.channel.group.ChannelGroup;
 import net.runeduniverse.lib.repo.maven.data.DefaultFileTypeIndex;
 import net.runeduniverse.lib.repo.maven.proxy.DefaultCache;

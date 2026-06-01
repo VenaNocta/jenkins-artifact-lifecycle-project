@@ -13,18 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo;
+package org.jenkinsci.plugins.repoproxy;
 
-import org.jenkinsci.remoting.RoleChecker;
+import java.io.IOException;
+import java.util.Map;
+import java.util.UUID;
 
-import hudson.remoting.Callable;
-import jenkins.security.Roles;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
 
-// TODO replace with official once it exists upstream!
-public interface AgentToControllerCallable<V, T extends Throwable> extends Callable<V, T> {
+import hudson.model.TaskListener;
+import jenkins.agents.ControllerToAgentFileCallable;
 
-	@Override
-	public default void checkRoles(final RoleChecker checker) throws SecurityException {
-		checker.check(this, Roles.MASTER);
-	}
+public interface ProxyBootstrapper {
+
+	public ControllerToAgentFileCallable<UUID> serverStartCallable(//
+			StepContext context, Map<String, String> proxyEnv, TaskListener listener)
+			throws IOException, InterruptedException;
+
 }

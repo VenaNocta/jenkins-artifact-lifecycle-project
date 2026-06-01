@@ -13,29 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo.netty;
+package org.jenkinsci.plugins.repoproxy.steps;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Collection;
-import java.util.UUID;
+import jenkins.model.CauseOfInterruption;
 
-import hudson.remoting.VirtualChannel;
-import jenkins.agents.ControllerToAgentFileCallable;
-
-public class AgentNettyStopCallable implements ControllerToAgentFileCallable<Void> {
+public class ArtifactValidationInterruption extends CauseOfInterruption {
 
 	private static final long serialVersionUID = 1L;
 
-	protected final Collection<UUID> ids;
+	protected final String shortDescription;
 
-	public AgentNettyStopCallable(final Collection<UUID> ids) {
-		this.ids = ids;
+	public ArtifactValidationInterruption(final String shortDescription) {
+		this.shortDescription = shortDescription;
 	}
 
 	@Override
-	public Void invoke(final File f, final VirtualChannel channel) throws IOException, InterruptedException {
-		AgentNettyRegistry.stopServers(this.ids);
-		return null;
+	public String getShortDescription() {
+		return this.shortDescription;
 	}
 }

@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo;
+package org.jenkinsci.plugins.repoproxy;
 
 import java.util.Set;
-import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
-import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
+
+import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
+import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 
 import hudson.ExtensionList;

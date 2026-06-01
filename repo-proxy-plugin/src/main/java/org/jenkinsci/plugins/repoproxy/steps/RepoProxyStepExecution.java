@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jenkinsci.plugins.ctx.proxy.repo.steps;
+package org.jenkinsci.plugins.repoproxy.steps;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -32,12 +32,12 @@ import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
 import org.jenkinsci.plugins.ctx.isolation.IsolationContext.NetLink;
 import org.jenkinsci.plugins.ctx.isolation.WorkflowUtils;
 import org.jenkinsci.plugins.ctx.isolation.config.IsolationContextAction;
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyBootstrapper;
-import org.jenkinsci.plugins.ctx.proxy.repo.ProxyProvider;
-import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfig;
-import org.jenkinsci.plugins.ctx.proxy.repo.config.ProxyConfigDescriptor;
-import org.jenkinsci.plugins.ctx.proxy.repo.config.RepoProxyConfigurationProvider;
-import org.jenkinsci.plugins.ctx.proxy.repo.netty.AgentNettyStopCallable;
+import org.jenkinsci.plugins.repoproxy.ProxyBootstrapper;
+import org.jenkinsci.plugins.repoproxy.ProxyProvider;
+import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
+import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
+import org.jenkinsci.plugins.repoproxy.config.RepoProxyConfigurationProvider;
+import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStopCallable;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
