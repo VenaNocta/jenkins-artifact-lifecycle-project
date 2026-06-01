@@ -1,8 +1,10 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
-  <f:section title="${title}">
-    <f:entry title="${%Repository Proxies}">
-      <f:repeatableHeteroProperty field="configs" hasHeader="true"/>
-    </f:entry>
-  </f:section>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
+	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+	<f:section title="${title}">
+		<f:entry title="${%Repository Proxies}">
+			<f:repeatableHeteroProperty
+				field="configs" hasHeader="true" />
+		</f:entry>
+	</f:section>
 </j:jelly>
