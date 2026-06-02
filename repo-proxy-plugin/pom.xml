@@ -42,7 +42,7 @@
 		<!-- VERSIONS -->
 		<sbom>0</sbom>
 		<pgpcredentials-version>0.0.2</pgpcredentials-version>
-		<context-isolation-version>0.0.0</context-isolation-version>
+		<isolation-context-version>0.0.0</isolation-context-version>
 		<maven-repo-bom-version>0.1.0</maven-repo-bom-version>
 		<netty-version>4.2.10.Final</netty-version>
 	</properties>
@@ -100,8 +100,8 @@
 		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.context</groupId>
-			<artifactId>context-isolation-plugin</artifactId>
-			<version>${context-isolation-version}</version>
+			<artifactId>isolation-context-plugin</artifactId>
+			<version>${isolation-context-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>

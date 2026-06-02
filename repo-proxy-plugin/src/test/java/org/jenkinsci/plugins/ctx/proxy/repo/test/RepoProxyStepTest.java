@@ -19,7 +19,7 @@ import hudson.model.Label;
 import java.io.IOException;
 import java.nio.file.Path;
 
-import org.jenkinsci.plugins.ctx.isolation.config.IsolationProperty;
+import org.jenkinsci.plugins.isolationctx.config.IsolationProperty;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;

@@ -25,7 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.jenkinsci.plugins.ctx.isolation.config.IpUtils;
+import org.jenkinsci.plugins.isolationctx.config.IpUtils;
 import org.jenkinsci.plugins.repoproxy.AProxyBootstrapper;
 import org.jenkinsci.plugins.repoproxy.ProxyBootstrapper;
 import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;

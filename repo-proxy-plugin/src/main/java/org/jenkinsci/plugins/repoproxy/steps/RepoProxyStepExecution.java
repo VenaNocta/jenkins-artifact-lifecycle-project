@@ -28,10 +28,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.jenkinsci.plugins.ctx.isolation.IsolationContext;
-import org.jenkinsci.plugins.ctx.isolation.IsolationContext.NetLink;
-import org.jenkinsci.plugins.ctx.isolation.WorkflowUtils;
-import org.jenkinsci.plugins.ctx.isolation.config.IsolationContextAction;
+import org.jenkinsci.plugins.isolationctx.IsolationContext;
+import org.jenkinsci.plugins.isolationctx.WorkflowUtils;
+import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
+import org.jenkinsci.plugins.isolationctx.config.IsolationContextAction;
 import org.jenkinsci.plugins.repoproxy.ProxyBootstrapper;
 import org.jenkinsci.plugins.repoproxy.ProxyProvider;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
