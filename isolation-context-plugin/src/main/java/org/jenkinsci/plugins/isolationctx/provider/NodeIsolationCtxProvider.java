@@ -22,16 +22,16 @@ import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.support.steps.ExecutorStep;
 
 import java.io.IOException;
-import java.io.PrintStream;
-
 import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.IsolationContextProvider;
+import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntimeAction;
 import org.jenkinsci.plugins.isolationctx.ctx.LinuxNamespaceContext;
+import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler;
+import org.jenkinsci.plugins.isolationctx.handler.NodeIsolationHandler;
 import org.jenkinsci.plugins.isolationctx.hooks.IsolationContextRunListener;
 import org.jenkinsci.plugins.variant.OptionalExtension;
 
-import hudson.model.Computer;
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -65,33 +65,18 @@ public class NodeIsolationCtxProvider implements IsolationContextProvider {
 
 	protected IsolationContext selectIsolationContext(final FlowNode flowNode, final Node node,
 			final StepContext context, final WorkspaceAction ws) throws IOException, InterruptedException {
+		final NodeIsolationHandler isolationHandler;
+		{
+			final NodeIsolationRuntimeAction isolationRuntime = NodeIsolationRuntimeAction.get(node);
+			isolationHandler = isolationRuntime == null ? null : isolationRuntime.isolationHandler();
+		}
+
 		final Run<?, ?> run = context.get(Run.class);
 		final TaskListener listener = context.get(TaskListener.class);
-		final PrintStream log = listener.getLogger();
 
-		if (isLinux(node, log)) {
+		if (isolationHandler instanceof LnxNodeIsolationHandler) {
 			return new LinuxNamespaceContext(run, node, ws, listener);
 		}
 		return null;
-	}
-
-	protected boolean isLinux(final Node node, final PrintStream log) {
-		if (node == null)
-			return false;
-		final Computer computer = node.toComputer();
-		if (computer == null)
-			return false;
-
-		try {
-			final Object value = computer.getSystemProperties()
-					.get("os.name");
-			if (value instanceof String os) {
-				return os.toLowerCase()
-						.contains("linux");
-			}
-		} catch (IOException | InterruptedException e) {
-			e.printStackTrace();
-		}
-		return false;
 	}
 }

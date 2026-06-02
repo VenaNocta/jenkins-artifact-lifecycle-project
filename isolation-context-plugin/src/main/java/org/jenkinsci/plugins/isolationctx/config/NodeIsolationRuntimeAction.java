@@ -26,8 +26,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
+import org.jenkinsci.plugins.isolationctx.handler.NodeIsolationHandler;
+import org.jenkinsci.plugins.isolationctx.handler.NodeIsolationHandlerProvider;
 
 import hudson.FilePath;
 import hudson.model.Computer;
@@ -50,9 +56,12 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 	protected transient final Object lock6 = new Object();
 
 	protected transient Node node;
+	protected transient NodeIsolationHandler handler;
 
 	protected final SortedSet<IpNet4Address> subnet4Stack;
 	protected final Map<IpNet4Address, String> subnet4Reservations;
+	// host-ip : source-ip : ports
+	protected final Map<Ip4Address, Map<Ip4Address, Set<Integer>>> openPorts4;
 
 	protected IpNet4Address subnet4;
 	protected IpNet6Address subnet6;
@@ -61,7 +70,7 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 		this(owner,
 				// Ipv4
 				IpNetworkUtils.createIpNet4Address(new byte[] { (byte) 0xac, 0x14, 0x00, 0x01 }, (short) 16),
-				new TreeSet<>(), new LinkedHashMap<>(), //
+				new TreeSet<>(), new LinkedHashMap<>(), new LinkedHashMap<>(), //
 				// Ipv6
 				null);
 	}
@@ -69,18 +78,24 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 	protected NodeIsolationRuntimeAction(final Node node, //
 			final IpNet4Address subnet4, final SortedSet<IpNet4Address> subnet4Stack,
 			final Map<IpNet4Address, String> subnet4Reservations, //
+			final Map<Ip4Address, Map<Ip4Address, Set<Integer>>> openPorts4, //
 			final IpNet6Address subnet6) {
 		this.node = node;
 		// Ipv4
 		this.subnet4 = subnet4;
 		this.subnet4Stack = subnet4Stack;
 		this.subnet4Reservations = subnet4Reservations;
+		this.openPorts4 = openPorts4;
 		// Ipv6
 		this.subnet6 = subnet6;
 	}
 
 	public Node node() {
 		return this.node;
+	}
+
+	public NodeIsolationHandler isolationHandler() {
+		return this.handler;
 	}
 
 	public IpNet4Address getIpv4Subnet() {
@@ -218,10 +233,17 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 				.child("isolation-ctx.xml");
 	}
 
+	protected static void injectHandler(final NodeIsolationRuntimeAction action, final Node node) {
+		final NodeIsolationHandlerProvider provider = NodeIsolationHandlerProvider.providerFor(node);
+		if (provider != null)
+			action.handler = provider.buildHandler(node);
+	}
+
 	protected static NodeIsolationRuntimeAction load(final Node node) throws IOException, InterruptedException {
 		final FilePath configFile = getConfigFile(node);
 		if (!configFile.exists()) {
 			final NodeIsolationRuntimeAction action = new NodeIsolationRuntimeAction(node);
+			injectHandler(action, node);
 			action.save();
 			return action;
 		}
@@ -232,6 +254,7 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 		}
 
 		action.node = node;
+		injectHandler(action, node);
 		return action;
 	}
 
@@ -254,13 +277,17 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 
 		protected final List<String> subnet4Stack;
 		protected final Map<String, String> subnet4Reservations;
+		// host-ip : source-ip : ports
+		protected final Map<String, Map<String, Set<Integer>>> openPorts4;
 
 		public NodeIsolationRuntimeSnapshot(//
-				final String subnet4, final List<String> subnet4Stack, final Map<String, String> subnet4Reservations, //
+				final String subnet4, final List<String> subnet4Stack, //
+				final Map<String, String> subnet4Reservations, final Map<String, Map<String, Set<Integer>>> openPorts4, //
 				final String subnet6) {
 			this.subnet4 = subnet4;
 			this.subnet4Stack = subnet4Stack;
 			this.subnet4Reservations = subnet4Reservations;
+			this.openPorts4 = openPorts4;
 			this.subnet6 = subnet6;
 		}
 
@@ -271,6 +298,12 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 					IpNetUtils.IPNET4_PARSER.apply(this.subnet4),
 					IpNetUtils.unmarshalCol(TreeSet::new, this.subnet4Stack, IpNetUtils.IPNET4_PARSER),
 					IpNetUtils.unmarshalMapKeys(LinkedHashMap::new, this.subnet4Reservations, IpNetUtils.IPNET4_PARSER),
+					this.openPorts4.entrySet()
+							.stream()
+							.filter(Objects::nonNull)
+							.collect(Collectors.toMap(e -> IpUtils.IP4_PARSER.apply(e.getKey()),
+									e -> IpUtils.unmarshalMapKeys(LinkedHashMap::new, e.getValue(),
+											IpUtils.IP4_PARSER))),
 					// Ipv6
 					IpNetUtils.IPNET6_PARSER.apply(this.subnet6));
 		}
@@ -280,6 +313,10 @@ public class NodeIsolationRuntimeAction extends InvisibleAction implements Savea
 					// Ipv4
 					prop.subnet4 == null ? null : prop.subnet4.toCidrNotation(),
 					IpNetUtils.marshalCol(prop.subnet4Stack), IpNetUtils.marshalMapKeys(prop.subnet4Reservations),
+					prop.openPorts4.entrySet()
+							.stream()
+							.collect(Collectors.toMap(e -> e.getKey()
+									.toCidrNotation(), e -> IpUtils.marshalMapKeys(e.getValue()))),
 					// Ipv6
 					prop.subnet6 == null ? null : prop.subnet6.toCidrNotation());
 		}

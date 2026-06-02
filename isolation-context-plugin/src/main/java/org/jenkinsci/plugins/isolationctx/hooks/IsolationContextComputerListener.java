@@ -43,6 +43,9 @@ public class IsolationContextComputerListener extends ComputerListener {
 		if (runtime == null)
 			return;
 
+		runtime.isolationHandler()
+				.firewallSetup();
+
 		String subnet = StringUtils.trimToNull(env.get(ENV_ISOLATION_SUBNET4));
 		if (subnet != null) {
 			runtime.setIpv4Subnet(subnet);
