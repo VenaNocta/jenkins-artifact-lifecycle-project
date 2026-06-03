@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
+import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntime;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntimeAction;
 import org.jenkinsci.plugins.isolationctx.ctx.net.LnxNetLink;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
@@ -138,7 +139,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 		}
 	}
 
-	protected NodeIsolationRuntimeAction getNodeRuntime() {
+	protected NodeIsolationRuntime getNodeRuntime() {
 		try {
 			return NodeIsolationRuntimeAction.get(this.node);
 		} catch (IOException | InterruptedException ignored) {
@@ -285,7 +286,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 		}
 
 		// Cleanup active LnxLinks
-		final NodeIsolationRuntimeAction nodeRuntime = getNodeRuntime();
+		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
 		if (nodeRuntime != null) {
 			for (LnxNetLink link : this._activeLinks.values()) {
 				// Remove veth interfaces
@@ -321,15 +322,15 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	@Override
 	public LnxNetLink connectNetLink() {
-		final NodeIsolationRuntimeAction nodeRuntime = getNodeRuntime();
+		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
 		if (nodeRuntime == null)
 			return null;
 
 		synchronized (this.linkLock) {
 			int linkNum = this._activeLinks.isEmpty() ? 0 : this._activeLinks.lastKey() + 1;
 
-			final String hostIfaceName = String.format("veth-h%d-%d", this.processId, linkNum);
-			final String contextIfaceName = String.format("veth-n%d-%d", this.processId, linkNum);
+			final String hostIfaceName = String.format("jciv-h%d-%d", this.processId, linkNum);
+			final String contextIfaceName = String.format("jciv-n%d-%d", this.processId, linkNum);
 
 			final IpNet4Address subnet4 = nodeRuntime.reserveIpv4Subnet(this.run);
 			Ip4Address hostAddr4 = null, contextAddr4 = null;
@@ -413,7 +414,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 			return;
 		final LnxNetLink link = (LnxNetLink) anyLink;
 		final PrintStream log = this.listener.getLogger();
-		final NodeIsolationRuntimeAction nodeRuntime = getNodeRuntime();
+		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
 
 		synchronized (this.linkLock) {
 			if (!this._activeLinks.containsValue(link))

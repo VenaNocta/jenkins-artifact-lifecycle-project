@@ -74,6 +74,11 @@ public class NodeIsolationCtxProvider implements IsolationContextProvider {
 		final Run<?, ?> run = context.get(Run.class);
 		final TaskListener listener = context.get(TaskListener.class);
 
+		if (isolationHandler.isActive() == false) {
+			listener.error("Context Isolation currently not available on this Node!");
+			return null;
+		}
+
 		if (isolationHandler instanceof LnxNodeIsolationHandler) {
 			return new LinuxNamespaceContext(run, node, ws, listener);
 		}

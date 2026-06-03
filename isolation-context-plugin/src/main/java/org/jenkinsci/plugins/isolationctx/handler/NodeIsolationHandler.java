@@ -19,32 +19,32 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
+import hudson.model.TaskListener;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
 
 public interface NodeIsolationHandler {
 
-	public void firewallSetup() throws IOException, InterruptedException;
+	public boolean isActive();
 
-	public <A extends IpAddress<A>> void firewallInputOpen(A host, A external, Set<Integer> ports)
+	public void setup(TaskListener listener) throws IOException, InterruptedException;
+
+	public void shutdown(TaskListener listener) throws IOException, InterruptedException;
+
+	public void firewallInputOpen(IpAddress<?> host, IpAddress<?> external, Set<Integer> ports, TaskListener listener)
 			throws IOException, InterruptedException;
 
-	public <A extends IpAddress<A>> void firewallInputOpen(Map<A, Map<A, Set<Integer>>> data)
+	public void firewallInputOpen(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
 			throws IOException, InterruptedException;
 
-	public <A extends IpAddress<A>> void firewallInputRetainOpen(Map<A, Map<A, Set<Integer>>> data)
+	public void firewallInputRetainOpen(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
 			throws IOException, InterruptedException;
 
-	public <A extends IpAddress<A>> void firewallInputCloseAll() throws IOException, InterruptedException;
+	public void firewallInputCloseAll(TaskListener listener) throws IOException, InterruptedException;
 
-	public <A extends IpAddress<A>> void firewallInputCloseAll(A host) throws IOException, InterruptedException;
-
-	public <A extends IpAddress<A>> void firewallInputCloseAll(A host, A external)
+	public void firewallInputClose(IpAddress<?> host, IpAddress<?> external, Set<Integer> ports, TaskListener listener)
 			throws IOException, InterruptedException;
 
-	public <A extends IpAddress<A>> void firewallInputClose(A host, A external, Set<Integer> ports)
-			throws IOException, InterruptedException;
-
-	public <A extends IpAddress<A>> void firewallInputClose(Map<A, Map<A, Set<Integer>>> data)
+	public void firewallInputClose(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
 			throws IOException, InterruptedException;
 
 }

@@ -14,7 +14,7 @@ SET_V6_UDP = "input_allowed_v6_udp"
 # ----------------------------
 # CSV parsing
 # ----------------------------
-def load_csv(path):
+def load_port_csv(path):
     entries = set()
     with open(path, newline="") as f:
         reader = csv.reader(f, delimiter="|")
@@ -26,14 +26,24 @@ def load_csv(path):
     return entries
 
 
+def load_hostif_csv(path):
+    entries = set()
+    with open(path, newline="") as f:
+        reader = csv.reader(f, delimiter="|")
+        for row in reader:
+            if len(row) != 1:
+                continue
+            hostif = row[0]
+            entries.add((hostif.strip()))
+    return entries
+
+
 # ----------------------------
 # Helper
 # ----------------------------
 def to_elems(entries):
     return [
-        {
-            "elem": [extIp, port, hostIp]
-        }
+        {"concat": [extIp, port, hostIp]}
         for (hostIp, extIp, port) in entries
     ]
 
@@ -70,9 +80,10 @@ def group_entries(entries):
 # ----------------------------
 # NFT interface
 # ----------------------------
-def run_json(nft, obj):
+def run_json(nft, obj, ignoreError=False):
     rc, out, err = nft.json_cmd(obj)
-    if rc != 0:
+    if ignoreError == False and rc != 0:
+        print(obj)
         raise RuntimeError(err)
     return out
 
@@ -85,7 +96,7 @@ def run_string(nft, cmd):
 
 
 # ----------------------------
-# Setup (idempotent)
+# Setup/Destroy (idempotent)
 # ----------------------------
 def setup(nft):
     cmd = {
@@ -233,6 +244,7 @@ def setup(nft):
             },
         ]
     }
+    run_json(nft, {"nftables": [{"delete": {"table": {"family": "inet", "name": TABLE}}}]}, True)
     run_json(nft, cmd)
     run_string(nft,
                "add rule inet " + TABLE + " host_only_IN_allow ip saddr . tcp dport . ip daddr @" + SET_V4_TCP + " accept")
@@ -243,19 +255,28 @@ def setup(nft):
     run_string(nft,
                "add rule inet " + TABLE + " host_only_IN_allow ip6 saddr . udp dport . ip6 daddr @" + SET_V6_UDP + " accept")
 
-    # ignore "already exists" errors
-    # try:
-    #    run_json(nft, cmd)
-    # except Exception:
-    #    pass
+
+def shutdown(nft):
+    cmd = {
+        "nftables": [
+            {
+                "delete": {
+                    "table": {
+                        "family": "inet",
+                        "name": TABLE
+                    }
+                }
+            }
+        ]
+    }
+    run_json(nft, cmd, True)
 
 
 # ----------------------------
 # Add
 # ----------------------------
-def port_add(nft, entries):
+def port_add(nft, entries, cmdCol=[]):
     groups = group_entries(entries)
-    cmdCol = []
 
     for setName, entries in groups.items():
         if not entries:
@@ -275,10 +296,25 @@ def port_add(nft, entries):
     if not cmdCol:
         return
 
-    cmd = {
-        "nftables": cmdCol
-    }
-    run_json(nft, cmd)
+    run_json(nft, {"nftables": cmdCol})
+
+
+def hostif_add(nft, interfaces, cmdCol=[]):
+    if not interfaces:
+        return
+
+    cmdCol.append({
+        "add": {
+            "element": {
+                "family": "inet",
+                "table": TABLE,
+                "name": SET_HOSTIF,
+                "elem": list(interfaces)
+            }
+        }
+    })
+
+    run_json(nft, {"nftables": cmdCol})
 
 
 # ----------------------------
@@ -312,10 +348,32 @@ def port_del(nft, entries):
     run_json(nft, cmd)
 
 
+def hostif_del(nft, interfaces):
+    if not interfaces:
+        return
+
+    cmd = {
+        "nftables": [
+            {
+                "delete": {
+                    "element": {
+                        "family": "inet",
+                        "table": TABLE,
+                        "name": SET_HOSTIF,
+                        "elem": list(interfaces)
+                    }
+                }
+            }
+        ]
+    }
+
+    run_json(nft, cmd)
+
+
 # ----------------------------
 # Retain
 # ----------------------------
-def port_retain(nft, entries):
+def port_set(nft, entries):
     cmdCol = []
     # flush then re-add
     for setName in [SET_V4_TCP, SET_V4_UDP, SET_V6_TCP, SET_V6_UDP]:
@@ -328,12 +386,25 @@ def port_retain(nft, entries):
                 }
             }
         })
-    flush_cmd = {
-        "nftables": cmdCol
-    }
+    # pass flush cmds to port_add function
+    port_add(nft, entries, cmdCol)
 
-    run_json(nft, flush_cmd)
-    port_add(nft, entries)
+
+def hostif_set(nft, interfaces):
+    cmdCol = []
+    # flush then re-add
+    cmdCol.append({
+        "flush": {
+            "set": {
+                "family": "inet",
+                "table": TABLE,
+                "name": SET_HOSTIF
+            }
+        }
+    })
+
+    # pass flush cmds to hostif_add function
+    hostif_add(nft, interfaces, cmdCol)
 
 
 # ----------------------------
@@ -341,7 +412,10 @@ def port_retain(nft, entries):
 # ----------------------------
 def main():
     if len(sys.argv) < 2:
-        print("usage: script.py <setup|port-add|port-del|port-retain> [csv]")
+        print("""\
+usage: script.py setup/shutdown\
+                 set traffic-port/hostif add/del/set [csv-path]\
+        """)
         sys.exit(1)
 
     op = sys.argv[1]
@@ -351,22 +425,50 @@ def main():
 
     if op == "setup":
         setup(nft)
-        return
-
-    if len(sys.argv) != 3:
-        print("csv required for this operation")
+    elif op == "shutdown":
+        shutdown(nft)
+    elif op == "set":
+        main_set(nft, sys.argv)
+    else:
+        print("unknown op: " + op)
         sys.exit(1)
 
-    entries = load_csv(sys.argv[2])
 
-    if op == "port-add":
-        port_add(nft, entries)
-    elif op == "port-del":
-        port_del(nft, entries)
-    elif op == "port-retain":
-        port_retain(nft, entries)
+def main_set(nft, argv):
+    op = argv[2]
+
+    if op == "traffic-port":
+        if len(argv) != 5:
+            print("csv required for this operation")
+            sys.exit(1)
+
+        entries = load_port_csv(argv[4])
+
+        op = argv[3]
+        if op == "add":
+            port_add(nft, entries)
+        elif op == "del":
+            port_del(nft, entries)
+        elif op == "set":
+            port_set(nft, entries)
+
+    elif op == "hostif":
+        if len(argv) != 5:
+            print("csv required for this operation")
+            sys.exit(1)
+
+        entries = load_hostif_csv(argv[4])
+
+        op = argv[3]
+        if op == "add":
+            hostif_add(nft, entries)
+        elif op == "del":
+            hostif_del(nft, entries)
+        elif op == "set":
+            hostif_set(nft, entries)
+
     else:
-        print("unknown op")
+        print("unknown op: " + op)
         sys.exit(1)
 
 

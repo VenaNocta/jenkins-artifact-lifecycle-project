@@ -17,10 +17,12 @@ package org.jenkinsci.plugins.isolationctx.config;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -102,5 +104,73 @@ public class IpUtils {
 		return data.entrySet()
 				.stream()
 				.collect(Collectors.toMap(Entry::getKey, e -> parser.apply(e.getValue()), (a, b) -> b, supplier));
+	}
+
+	public static <A extends IpAddress<?>> void mergeInnerTrafficMap(final Map<IpAddress<?>, Set<Integer>> data,
+			final Map<A, Set<Integer>> add) {
+		if (data == null)
+			return;
+		for (Map.Entry<A, Set<Integer>> extEntry : add.entrySet()) {
+			// inner
+			final A ip = extEntry.getKey();
+			final Set<Integer> ports = extEntry.getValue();
+			// merge
+			data.put(ip, ports == null ? Collections.emptySet() : ports);
+		}
+	}
+
+	public static <A extends IpAddress<?>> void mergeTrafficMap(
+			final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, final Map<A, Map<A, Set<Integer>>> add) {
+		if (data == null)
+			return;
+		for (Map.Entry<A, Map<A, Set<Integer>>> dataEntry : add.entrySet()) {
+			// outer
+			final A ipA = dataEntry.getKey();
+			final Map<A, Set<Integer>> extMap = dataEntry.getValue();
+			if (ipA == null)
+				continue;
+			if (extMap == null || extMap.isEmpty()) {
+				// merge
+				data.put(ipA, new HashMap<>());
+			} else {
+				mergeInnerTrafficMap(data.computeIfAbsent(ipA, k -> new HashMap<>()), extMap);
+			}
+		}
+	}
+
+	public static void interateTrafficMap(final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data,
+			final TrafficMapEntryConsumer<Ip4Address> consumer4, final TrafficMapEntryConsumer<Ip6Address> consumer6) {
+		for (Map.Entry<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> dataEntry : data.entrySet()) {
+			// outer
+			final IpAddress<?> ipA = dataEntry.getKey();
+			final Map<IpAddress<?>, Set<Integer>> extMap = dataEntry.getValue();
+			if (ipA == null)
+				continue;
+			if (extMap == null || extMap.isEmpty()) {
+				// consume
+				if (consumer4 != null && ipA instanceof Ip4Address ipA4) {
+					consumer4.accept(ipA4, null, Collections.emptySet());
+				} else if (consumer6 != null && ipA instanceof Ip6Address ipA6) {
+					consumer6.accept(ipA6, null, Collections.emptySet());
+				}
+			} else {
+				for (Map.Entry<IpAddress<?>, Set<Integer>> extEntry : extMap.entrySet()) {
+					// inner
+					final IpAddress<?> ipB = extEntry.getKey();
+					final Set<Integer> ports = extEntry.getValue();
+					// consume
+					if (consumer4 != null && ipA instanceof Ip4Address ipA4 && ipB instanceof Ip4Address ipB4) {
+						consumer4.accept(ipA4, ipB4, ports == null ? Collections.emptySet() : ports);
+					} else if (consumer6 != null && ipA instanceof Ip6Address ipA6 && ipB instanceof Ip6Address ipB6) {
+						consumer6.accept(ipA6, ipB6, ports == null ? Collections.emptySet() : ports);
+					}
+				}
+			}
+		}
+	}
+
+	@FunctionalInterface
+	public static interface TrafficMapEntryConsumer<T> {
+		public void accept(T a, T b, Set<Integer> ports);
 	}
 }

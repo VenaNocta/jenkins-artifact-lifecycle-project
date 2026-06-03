@@ -39,21 +39,24 @@ public class IsolationContextComputerListener extends ComputerListener {
 		final EnvVars env = computer.getEnvironment();
 		final Node node = computer.getNode();
 
-		final NodeIsolationRuntimeAction runtime = NodeIsolationRuntimeAction.get(node);
-		if (runtime == null)
-			return;
+		try {
+			final NodeIsolationRuntimeAction runtime = NodeIsolationRuntimeAction.get(node);
+			if (runtime == null)
+				return;
 
-		runtime.isolationHandler()
-				.firewallSetup();
+			runtime.setup(listener);
 
-		String subnet = StringUtils.trimToNull(env.get(ENV_ISOLATION_SUBNET4));
-		if (subnet != null) {
-			runtime.setIpv4Subnet(subnet);
-		}
+			String subnet = StringUtils.trimToNull(env.get(ENV_ISOLATION_SUBNET4));
+			if (subnet != null) {
+				runtime.setIpv4Subnet(subnet);
+			}
 
-		subnet = StringUtils.trimToNull(env.get(ENV_ISOLATION_SUBNET6));
-		if (subnet != null) {
-			runtime.setIpv6Subnet(subnet);
+			subnet = StringUtils.trimToNull(env.get(ENV_ISOLATION_SUBNET6));
+			if (subnet != null) {
+				runtime.setIpv6Subnet(subnet);
+			}
+		} catch (Exception e) {
+			listener.error("Failed to initialize IsolationContextHandler of Computer: " + computer.getDisplayName());
 		}
 	}
 }

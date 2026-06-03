@@ -16,16 +16,23 @@
 package org.jenkinsci.plugins.isolationctx.handler;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.jenkinsci.plugins.isolationctx.Scripts;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
+import hudson.Launcher;
 import hudson.model.Computer;
 import hudson.model.Node;
+import hudson.model.TaskListener;
+import hudson.util.ArgumentListBuilder;
 import jenkins.util.io.OnMaster;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
 
@@ -38,6 +45,8 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 	@NonNull
 	protected final FilePath rootPath;
 
+	protected AtomicBoolean active = new AtomicBoolean(false);
+
 	public LnxNodeIsolationHandler(@NonNull final Node node) {
 		Objects.requireNonNull(this.node = node);
 		Objects.requireNonNull(this.computer = node.toComputer());
@@ -46,63 +55,94 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 	}
 
 	@Override
-	public void firewallSetup() throws IOException, InterruptedException {
-		final FilePath firewallPath = this.rootPath.child("nftables-python3.py");
+	public boolean isActive() {
+		return this.active.get();
+	}
+
+	protected void execScriptTask(final Collection<String> tasks, final TaskListener listener)
+			throws IOException, InterruptedException {
 		// deploy file from resources -> path
+		final FilePath networkPath = this.rootPath.child("network-tool.py");
+		// jar:/scripts/network/elinux-python3.py
+		Scripts.NETWORK_ENTERPRISE_LINUX_PYTHON3.deployTo(networkPath);
+		final FilePath firewallPath = this.rootPath.child("firewall-tool.py");
 		// jar:/scripts/firewall/nftables-python3.py
-		try (final InputStream input = getClass().getResourceAsStream("/scripts/firewall/nftables-python3.py")) {
-			try (OutputStream out = firewallPath.write()) {
-				org.apache.commons.io.IOUtils.copy(input, out);
-			}
+		Scripts.FIREWALL_NFTABLES_PYTHON3.deployTo(firewallPath);
+
+		final Launcher launcher = this.node.createLauncher(listener);
+		// network setup
+		launcher.launch()
+				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", networkPath.absolutize()
+						.getRemote()).add(tasks))
+				.start()
+				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
+		// firewall setup
+		launcher.launch()
+				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", firewallPath.absolutize()
+						.getRemote()).add(tasks))
+				.start()
+				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
+	}
+
+	@Override
+	public void setup(final TaskListener listener) throws IOException, InterruptedException {
+		try {
+			execScriptTask(Arrays.asList("setup"), listener);
+			this.active.set(true);
+		} catch (Throwable e) {
+			this.active.set(false);
+			throw e;
 		}
 	}
 
 	@Override
-	public <A extends IpAddress<A>> void firewallInputOpen(A host, A external, Set<Integer> ports) {
+	public void shutdown(final TaskListener listener) throws IOException, InterruptedException {
+		try {
+			execScriptTask(Arrays.asList("shutdown"), listener);
+			this.active.set(false);
+		} catch (Throwable e) {
+			throw e;
+		}
+	}
+
+	@Override
+	public void firewallInputOpen(IpAddress<?> host, IpAddress<?> external, Set<Integer> ports, TaskListener listener)
+			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public <A extends IpAddress<A>> void firewallInputOpen(Map<A, Map<A, Set<Integer>>> data) {
+	public void firewallInputOpen(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
+			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public <A extends IpAddress<A>> void firewallInputRetainOpen(Map<A, Map<A, Set<Integer>>> data) {
+	public void firewallInputRetainOpen(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
+			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public <A extends IpAddress<A>> void firewallInputCloseAll() {
+	public void firewallInputCloseAll(TaskListener listener) throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public <A extends IpAddress<A>> void firewallInputCloseAll(A host) {
+	public void firewallInputClose(IpAddress<?> host, IpAddress<?> external, Set<Integer> ports, TaskListener listener)
+			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public <A extends IpAddress<A>> void firewallInputCloseAll(A host, A external) {
+	public void firewallInputClose(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
+			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 
 	}
-
-	@Override
-	public <A extends IpAddress<A>> void firewallInputClose(A host, A external, Set<Integer> ports) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public <A extends IpAddress<A>> void firewallInputClose(Map<A, Map<A, Set<Integer>>> data) {
-		// TODO Auto-generated method stub
-
-	}
-
 }

@@ -18,6 +18,7 @@ jenkins ALL=(root) NOPASSWD: \
   /usr/sbin/ip link set * netns *, \
   /usr/sbin/ip link del *, \
   /usr/sbin/ip addr add *, \
-  /usr/sbin/ip link set * up
+  /usr/sbin/ip link set * up, \
+  /usr/bin/python3 *
 ```
 
