@@ -2,6 +2,7 @@ import sys
 import csv
 import json
 from nftables import Nftables
+import subprocess
 
 TABLE = "jenkins_ci_iso"
 SET_HOSTIF = "host_ifs"
@@ -96,6 +97,52 @@ def run_string(nft, cmd):
 
 
 # ----------------------------
+# FirewallD interface
+# ----------------------------
+
+def has_firewalld_cmd():
+    try:
+        subprocess.run(
+            ["firewall-cmd", "--version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
+        )
+        return True
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return False
+
+
+def zone_trusted_add(interfaces):
+    for iface in interfaces:
+        subprocess.run(["firewall-cmd", "--zone=trusted", "--add-interface=" + iface], check=True)
+
+
+def zone_trusted_del(interfaces):
+    for iface in interfaces:
+        subprocess.run(["firewall-cmd", "--zone=trusted", "--remove-interface=" + iface], check=True)
+
+
+def zone_trusted_clear():
+    result = subprocess.run(
+        ["firewall-cmd", "--zone=trusted", "--list-interfaces"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    for iface in result.stdout.split():
+        if iface.startswith("jciv-"):
+            subprocess.run(
+                [
+                    "firewall-cmd",
+                    "--zone=trusted",
+                    "--remove-interface", iface,
+                ],
+                check=True,
+            )
+
+
+# ----------------------------
 # Setup/Destroy (idempotent)
 # ----------------------------
 def setup(nft):
@@ -184,6 +231,37 @@ def setup(nft):
                     "chain": {
                         "family": "inet",
                         "table": TABLE,
+                        "name": "filter_FORWARD",
+                        "type": "filter",
+                        "hook": "forward",
+                        "prio": 0
+                    }
+                }
+            },
+            {
+                "rule": {
+                    "family": "inet",
+                    "table": TABLE,
+                    "chain": "filter_FORWARD",
+                    "expr": [
+                        {
+                            "match": {
+                                "op": "in",
+                                "left": {"meta": {"key": "iifname"}},
+                                "right": "@" + SET_HOSTIF
+                            }
+                        },
+                        {
+                            "reject": None
+                        }
+                    ]
+                }
+            },
+            {
+                "add": {
+                    "chain": {
+                        "family": "inet",
+                        "table": TABLE,
                         "name": "filter_INPUT",
                         "type": "filter",
                         "hook": "input",
@@ -198,7 +276,6 @@ def setup(nft):
                         "table": TABLE,
                         "name": "host_only_IN_allow",
                         "type": "filter",
-                        "policy": "drop"
                     }
                 }
             },
@@ -216,28 +293,9 @@ def setup(nft):
                             }
                         },
                         {
-                            "jump": {
+                            "goto": {
                                 "target": "host_only_IN_allow"
                             }
-                        }
-                    ]
-                }
-            },
-            {
-                "rule": {
-                    "family": "inet",
-                    "table": TABLE,
-                    "chain": "filter_INPUT",
-                    "expr": [
-                        {
-                            "match": {
-                                "op": "in",
-                                "left": {"meta": {"key": "iifname"}},
-                                "right": "@" + SET_HOSTIF
-                            }
-                        },
-                        {
-                            "drop": None
                         }
                     ]
                 }
@@ -254,6 +312,8 @@ def setup(nft):
                "add rule inet " + TABLE + " host_only_IN_allow ip6 saddr . tcp dport . ip6 daddr @" + SET_V6_TCP + " accept")
     run_string(nft,
                "add rule inet " + TABLE + " host_only_IN_allow ip6 saddr . udp dport . ip6 daddr @" + SET_V6_UDP + " accept")
+    run_string(nft,
+               "add rule inet " + TABLE + " host_only_IN_allow reject")
 
 
 def shutdown(nft):
@@ -270,6 +330,8 @@ def shutdown(nft):
         ]
     }
     run_json(nft, cmd, True)
+    if has_firewalld_cmd():
+        zone_trusted_clear()
 
 
 # ----------------------------
@@ -315,6 +377,8 @@ def hostif_add(nft, interfaces, cmdCol=[]):
     })
 
     run_json(nft, {"nftables": cmdCol})
+    if has_firewalld_cmd():
+        zone_trusted_add(interfaces)
 
 
 # ----------------------------
@@ -368,6 +432,8 @@ def hostif_del(nft, interfaces):
     }
 
     run_json(nft, cmd)
+    if has_firewalld_cmd():
+        zone_trusted_del(interfaces)
 
 
 # ----------------------------
@@ -405,6 +471,45 @@ def hostif_set(nft, interfaces):
 
     # pass flush cmds to hostif_add function
     hostif_add(nft, interfaces, cmdCol)
+    if has_firewalld_cmd():
+        zone_trusted_clear()
+        zone_trusted_add(interfaces)
+
+
+# ----------------------------
+# Clear
+# ----------------------------
+def port_clear(nft):
+    cmdCol = []
+    for setName in [SET_V4_TCP, SET_V4_UDP, SET_V6_TCP, SET_V6_UDP]:
+        cmdCol.append({
+            "flush": {
+                "set": {
+                    "family": "inet",
+                    "table": TABLE,
+                    "name": setName
+                }
+            }
+        })
+    run_json(nft, {"nftables": cmdCol})
+
+
+def hostif_clear(nft):
+    run_json(nft, {
+        "nftables": [
+            {
+                "flush": {
+                    "set": {
+                        "family": "inet",
+                        "table": TABLE,
+                        "name": SET_HOSTIF
+                    }
+                }
+            }
+        ]
+    })
+    if has_firewalld_cmd():
+        zone_trusted_clear()
 
 
 # ----------------------------
@@ -414,7 +519,7 @@ def main():
     if len(sys.argv) < 2:
         print("""\
 usage: script.py setup/shutdown\
-                 set traffic-port/hostif add/del/set [csv-path]\
+                 set traffic-port/hostif add/del/set/clear [csv-path]\
         """)
         sys.exit(1)
 
@@ -438,13 +543,17 @@ def main_set(nft, argv):
     op = argv[2]
 
     if op == "traffic-port":
+        op = argv[3]
+        if op == "clear":
+            port_clear(nft)
+            return
+
         if len(argv) != 5:
             print("csv required for this operation")
             sys.exit(1)
 
         entries = load_port_csv(argv[4])
 
-        op = argv[3]
         if op == "add":
             port_add(nft, entries)
         elif op == "del":
@@ -453,13 +562,17 @@ def main_set(nft, argv):
             port_set(nft, entries)
 
     elif op == "hostif":
+        op = argv[3]
+        if op == "clear":
+            hostif_clear(nft)
+            return
+
         if len(argv) != 5:
             print("csv required for this operation")
             sys.exit(1)
 
         entries = load_hostif_csv(argv[4])
 
-        op = argv[3]
         if op == "add":
             hostif_add(nft, entries)
         elif op == "del":

@@ -143,7 +143,8 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 		isolationHandler().firewallInputRetainOpen(this.openPorts, listener);
 	}
 
-	public IpNet4Address reserveIpv4Subnet(final Run<?, ?> run) {
+	public IpNet4Address reserveIpv4Subnet(final Run<?, ?> run, final TaskListener listener)
+			throws IOException, InterruptedException {
 		if (!run.isInProgress() || this.subnet4 == null)
 			return null;
 
@@ -172,12 +173,16 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 			// reserve subnet
 			this.subnet4Stack.add(net);
 			this.subnet4Reservations.put(net, id);
+			synchronized (this.lockPorts) {
+				isolationHandler().firewallInputClose(this.openPorts.removeAll(net), listener);
+			}
 			trySave();
 			return net;
 		}
 	}
 
-	public IpNet6Address reserveIpv6Subnet(final Run<?, ?> run) {
+	public IpNet6Address reserveIpv6Subnet(final Run<?, ?> run, final TaskListener listener)
+			throws IOException, InterruptedException {
 		if (!run.isInProgress() || this.subnet6 == null)
 			return null;
 
@@ -188,30 +193,42 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 		}
 	}
 
-	public void freeIpv4Subnet(final IpNet4Address subnet) {
+	public void freeIpv4Subnet(final IpNet4Address subnet, final TaskListener listener)
+			throws IOException, InterruptedException {
 		synchronized (this.lock4) {
-			this.subnet4Reservations.remove(subnet);
+			synchronized (this.lockPorts) {
+				this.subnet4Reservations.remove(subnet);
+				isolationHandler().firewallInputClose(this.openPorts.removeAll(subnet), listener);
+			}
 			trySave();
 		}
 	}
 
-	public void freeIpv6Subnet(final IpNet6Address subnet) {
+	public void freeIpv6Subnet(final IpNet6Address subnet, final TaskListener listener)
+			throws IOException, InterruptedException {
 		synchronized (this.lock6) {
 			// TODO implement
 			trySave();
 		}
 	}
 
-	public void freeAllSubnetsOf(final String extId) {
+	public void freeAllSubnetsOf(final String extId, final TaskListener listener)
+			throws IOException, InterruptedException {
+		final TrafficMap map = new TrafficMap();
 		synchronized (this.lock4) {
-			for (Iterator<Entry<IpNet4Address, String>> i = this.subnet4Reservations.entrySet()
-					.iterator(); i.hasNext();) {
-				final Entry<IpNet4Address, String> entry = i.next();
-				if (extId.equals(entry.getValue()))
-					i.remove();
+			synchronized (this.lockPorts) {
+				for (Iterator<Entry<IpNet4Address, String>> i = this.subnet4Reservations.entrySet()
+						.iterator(); i.hasNext();) {
+					final Entry<IpNet4Address, String> entry = i.next();
+					if (extId.equals(entry.getValue())) {
+						i.remove();
+						map.add(this.openPorts.removeAll(entry.getKey()));
+					}
+				}
 			}
 			trySave();
 		}
+		isolationHandler().firewallInputClose(map, listener);
 	}
 
 	protected void trySave() {
@@ -333,6 +350,7 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 			return;
 		synchronized (this.lockPorts) {
 			this.openPorts.add(data);
+			trySave();
 		}
 		isolationHandler().firewallInputOpen(data, listener);
 	}
@@ -345,6 +363,7 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 		synchronized (this.lockPorts) {
 			this.openPorts.clear();
 			this.openPorts.add(data);
+			trySave();
 		}
 		isolationHandler().firewallInputRetainOpen(data, listener);
 	}
@@ -356,6 +375,7 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 			return;
 		synchronized (this.lockPorts) {
 			this.openPorts.remove(data);
+			trySave();
 		}
 		isolationHandler().firewallInputClose(data, listener);
 	}
@@ -364,6 +384,7 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 	public void firewallInputCloseAll(final TaskListener listener) throws IOException, InterruptedException {
 		synchronized (this.lockPorts) {
 			this.openPorts.clear();
+			trySave();
 		}
 		isolationHandler().firewallInputCloseAll(listener);
 	}
@@ -374,6 +395,7 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 		final TrafficMap data = new TrafficMap();
 		synchronized (this.lockPorts) {
 			data.add(host, this.openPorts.removeAll(host));
+			trySave();
 		}
 		isolationHandler().firewallInputClose(data, listener);
 	}
@@ -384,6 +406,7 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 		final TrafficMap data = new TrafficMap();
 		synchronized (this.lockPorts) {
 			data.add(host, external, this.openPorts.removeAll(host, external));
+			trySave();
 		}
 		isolationHandler().firewallInputClose(data, listener);
 	}

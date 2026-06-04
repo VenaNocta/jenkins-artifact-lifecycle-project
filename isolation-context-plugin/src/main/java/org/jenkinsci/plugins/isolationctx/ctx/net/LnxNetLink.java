@@ -15,6 +15,8 @@
  */
 package org.jenkinsci.plugins.isolationctx.ctx.net;
 
+import org.jenkinsci.plugins.isolationctx.FirewallDelegate;
+
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
 import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpNet4Address;
@@ -27,10 +29,10 @@ public class LnxNetLink extends DefaultNetLink {
 	protected final String hostIfaceName;
 	protected final String contextIfaceName;
 
-	public LnxNetLink(final String hostIfaceName, final String contextIfaceName, //
+	public LnxNetLink(final FirewallDelegate firewall, final String hostIfaceName, final String contextIfaceName, //
 			final IpNet4Address subnet4, final Ip4Address hostAddr4, final Ip4Address contextAddr4, //
 			final IpNet6Address subnet6, final Ip6Address hostAddr6, final Ip6Address contextAddr6) {
-		super( //
+		super(firewall, //
 				subnet4, hostAddr4, contextAddr4, //
 				subnet6, hostAddr6, contextAddr6);
 		this.hostIfaceName = hostIfaceName;

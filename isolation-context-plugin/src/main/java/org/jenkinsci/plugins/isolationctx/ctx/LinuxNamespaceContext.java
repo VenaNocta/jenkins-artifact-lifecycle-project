@@ -22,9 +22,12 @@ import java.io.Serializable;
 import java.net.UnixDomainSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +39,7 @@ import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntime;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntimeAction;
 import org.jenkinsci.plugins.isolationctx.ctx.net.LnxNetLink;
+import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
 import com.google.common.io.Files;
@@ -54,8 +58,10 @@ import hudson.remoting.VirtualChannel;
 import jenkins.MasterToSlaveFileCallable;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
 import net.runeduniverse.lib.utils.net.api.Ip6Address;
+import net.runeduniverse.lib.utils.net.api.IpAddress;
 import net.runeduniverse.lib.utils.net.api.IpNet4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet6Address;
+import net.runeduniverse.lib.utils.net.api.IpNetAddress;
 
 public class LinuxNamespaceContext implements IsolationContext {
 
@@ -289,8 +295,12 @@ public class LinuxNamespaceContext implements IsolationContext {
 		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
 		if (nodeRuntime != null) {
 			for (LnxNetLink link : this._activeLinks.values()) {
-				// Remove veth interfaces
-				disconnectNetLink(link);
+				try {
+					// Remove veth interfaces
+					disconnectNetLink(link);
+				} catch (IOException | InterruptedException e) {
+					e.printStackTrace(this.listener.getLogger());
+				}
 			}
 		}
 	}
@@ -321,7 +331,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 	}
 
 	@Override
-	public LnxNetLink connectNetLink() {
+	public LnxNetLink connectNetLink() throws IOException, InterruptedException {
 		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
 		if (nodeRuntime == null)
 			return null;
@@ -332,23 +342,35 @@ public class LinuxNamespaceContext implements IsolationContext {
 			final String hostIfaceName = String.format("jciv-h%d-%d", this.processId, linkNum);
 			final String contextIfaceName = String.format("jciv-n%d-%d", this.processId, linkNum);
 
-			final IpNet4Address subnet4 = nodeRuntime.reserveIpv4Subnet(this.run);
+			final Set<IpAddress<?>> hostIpSet = new LinkedHashSet<>();
+			final Set<IpNetAddress<?, ?>> subnetSet = new LinkedHashSet<>();
+			final IpNet4Address subnet4 = nodeRuntime.reserveIpv4Subnet(this.run, this.listener);
 			Ip4Address hostAddr4 = null, contextAddr4 = null;
 			if (subnet4 != null) {
 				hostAddr4 = subnet4.getLowestAddress()
 						.increment();
 				contextAddr4 = hostAddr4.increment();
+
+				hostIpSet.add(hostAddr4);
+				subnetSet.add(subnet4);
 			}
 
-			final IpNet6Address subnet6 = nodeRuntime.reserveIpv6Subnet(this.run);
+			final IpNet6Address subnet6 = nodeRuntime.reserveIpv6Subnet(this.run, this.listener);
 			Ip6Address hostAddr6 = null, contextAddr6 = null;
 			if (subnet6 != null) {
 				hostAddr6 = subnet6.getLowestAddress()
 						.increment();
 				contextAddr6 = hostAddr6.increment();
+
+				hostIpSet.add(hostAddr6);
+				subnetSet.add(subnet6);
 			}
 
-			final LnxNetLink link = new LnxNetLink(hostIfaceName, contextIfaceName, //
+			final LnxNetLink link = new LnxNetLink(//
+					new FirewallDelegateFilter(nodeRuntime, //
+							Collections.unmodifiableSet(hostIpSet), //
+							Collections.unmodifiableSet(subnetSet)), //
+					hostIfaceName, contextIfaceName, //
 					subnet4, hostAddr4, contextAddr4, //
 					subnet6, hostAddr6, contextAddr6);
 			this._activeLinks.put(linkNum, link);
@@ -395,6 +417,9 @@ public class LinuxNamespaceContext implements IsolationContext {
 				cmd.addAll(Arrays.asList("ip", "link", "set", contextIfaceName, "up"));
 				actInContext(new ExecRemoteProcess(cmd).await(true)).thenAccept(this::logProcessException);
 
+				if (nodeRuntime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
+					handler.networkHostInterfaceAdd(Set.of(hostIfaceName), this.listener);
+				}
 			} catch (InterruptedException | IOException e) {
 				final PrintStream log = this.listener.getLogger();
 				log.println(String.format(TEMPL_LINE, this.processId,
@@ -409,11 +434,10 @@ public class LinuxNamespaceContext implements IsolationContext {
 	}
 
 	@Override
-	public void disconnectNetLink(final NetLink anyLink) {
+	public void disconnectNetLink(final NetLink anyLink) throws IOException, InterruptedException {
 		if (!(anyLink instanceof LnxNetLink))
 			return;
 		final LnxNetLink link = (LnxNetLink) anyLink;
-		final PrintStream log = this.listener.getLogger();
 		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
 
 		synchronized (this.linkLock) {
@@ -424,13 +448,15 @@ public class LinuxNamespaceContext implements IsolationContext {
 				actInContext(new ExecRemoteProcess(//
 						Arrays.asList("sudo", "ip", "link", "del", link.getHostIfaceName())//
 				).await(true));
-			} catch (IOException | InterruptedException e) {
-				e.printStackTrace(log);
-			}
 
-			if (nodeRuntime != null) {
-				nodeRuntime.freeIpv4Subnet(link.getSubnetV4());
-				nodeRuntime.freeIpv6Subnet(link.getSubnetV6());
+				if (nodeRuntime != null) {
+					nodeRuntime.freeIpv4Subnet(link.getSubnetV4(), this.listener);
+					nodeRuntime.freeIpv6Subnet(link.getSubnetV6(), this.listener);
+				}
+			} finally {
+				if (nodeRuntime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
+					handler.networkHostInterfaceRemove(Set.of(link.getHostIfaceName()), this.listener);
+				}
 			}
 		}
 	}

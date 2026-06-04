@@ -15,6 +15,7 @@
  */
 package org.jenkinsci.plugins.isolationctx.ctx.net;
 
+import org.jenkinsci.plugins.isolationctx.FirewallDelegate;
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
 
 import net.runeduniverse.lib.utils.net.IpNetworkUtils;
@@ -27,6 +28,7 @@ public class DefaultNetLink implements NetLink {
 
 	private static final long serialVersionUID = 1L;
 
+	protected final FirewallDelegate firewall;
 	protected final IpNet4Address subnet4;
 	protected final IpNet6Address subnet6;
 	protected final Ip4Address hostAddr4;
@@ -34,15 +36,21 @@ public class DefaultNetLink implements NetLink {
 	protected final Ip4Address contextAddr4;
 	protected final Ip6Address contextAddr6;
 
-	public DefaultNetLink(//
+	public DefaultNetLink(final FirewallDelegate firewall, //
 			final IpNet4Address subnet4, final Ip4Address hostAddr4, final Ip4Address contextAddr4, //
 			final IpNet6Address subnet6, final Ip6Address hostAddr6, final Ip6Address contextAddr6) {
+		this.firewall = firewall;
 		this.subnet4 = subnet4;
 		this.hostAddr4 = hostAddr4;
 		this.contextAddr4 = contextAddr4;
 		this.subnet6 = subnet6;
 		this.hostAddr6 = hostAddr6;
 		this.contextAddr6 = contextAddr6;
+	}
+
+	@Override
+	public FirewallDelegate firewall() {
+		return this.firewall;
 	}
 
 	@Override
@@ -85,7 +93,8 @@ public class DefaultNetLink implements NetLink {
 		return this.contextAddr6;
 	}
 
-	public static DefaultNetLink createLoopback(final boolean ipv4, final boolean ipv6) {
+	public static DefaultNetLink createLoopback(final FirewallDelegate firewall, final boolean ipv4,
+			final boolean ipv6) {
 		Ip4Address addr4 = null;
 		IpNet4Address subnet4 = null;
 		if (ipv4) {
@@ -100,7 +109,7 @@ public class DefaultNetLink implements NetLink {
 					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 });
 			subnet6 = IpNetworkUtils.createIpNet6Address(addr6, (short) 128);
 		}
-		return new DefaultNetLink(//
+		return new DefaultNetLink(firewall, //
 				subnet4, addr4, addr4, //
 				subnet6, addr6, addr6);
 	}

@@ -44,13 +44,15 @@ public interface IsolationContext extends Serializable {
 
 	public <T> Future<T> actInContextAsync(FileCallable<T> callable) throws IOException, InterruptedException;
 
-	public UnixDomainSocketAddress connectUnixSocket(String path);
+	public UnixDomainSocketAddress connectUnixSocket(String path) throws IOException, InterruptedException;
 
-	public NetLink connectNetLink();
+	public NetLink connectNetLink() throws IOException, InterruptedException;
 
-	public void disconnectNetLink(NetLink link);
+	public void disconnectNetLink(NetLink link) throws IOException, InterruptedException;
 
 	public static interface NetLink extends Serializable {
+
+		public FirewallDelegate firewall();
 
 		public short getNetworkPrefixV4();
 

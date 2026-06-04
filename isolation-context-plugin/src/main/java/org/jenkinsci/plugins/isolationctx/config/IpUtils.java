@@ -25,11 +25,14 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import net.runeduniverse.lib.utils.net.DefaultIpNet4Address;
+import net.runeduniverse.lib.utils.net.DefaultIpNet6Address;
 import net.runeduniverse.lib.utils.net.IpNetworkUtils;
 import net.runeduniverse.lib.utils.net.api.CidrObject;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
 import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
+import net.runeduniverse.lib.utils.net.api.IpNetAddress;
 
 public class IpUtils {
 
@@ -37,6 +40,18 @@ public class IpUtils {
 	public static final Function<String, Ip6Address> IP6_PARSER = IpNetworkUtils::tryParseIp6Address;
 
 	private IpUtils() {
+	}
+
+	public static IpNetAddress<?, ?> toIpNetAddress(final IpAddress<?> ip) {
+		if (ip == null)
+			return null;
+		if (ip instanceof Ip4Address ip4) {
+			return new DefaultIpNet4Address(ip4);
+		}
+		if (ip instanceof Ip6Address ip6) {
+			return new DefaultIpNet6Address(ip6);
+		}
+		return null;
 	}
 
 	public static <A extends IpAddress<A>> List<String> marshalCol(final Collection<A> col) {

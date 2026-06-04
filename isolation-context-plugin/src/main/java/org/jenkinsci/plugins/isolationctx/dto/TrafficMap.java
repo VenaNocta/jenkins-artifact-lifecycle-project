@@ -15,6 +15,7 @@
  */
 package org.jenkinsci.plugins.isolationctx.dto;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,6 +34,7 @@ import hudson.Util;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
 import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
+import net.runeduniverse.lib.utils.net.api.IpNetAddress;
 
 public class TrafficMap implements Serializable {
 
@@ -95,33 +97,41 @@ public class TrafficMap implements Serializable {
 		return TrafficMapSnapshot.marshal(this);
 	}
 
-	public void add(final IpAddress<?> ipA, IpAddress<?> ipB, Protocol protocol, Set<Integer> ports) {
+	public boolean isEmpty() {
+		return this.data.isEmpty();
+	}
+
+	public TrafficMap add(final IpAddress<?> ipA, IpAddress<?> ipB, Protocol protocol, Set<Integer> ports) {
 		final Map<Protocol, Set<Integer>> portMap = new LinkedHashMap<>();
 		portMap.put(protocol, ports);
 		add(ipA, ipB, portMap);
+		return this;
 	}
 
-	public void add(final IpAddress<?> ipA, IpAddress<?> ipB, Map<Protocol, Set<Integer>> portMap) {
+	public TrafficMap add(final IpAddress<?> ipA, IpAddress<?> ipB, Map<Protocol, Set<Integer>> portMap) {
 		final Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap = new LinkedHashMap<>();
 		innerMap.put(ipB, portMap);
 		add(ipA, innerMap);
+		return this;
 	}
 
-	public void add(final IpAddress<?> ipA, Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap) {
+	public TrafficMap add(final IpAddress<?> ipA, Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap) {
 		final Map<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> data = new LinkedHashMap<>();
 		data.put(ipA, innerMap);
 		add(data);
+		return this;
 	}
 
-	public void add(final TrafficMap trafficMap) {
+	public TrafficMap add(final TrafficMap trafficMap) {
 		if (trafficMap == null)
-			return;
+			return this;
 		add(trafficMap.data);
+		return this;
 	}
 
-	public void add(final Map<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataMap) {
+	public TrafficMap add(final Map<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataMap) {
 		if (dataMap == null || dataMap.isEmpty())
-			return;
+			return this;
 		for (Entry<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataEntry : dataMap.entrySet()) {
 			// inner map
 			final IpAddress<?> ipA = dataEntry.getKey();
@@ -153,35 +163,40 @@ public class TrafficMap implements Serializable {
 				}
 			}
 		}
+		return this;
 	}
 
-	public void remove(final IpAddress<?> ipA, IpAddress<?> ipB, Protocol protocol, Set<Integer> ports) {
+	public TrafficMap remove(final IpAddress<?> ipA, IpAddress<?> ipB, Protocol protocol, Set<Integer> ports) {
 		final Map<Protocol, Set<Integer>> portMap = new LinkedHashMap<>();
 		portMap.put(protocol, ports);
 		remove(ipA, ipB, portMap);
+		return this;
 	}
 
-	public void remove(final IpAddress<?> ipA, IpAddress<?> ipB, Map<Protocol, Set<Integer>> portMap) {
+	public TrafficMap remove(final IpAddress<?> ipA, IpAddress<?> ipB, Map<Protocol, Set<Integer>> portMap) {
 		final Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap = new LinkedHashMap<>();
 		innerMap.put(ipB, portMap);
 		remove(ipA, innerMap);
+		return this;
 	}
 
-	public void remove(final IpAddress<?> ipA, Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap) {
+	public TrafficMap remove(final IpAddress<?> ipA, Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap) {
 		final Map<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> data = new LinkedHashMap<>();
 		data.put(ipA, innerMap);
 		remove(data);
+		return this;
 	}
 
-	public void remove(final TrafficMap trafficMap) {
+	public TrafficMap remove(final TrafficMap trafficMap) {
 		if (trafficMap == null)
-			return;
+			return this;
 		remove(trafficMap.data);
+		return this;
 	}
 
-	public void remove(final Map<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataMap) {
+	public TrafficMap remove(final Map<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataMap) {
 		if (dataMap == null || dataMap.isEmpty())
-			return;
+			return this;
 		for (Entry<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataEntry : dataMap.entrySet()) {
 			// inner map
 			final IpAddress<?> ipA = dataEntry.getKey();
@@ -210,6 +225,7 @@ public class TrafficMap implements Serializable {
 				}
 			}
 		}
+		return this;
 	}
 
 	public Map<IpAddress<?>, Map<Protocol, Set<Integer>>> removeAll(final IpAddress<?> ipA) {
@@ -236,11 +252,92 @@ public class TrafficMap implements Serializable {
 		return ports == null ? Collections.emptySet() : ports;
 	}
 
-	public void clear() {
-		this.data.clear();
+	public TrafficMap removeAll(final IpNetAddress<?, ?> netA) {
+		return removeAll(netA == null ? null : Set.of(netA));
 	}
 
-	public void forEach(final EntryConsumer<IpAddress<?>> consumer) {
+	public TrafficMap removeAll(final Set<IpNetAddress<?, ?>> setNetA) {
+		final TrafficMap map = new TrafficMap();
+		if (setNetA == null || setNetA.isEmpty())
+			return map;
+		for (IpAddress<?> ipA : new HashSet<>(this.data.keySet())) {
+			if (!setNetA.stream()
+					.anyMatch(netA -> netA != null && netA.contains(ipA)))
+				continue;
+			final Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap = this.data.remove(ipA);
+			if (innerMap == null || innerMap.isEmpty())
+				continue;
+			map.add(ipA, innerMap);
+		}
+		return map;
+	}
+
+	public TrafficMap removeAll(final IpNetAddress<?, ?> netA, final IpNetAddress<?, ?> netB) {
+		return removeAll(netA == null ? null : Set.of(netA), netB == null ? null : Set.of(netB));
+	}
+
+	public TrafficMap removeAll(final Set<IpNetAddress<?, ?>> setNetA, final Set<IpNetAddress<?, ?>> setNetB) {
+		final TrafficMap map = new TrafficMap();
+		if (setNetA == null || setNetA.isEmpty() || setNetB == null || setNetB.isEmpty())
+			return map;
+		for (IpAddress<?> ipA : this.data.keySet()) {
+			if (!setNetA.stream()
+					.anyMatch(netA -> netA != null && netA.contains(ipA)))
+				continue;
+			final Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap = this.data.get(ipA);
+			if (innerMap == null || innerMap.isEmpty())
+				continue;
+			for (IpAddress<?> ipB : new HashSet<>(innerMap.keySet())) {
+				if (!setNetB.stream()
+						.anyMatch(netB -> netB != null && netB.contains(ipB)))
+					continue;
+				final Map<Protocol, Set<Integer>> protoMap = innerMap.remove(ipB);
+				if (protoMap == null || protoMap.isEmpty())
+					continue;
+				map.add(ipA, ipB, protoMap);
+			}
+		}
+		return map;
+	}
+
+	public TrafficMap removeAll(final IpNetAddress<?, ?> netA, final IpNetAddress<?, ?> netB, final Protocol protocol) {
+		return removeAll(netA == null ? null : Set.of(netA), netB == null ? null : Set.of(netB), protocol);
+	}
+
+	public TrafficMap removeAll(final Set<IpNetAddress<?, ?>> setNetA, final Set<IpNetAddress<?, ?>> setNetB,
+			final Protocol protocol) {
+		final TrafficMap map = new TrafficMap();
+		if (setNetA == null || setNetA.isEmpty() || setNetB == null || setNetB.isEmpty())
+			return map;
+		for (IpAddress<?> ipA : this.data.keySet()) {
+			if (!setNetA.stream()
+					.anyMatch(netA -> netA != null && netA.contains(ipA)))
+				continue;
+			final Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap = this.data.get(ipA);
+			if (innerMap == null || innerMap.isEmpty())
+				continue;
+			for (IpAddress<?> ipB : innerMap.keySet()) {
+				if (!setNetB.stream()
+						.anyMatch(netB -> netB != null && netB.contains(ipB)))
+					continue;
+				final Map<Protocol, Set<Integer>> protoMap = innerMap.get(ipB);
+				if (protoMap == null || protoMap.isEmpty())
+					continue;
+				final Set<Integer> ports = protoMap.remove(protocol);
+				if (ports == null || ports.isEmpty())
+					continue;
+				map.add(ipA, ipB, protocol, ports);
+			}
+		}
+		return map;
+	}
+
+	public TrafficMap clear() {
+		this.data.clear();
+		return this;
+	}
+
+	public void forEach(final EntryConsumer<IpAddress<?>> consumer) throws IOException, InterruptedException {
 		if (consumer == null)
 			return;
 		for (Entry<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataEntry : this.data.entrySet()) {
@@ -263,7 +360,8 @@ public class TrafficMap implements Serializable {
 		}
 	}
 
-	public <A extends IpAddress<?>> void forEach(final Class<A> type, final EntryConsumer<A> consumer) {
+	public <A extends IpAddress<?>> void forEach(final Class<A> type, final EntryConsumer<A> consumer)
+			throws IOException, InterruptedException {
 		if (type == null || consumer == null)
 			return;
 		for (Entry<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataEntry : this.data.entrySet()) {
@@ -306,7 +404,7 @@ public class TrafficMap implements Serializable {
 
 	@FunctionalInterface
 	public static interface EntryConsumer<T> {
-		public void accept(T a, T b, Map<Protocol, Set<Integer>> protoMap);
+		public void accept(T a, T b, Map<Protocol, Set<Integer>> protoMap) throws IOException, InterruptedException;
 	}
 
 	public static class TrafficMapSnapshot {
@@ -349,7 +447,7 @@ public class TrafficMap implements Serializable {
 		public static IpAddress<?> unmarshal(String address) {
 			if ((address = Util.fixEmptyAndTrim(address)) == null)
 				return null;
-			final String[] arr = address.split("|");
+			final String[] arr = address.split("\\|");
 			if (arr.length != 2)
 				return null;
 			switch (arr[0]) {

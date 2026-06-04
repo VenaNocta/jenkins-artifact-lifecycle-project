@@ -57,6 +57,7 @@ public class IsolationContextComputerListener extends ComputerListener {
 			}
 		} catch (Exception e) {
 			listener.error("Failed to initialize IsolationContextHandler of Computer: " + computer.getDisplayName());
+			e.printStackTrace(listener.getLogger());
 		}
 	}
 }

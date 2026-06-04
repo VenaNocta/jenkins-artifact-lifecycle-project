@@ -68,7 +68,7 @@ public class NoOpIsolationContext implements IsolationContext {
 
 	@Override
 	public NetLink connectNetLink() {
-		return DefaultNetLink.createLoopback(true, true);
+		return DefaultNetLink.createLoopback(null, true, true);
 	}
 
 	@Override

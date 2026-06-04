@@ -17,17 +17,17 @@ package org.jenkinsci.plugins.isolationctx.config;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
-import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
+
+import org.jenkinsci.plugins.isolationctx.FirewallDelegate;
 import org.jenkinsci.plugins.isolationctx.handler.NodeIsolationHandler;
 
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import net.runeduniverse.lib.utils.net.api.IpAddress;
 import net.runeduniverse.lib.utils.net.api.IpNet4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet6Address;
 
-public interface NodeIsolationRuntime {
+public interface NodeIsolationRuntime extends FirewallDelegate {
 
 	public Node node();
 
@@ -47,29 +47,16 @@ public interface NodeIsolationRuntime {
 
 	public void setup(TaskListener listener) throws IOException, InterruptedException;
 
-	public IpNet4Address reserveIpv4Subnet(Run<?, ?> run);
-
-	public IpNet6Address reserveIpv6Subnet(Run<?, ?> run);
-
-	public void freeIpv4Subnet(IpNet4Address subnet);
-
-	public void freeIpv6Subnet(IpNet6Address subnet);
-
-	public void freeAllSubnetsOf(String extId);
-
-	public void firewallInputOpen(TrafficMap data, TaskListener listener) throws IOException, InterruptedException;
-
-	public void firewallInputRetainOpen(TrafficMap data, TaskListener listener)
+	public IpNet4Address reserveIpv4Subnet(Run<?, ?> run, TaskListener listener)
 			throws IOException, InterruptedException;
 
-	public void firewallInputCloseAll(TaskListener listener) throws IOException, InterruptedException;
-
-	public void firewallInputCloseAll(IpAddress<?> host, TaskListener listener)
+	public IpNet6Address reserveIpv6Subnet(Run<?, ?> run, TaskListener listener)
 			throws IOException, InterruptedException;
 
-	public void firewallInputCloseAll(IpAddress<?> host, IpAddress<?> external, TaskListener listener)
-			throws IOException, InterruptedException;
+	public void freeIpv4Subnet(IpNet4Address subnet, TaskListener listener) throws IOException, InterruptedException;
 
-	public void firewallInputClose(TrafficMap data, TaskListener listener) throws IOException, InterruptedException;
+	public void freeIpv6Subnet(IpNet6Address subnet, TaskListener listener) throws IOException, InterruptedException;
+
+	public void freeAllSubnetsOf(String extId, TaskListener listener) throws IOException, InterruptedException;
 
 }
