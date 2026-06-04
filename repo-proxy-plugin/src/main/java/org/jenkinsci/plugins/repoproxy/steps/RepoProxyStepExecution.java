@@ -20,7 +20,6 @@ import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -28,6 +27,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.jenkinsci.plugins.isolationctx.FirewallDelegate;
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.WorkflowUtils;
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
@@ -100,8 +100,8 @@ public class RepoProxyStepExecution extends StepExecution {
 		if (isoContext == null)
 			throw new RuntimeException("IsolationContext unavailable!");
 
-		this.link = isoContext.connectNetLink();
-		if (this.link == null)
+		final NetLink link = this.link = isoContext.connectNetLink();
+		if (link == null)
 			throw new RuntimeException("Failed to connect the Proxy to the IsolationContext!");
 
 		final Map<String, String> proxyEnv = new LinkedHashMap<>();
@@ -123,7 +123,7 @@ public class RepoProxyStepExecution extends StepExecution {
 					configs.put(entry.getValue(), config);
 			}
 
-			spawnProxies(proxyEnv, configs, proxyIps);
+			spawnProxies(link, proxyEnv, configs, proxyIps);
 		}
 
 		context.newBodyInvoker()
@@ -134,8 +134,9 @@ public class RepoProxyStepExecution extends StepExecution {
 		return false;
 	}
 
-	protected void spawnProxies(final Map<String, String> proxyEnv, final Map<String, ProxyConfig> configs,
-			final Set<IpAddress<?>> ips) throws IOException, InterruptedException {
+	protected void spawnProxies(final NetLink link, final Map<String, String> proxyEnv,
+			final Map<String, ProxyConfig> configs, final Set<IpAddress<?>> ips)
+			throws IOException, InterruptedException {
 		final StepContext context = getContext();
 		final FlowNode flowNode = context.get(FlowNode.class);
 		final TaskListener listener = context.get(TaskListener.class);
@@ -166,7 +167,7 @@ public class RepoProxyStepExecution extends StepExecution {
 			} while (this.activeNettyHandleCacheRefMap.containsValue(cacheRef));
 			// create new cachePath for bootstrap in context and call it
 			final ControllerToAgentFileCallable<UUID> callable = //
-					bootstrap.serverStartCallable(context, proxyEnv, listener);
+					bootstrap.serverStartCallable(link, context, proxyEnv, listener);
 			final FilePath dir = this.cacheFolder.child(cacheRef.toString());
 			dir.mkdirs();
 			this.activeNettyHandleCacheRefMap.put(dir.act(callable), cacheRef);
