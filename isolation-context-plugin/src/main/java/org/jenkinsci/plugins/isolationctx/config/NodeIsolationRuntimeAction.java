@@ -20,21 +20,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.UnknownHostException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-
+import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
 import org.jenkinsci.plugins.isolationctx.handler.NodeIsolationHandler;
 import org.jenkinsci.plugins.isolationctx.handler.NodeIsolationHandlerProvider;
 
@@ -48,7 +42,6 @@ import hudson.model.TaskListener;
 import jenkins.model.Jenkins;
 import net.runeduniverse.lib.utils.net.IpNetworkUtils;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
-import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
 import net.runeduniverse.lib.utils.net.api.IpNet4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet6Address;
@@ -68,8 +61,8 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 
 	protected final SortedSet<IpNet4Address> subnet4Stack;
 	protected final Map<IpNet4Address, String> subnet4Reservations;
-	// host-ip : source-ip : ports
-	protected final Map<Ip4Address, Map<Ip4Address, Set<Integer>>> openPorts4;
+	// host-ip : source-ip : protocol : ports
+	protected final TrafficMap openPorts;
 
 	protected IpNet4Address subnet4;
 	protected IpNet6Address subnet6;
@@ -78,24 +71,26 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 		this(owner,
 				// Ipv4
 				IpNetworkUtils.createIpNet4Address(new byte[] { (byte) 0xac, 0x14, 0x00, 0x01 }, (short) 16),
-				new TreeSet<>(), new LinkedHashMap<>(), new LinkedHashMap<>(), //
+				new TreeSet<>(), new LinkedHashMap<>(), //
 				// Ipv6
-				null);
+				null,
+				// open ports
+				new TrafficMap());
 	}
 
 	protected NodeIsolationRuntimeAction(final Node node, //
 			final IpNet4Address subnet4, final SortedSet<IpNet4Address> subnet4Stack,
 			final Map<IpNet4Address, String> subnet4Reservations, //
-			final Map<Ip4Address, Map<Ip4Address, Set<Integer>>> openPorts4, //
-			final IpNet6Address subnet6) {
+			final IpNet6Address subnet6, //
+			final TrafficMap openPorts) {
 		this.node = node;
 		// Ipv4
 		this.subnet4 = subnet4;
 		this.subnet4Stack = subnet4Stack;
 		this.subnet4Reservations = subnet4Reservations;
-		this.openPorts4 = openPorts4;
 		// Ipv6
 		this.subnet6 = subnet6;
+		this.openPorts = openPorts;
 	}
 
 	public Node node() {
@@ -145,11 +140,7 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 	@Override
 	public void setup(final TaskListener listener) throws IOException, InterruptedException {
 		isolationHandler().setup(listener);
-
-		final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data = new HashMap<>();
-		IpUtils.mergeTrafficMap(data, this.openPorts4);
-		// TODO add ipv6 openPorts
-		isolationHandler().firewallInputRetainOpen(data, listener);
+		isolationHandler().firewallInputRetainOpen(this.openPorts, listener);
 	}
 
 	public IpNet4Address reserveIpv4Subnet(final Run<?, ?> run) {
@@ -295,18 +286,19 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 
 		protected final List<String> subnet4Stack;
 		protected final Map<String, String> subnet4Reservations;
-		// host-ip : source-ip : ports
-		protected final Map<String, Map<String, Set<Integer>>> openPorts4;
+		// host-ip : source-ip : protocol : ports
+		protected final TrafficMap openPorts;
 
 		public NodeIsolationRuntimeSnapshot(//
 				final String subnet4, final List<String> subnet4Stack, //
-				final Map<String, String> subnet4Reservations, final Map<String, Map<String, Set<Integer>>> openPorts4, //
-				final String subnet6) {
+				final Map<String, String> subnet4Reservations, //
+				final String subnet6, //
+				final TrafficMap openPorts) {
 			this.subnet4 = subnet4;
 			this.subnet4Stack = subnet4Stack;
 			this.subnet4Reservations = subnet4Reservations;
-			this.openPorts4 = openPorts4;
 			this.subnet6 = subnet6;
+			this.openPorts = openPorts;
 		}
 
 		// XStream2 hook -> handles unmarshal on load()
@@ -316,14 +308,10 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 					IpNetUtils.IPNET4_PARSER.apply(this.subnet4),
 					IpNetUtils.unmarshalCol(TreeSet::new, this.subnet4Stack, IpNetUtils.IPNET4_PARSER),
 					IpNetUtils.unmarshalMapKeys(LinkedHashMap::new, this.subnet4Reservations, IpNetUtils.IPNET4_PARSER),
-					this.openPorts4.entrySet()
-							.stream()
-							.filter(Objects::nonNull)
-							.collect(Collectors.toMap(e -> IpUtils.IP4_PARSER.apply(e.getKey()),
-									e -> IpUtils.unmarshalMapKeys(LinkedHashMap::new, e.getValue(),
-											IpUtils.IP4_PARSER))),
 					// Ipv6
-					IpNetUtils.IPNET6_PARSER.apply(this.subnet6));
+					IpNetUtils.IPNET6_PARSER.apply(this.subnet6),
+					// open ports
+					this.openPorts);
 		}
 
 		public static NodeIsolationRuntimeSnapshot marshal(final NodeIsolationRuntimeAction prop) {
@@ -331,104 +319,51 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 					// Ipv4
 					prop.subnet4 == null ? null : prop.subnet4.toCidrNotation(),
 					IpNetUtils.marshalCol(prop.subnet4Stack), IpNetUtils.marshalMapKeys(prop.subnet4Reservations),
-					prop.openPorts4.entrySet()
-							.stream()
-							.collect(Collectors.toMap(e -> e.getKey()
-									.toCidrNotation(), e -> IpUtils.marshalMapKeys(e.getValue()))),
 					// Ipv6
-					prop.subnet6 == null ? null : prop.subnet6.toCidrNotation());
+					prop.subnet6 == null ? null : prop.subnet6.toCidrNotation(),
+					// open ports
+					prop.openPorts);
 		}
 	}
 
 	@Override
-	public void firewallInputOpen(final IpAddress<?> host, final IpAddress<?> external, final Set<Integer> ports,
-			final TaskListener listener) throws IOException, InterruptedException {
-		if (host == null || external == null || ports == null || ports.isEmpty())
+	public void firewallInputOpen(final TrafficMap data, final TaskListener listener)
+			throws IOException, InterruptedException {
+		if (data == null)
 			return;
-
 		synchronized (this.lockPorts) {
-			if (host instanceof Ip4Address host4 && external instanceof Ip4Address ext4) {
-				this.openPorts4.computeIfAbsent(host4, k -> new HashMap<>())
-						.computeIfAbsent(ext4, k -> new HashSet<>())
-						.addAll(ports);
-			} else if (host instanceof Ip6Address host6 && external instanceof Ip6Address ext6) {
-				// TODO implement
-			} else
-				return;
+			this.openPorts.add(data);
 		}
-
-		isolationHandler().firewallInputOpen(host, external, ports, listener);
+		isolationHandler().firewallInputOpen(data, listener);
 	}
 
 	@Override
-	public void firewallInputOpen(final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data,
-			final TaskListener listener) throws IOException, InterruptedException {
-		final Map<Ip4Address, Map<Ip4Address, Set<Integer>>> data4 = new HashMap<>();
-		final Map<Ip6Address, Map<Ip6Address, Set<Integer>>> data6 = new HashMap<>();
-
+	public void firewallInputRetainOpen(final TrafficMap data, final TaskListener listener)
+			throws IOException, InterruptedException {
+		if (data == null)
+			return;
 		synchronized (this.lockPorts) {
-			IpUtils.interateTrafficMap(data, //
-					/* v4 */ (host, ext, portsToOpen) -> {
-						final Set<Integer> openPorts = this.openPorts4.computeIfAbsent(host, k -> new HashMap<>())
-								.getOrDefault(ext, Collections.emptySet());
-						portsToOpen.removeAll(openPorts);
-
-						if (portsToOpen.isEmpty())
-							return;
-
-						openPorts.addAll(portsToOpen);
-						data4.computeIfAbsent(host, k -> new HashMap<>())
-								.computeIfAbsent(ext, k -> new HashSet<>())
-								.addAll(portsToOpen);
-					}, /* v6 */ (host, ext, ports) -> {
-						// TODO implement openPorts6
-					});
+			this.openPorts.clear();
+			this.openPorts.add(data);
 		}
-
-		// probably faster to rebuild the cleanData Map instead of filtering it
-		final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> cleanData = new HashMap<>();
-		IpUtils.mergeTrafficMap(cleanData, data4);
-		IpUtils.mergeTrafficMap(cleanData, data6);
-
-		isolationHandler().firewallInputOpen(cleanData, listener);
+		isolationHandler().firewallInputRetainOpen(data, listener);
 	}
 
 	@Override
-	public void firewallInputRetainOpen(final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data,
-			final TaskListener listener) throws IOException, InterruptedException {
-		final Map<Ip4Address, Map<Ip4Address, Set<Integer>>> data4 = new HashMap<>();
-		final Map<Ip6Address, Map<Ip6Address, Set<Integer>>> data6 = new HashMap<>();
-
-		IpUtils.interateTrafficMap(data, //
-				/* v4 */ (host, ext, ports) -> {
-					data4.computeIfAbsent(host, k -> new HashMap<>())
-							.computeIfAbsent(ext, k -> new HashSet<>())
-							.addAll(ports);
-				}, /* v6 */ (host, ext, ports) -> {
-					data6.computeIfAbsent(host, k -> new HashMap<>())
-							.computeIfAbsent(ext, k -> new HashSet<>())
-							.addAll(ports);
-				});
-
+	public void firewallInputClose(final TrafficMap data, final TaskListener listener)
+			throws IOException, InterruptedException {
+		if (data == null)
+			return;
 		synchronized (this.lockPorts) {
-			this.openPorts4.clear();
-			this.openPorts4.putAll(data4);
-			// TODO implement openPorts6
+			this.openPorts.remove(data);
 		}
-
-		// probably faster to rebuild the cleanData Map instead of filtering it
-		final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> cleanData = new HashMap<>();
-		IpUtils.mergeTrafficMap(cleanData, data4);
-		IpUtils.mergeTrafficMap(cleanData, data6);
-
-		isolationHandler().firewallInputOpen(cleanData, listener);
+		isolationHandler().firewallInputClose(data, listener);
 	}
 
 	@Override
 	public void firewallInputCloseAll(final TaskListener listener) throws IOException, InterruptedException {
 		synchronized (this.lockPorts) {
-			this.openPorts4.clear();
-			// TODO implement openPorts6
+			this.openPorts.clear();
 		}
 		isolationHandler().firewallInputCloseAll(listener);
 	}
@@ -436,15 +371,9 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 	@Override
 	public void firewallInputCloseAll(final IpAddress<?> host, final TaskListener listener)
 			throws IOException, InterruptedException {
-		final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data = new HashMap<>();
+		final TrafficMap data = new TrafficMap();
 		synchronized (this.lockPorts) {
-			if (host instanceof Ip4Address host4) {
-				final Map<Ip4Address, Set<Integer>> inner = this.openPorts4.remove(host4);
-				IpUtils.mergeInnerTrafficMap(data.computeIfAbsent(host, k -> new HashMap<>()), inner);
-			} else if (host instanceof Ip6Address host6) {
-				// TODO implement openPorts6
-			} else
-				return;
+			data.add(host, this.openPorts.removeAll(host));
 		}
 		isolationHandler().firewallInputClose(data, listener);
 	}
@@ -452,78 +381,10 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 	@Override
 	public void firewallInputCloseAll(final IpAddress<?> host, final IpAddress<?> external, final TaskListener listener)
 			throws IOException, InterruptedException {
-		final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data = new HashMap<>();
-		Set<Integer> ports = null;
+		final TrafficMap data = new TrafficMap();
 		synchronized (this.lockPorts) {
-			if (host instanceof Ip4Address host4 && external instanceof Ip4Address ext4) {
-				final Map<Ip4Address, Set<Integer>> inner = this.openPorts4.get(host4);
-				if (inner == null || inner.isEmpty())
-					return;
-				ports = inner.remove(ext4);
-			} else if (host instanceof Ip6Address host6 && external instanceof Ip6Address ext6) {
-				// TODO implement openPorts6
-			}
+			data.add(host, external, this.openPorts.removeAll(host, external));
 		}
-		if (ports == null || ports.isEmpty())
-			return;
-		data.computeIfAbsent(host, k -> new HashMap<>())
-				.put(external, ports);
 		isolationHandler().firewallInputClose(data, listener);
-	}
-
-	@Override
-	public void firewallInputClose(final IpAddress<?> host, final IpAddress<?> external, final Set<Integer> ports,
-			final TaskListener listener) throws IOException, InterruptedException {
-		if (host == null || external == null || ports == null || ports.isEmpty())
-			return;
-
-		Set<Integer> openPortsRef = null;
-		synchronized (this.lockPorts) {
-			if (host instanceof Ip4Address host4 && external instanceof Ip4Address ext4) {
-				final Map<Ip4Address, Set<Integer>> inner = this.openPorts4.get(host4);
-				if (inner == null || inner.isEmpty())
-					return;
-				openPortsRef = inner.get(ext4);
-			} else if (host instanceof Ip6Address host6 && external instanceof Ip6Address ext6) {
-				// TODO implement openPorts6
-			}
-		}
-		if (openPortsRef != null && !openPortsRef.isEmpty()) {
-			openPortsRef.removeAll(ports);
-		}
-		isolationHandler().firewallInputClose(host, external, ports, listener);
-	}
-
-	@Override
-	public void firewallInputClose(final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data,
-			final TaskListener listener) throws IOException, InterruptedException {
-		final Map<Ip4Address, Map<Ip4Address, Set<Integer>>> data4 = new HashMap<>();
-		final Map<Ip6Address, Map<Ip6Address, Set<Integer>>> data6 = new HashMap<>();
-
-		synchronized (this.lockPorts) {
-			IpUtils.interateTrafficMap(data, //
-					/* v4 */ (host, ext, portsToClose) -> {
-						final Set<Integer> openPorts = this.openPorts4.computeIfAbsent(host, k -> new HashMap<>())
-								.getOrDefault(ext, Collections.emptySet());
-						portsToClose.retainAll(openPorts);
-
-						if (portsToClose.isEmpty())
-							return;
-
-						openPorts.removeAll(portsToClose);
-						data4.computeIfAbsent(host, k -> new HashMap<>())
-								.computeIfAbsent(ext, k -> new HashSet<>())
-								.addAll(portsToClose);
-					}, /* v6 */ (host, ext, ports) -> {
-						// TODO implement openPorts6
-					});
-		}
-
-		// probably faster to rebuild the cleanData Map instead of filtering it
-		final Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> cleanData = new HashMap<>();
-		IpUtils.mergeTrafficMap(cleanData, data4);
-		IpUtils.mergeTrafficMap(cleanData, data6);
-
-		isolationHandler().firewallInputClose(cleanData, listener);
 	}
 }

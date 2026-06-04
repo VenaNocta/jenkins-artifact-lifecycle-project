@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.isolationctx.dto;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -239,7 +240,30 @@ public class TrafficMap implements Serializable {
 		this.data.clear();
 	}
 
-	public <A extends IpAddress<?>> void interateEntries(final Class<A> type, final EntryConsumer<A> consumer) {
+	public void forEach(final EntryConsumer<IpAddress<?>> consumer) {
+		if (consumer == null)
+			return;
+		for (Entry<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataEntry : this.data.entrySet()) {
+			// inner map
+			final IpAddress<?> ipA = dataEntry.getKey();
+			final Map<IpAddress<?>, Map<Protocol, Set<Integer>>> innerMap = dataEntry.getValue();
+			if (innerMap.isEmpty())
+				continue;
+
+			for (Entry<IpAddress<?>, Map<Protocol, Set<Integer>>> innerEntry : innerMap.entrySet()) {
+				final IpAddress<?> ipB = innerEntry.getKey();
+				// copy map
+				final Map<Protocol, Set<Integer>> protoMap = innerEntry.getValue()
+						.entrySet()
+						.stream()
+						.collect(Collectors.toMap(Map.Entry::getKey, e -> new HashSet<>(e.getValue())));
+				// protocol map
+				consumer.accept(ipA, ipB, protoMap);
+			}
+		}
+	}
+
+	public <A extends IpAddress<?>> void forEach(final Class<A> type, final EntryConsumer<A> consumer) {
 		if (type == null || consumer == null)
 			return;
 		for (Entry<IpAddress<?>, Map<IpAddress<?>, Map<Protocol, Set<Integer>>>> dataEntry : this.data.entrySet()) {
@@ -251,9 +275,12 @@ public class TrafficMap implements Serializable {
 
 			for (Entry<IpAddress<?>, Map<Protocol, Set<Integer>>> innerEntry : innerMap.entrySet()) {
 				final IpAddress<?> ipB = innerEntry.getKey();
-				final Map<Protocol, Set<Integer>> protoMap = innerEntry.getValue();
+				// copy map
+				final Map<Protocol, Set<Integer>> protoMap = innerEntry.getValue()
+						.entrySet()
+						.stream()
+						.collect(Collectors.toMap(Map.Entry::getKey, e -> new HashSet<>(e.getValue())));
 				// protocol map
-
 				if (type.isAssignableFrom(getIpType(ipA.getClass(), ipB.getClass())))
 					consumer.accept((A) ipA, (A) ipB, protoMap);
 			}
@@ -278,8 +305,8 @@ public class TrafficMap implements Serializable {
 	}
 
 	@FunctionalInterface
-	public static interface EntryConsumer<A extends IpAddress<?>> {
-		public void accept(A a, A b, Map<Protocol, Set<Integer>> protoMap);
+	public static interface EntryConsumer<T> {
+		public void accept(T a, T b, Map<Protocol, Set<Integer>> protoMap);
 	}
 
 	public static class TrafficMapSnapshot {

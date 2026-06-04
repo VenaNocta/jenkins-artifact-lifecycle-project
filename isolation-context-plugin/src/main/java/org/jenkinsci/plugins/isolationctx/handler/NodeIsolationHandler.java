@@ -16,11 +16,9 @@
 package org.jenkinsci.plugins.isolationctx.handler;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.Set;
+import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
 
 import hudson.model.TaskListener;
-import net.runeduniverse.lib.utils.net.api.IpAddress;
 
 public interface NodeIsolationHandler {
 
@@ -30,21 +28,13 @@ public interface NodeIsolationHandler {
 
 	public void shutdown(TaskListener listener) throws IOException, InterruptedException;
 
-	public void firewallInputOpen(IpAddress<?> host, IpAddress<?> external, Set<Integer> ports, TaskListener listener)
+	public void firewallInputOpen(TrafficMap data, TaskListener listener) throws IOException, InterruptedException;
+
+	public void firewallInputRetainOpen(TrafficMap data, TaskListener listener)
 			throws IOException, InterruptedException;
 
-	public void firewallInputOpen(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
-			throws IOException, InterruptedException;
-
-	public void firewallInputRetainOpen(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
-			throws IOException, InterruptedException;
+	public void firewallInputClose(TrafficMap data, TaskListener listener) throws IOException, InterruptedException;
 
 	public void firewallInputCloseAll(TaskListener listener) throws IOException, InterruptedException;
-
-	public void firewallInputClose(IpAddress<?> host, IpAddress<?> external, Set<Integer> ports, TaskListener listener)
-			throws IOException, InterruptedException;
-
-	public void firewallInputClose(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
-			throws IOException, InterruptedException;
 
 }

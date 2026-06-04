@@ -18,13 +18,12 @@ package org.jenkinsci.plugins.isolationctx.handler;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jenkinsci.plugins.isolationctx.Scripts;
+import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
@@ -34,7 +33,6 @@ import hudson.model.Node;
 import hudson.model.TaskListener;
 import hudson.util.ArgumentListBuilder;
 import jenkins.util.io.OnMaster;
-import net.runeduniverse.lib.utils.net.api.IpAddress;
 
 public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 
@@ -106,22 +104,20 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 	}
 
 	@Override
-	public void firewallInputOpen(IpAddress<?> host, IpAddress<?> external, Set<Integer> ports, TaskListener listener)
+	public void firewallInputOpen(TrafficMap data, TaskListener listener) throws IOException, InterruptedException {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void firewallInputRetainOpen(TrafficMap data, TaskListener listener)
 			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public void firewallInputOpen(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
-			throws IOException, InterruptedException {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void firewallInputRetainOpen(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
-			throws IOException, InterruptedException {
+	public void firewallInputClose(TrafficMap data, TaskListener listener) throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 
 	}
@@ -132,17 +128,4 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 
 	}
 
-	@Override
-	public void firewallInputClose(IpAddress<?> host, IpAddress<?> external, Set<Integer> ports, TaskListener listener)
-			throws IOException, InterruptedException {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void firewallInputClose(Map<IpAddress<?>, Map<IpAddress<?>, Set<Integer>>> data, TaskListener listener)
-			throws IOException, InterruptedException {
-		// TODO Auto-generated method stub
-
-	}
 }
