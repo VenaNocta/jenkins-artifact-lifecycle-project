@@ -15,6 +15,8 @@
  */
 package org.jenkinsci.plugins.isolationctx.hooks;
 
+import java.io.IOException;
+
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.config.IsolationContextAction;
 import org.jenkinsci.plugins.isolationctx.config.IsolationProperty;
@@ -30,7 +32,7 @@ import hudson.model.listeners.RunListener;
 public class IsolationContextRunListener extends RunListener<Run<?, ?>> {
 
 	@Override
-	public void onStarted(Run<?, ?> run, TaskListener listener) {
+	public void onStarted(final Run<?, ?> run, final TaskListener listener) {
 		if (!isIsolationForced(run) || run.getAction(IsolationContextAction.class) != null)
 			return;
 
@@ -41,9 +43,13 @@ public class IsolationContextRunListener extends RunListener<Run<?, ?>> {
 	@Override
 	public void onCompleted(final Run<?, ?> run, final TaskListener listener) {
 		final IsolationContextAction action = run.getAction(IsolationContextAction.class);
-		if (action != null) {
-			action.getContext()
-					.destroy();
+		try {
+			if (action != null) {
+				action.getContext()
+						.destroy();
+			}
+		} catch (IOException | InterruptedException e) {
+			e.printStackTrace(listener.getLogger());
 		}
 	}
 

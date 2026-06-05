@@ -17,6 +17,8 @@ package org.jenkinsci.plugins.isolationctx.ctx;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.net.UnixDomainSocketAddress;
@@ -33,6 +35,8 @@ import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
@@ -44,9 +48,12 @@ import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
 import com.google.common.io.Files;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.FilePath;
 import hudson.FilePath.FileCallable;
+import hudson.Launcher.ProcStarter;
 import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
@@ -54,8 +61,12 @@ import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.Future;
+import hudson.remoting.RemoteInputStream;
+import hudson.remoting.RemoteOutputStream;
 import hudson.remoting.VirtualChannel;
+import hudson.util.LogTaskListener;
 import jenkins.MasterToSlaveFileCallable;
+import jenkins.agents.ControllerToAgentFileCallable;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
 import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
@@ -63,9 +74,10 @@ import net.runeduniverse.lib.utils.net.api.IpNet4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet6Address;
 import net.runeduniverse.lib.utils.net.api.IpNetAddress;
 
-public class LinuxNamespaceContext implements IsolationContext {
+public class LinuxNodeNamespaceContext implements IsolationContext {
 
 	private static final long serialVersionUID = 1L;
+	private static final Logger LOGGER = Logger.getLogger(LinuxNodeNamespaceContext.class.getName());
 
 	public static final String TEMPL_LINE = "[ Linux-Namespace » %d ] %s";
 
@@ -82,8 +94,9 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 	protected transient final SortedMap<Integer, LnxNetLink> _activeLinks = new TreeMap<>();
 	protected transient CompletableFuture<LnxIdentity> _lnxIdentityFuture = null;
+	protected transient TaskListener _logListener = null;
 
-	public LinuxNamespaceContext(final Run<?, ?> run, final Node node, final WorkspaceAction ws,
+	public LinuxNodeNamespaceContext(final Run<?, ?> run, final Node node, final WorkspaceAction ws,
 			final TaskListener listener) {
 		this.factory = new DecoratorFactory(this);
 		this.run = run;
@@ -103,38 +116,22 @@ public class LinuxNamespaceContext implements IsolationContext {
 		if (this._lnxIdentityFuture != null)
 			return this._lnxIdentityFuture;
 
-		final CompletableFuture<LnxIdentity> future = new CompletableFuture<>();
+		this._lnxIdentityFuture = new CompletableFuture<>();
 		final LnxIdentity id = new LnxIdentity();
-
-		final CompletableFuture<?>[] lst = new CompletableFuture[3];
 
 		try {
 			// get user
-			lst[0] = actInContext(new ExecRemoteProcess(Arrays.asList("id", "-r", "--user")))
-					.thenApply(LinuxNamespaceContext::outputToString)
-					.thenAccept(id::setUser);
+			id.setUser(outputToString(wsExecAndJoinCmd(Arrays.asList("id", "-r", "--user"), true)));
 			// get group
-			lst[1] = actInContext(new ExecRemoteProcess(Arrays.asList("id", "-r", "--group")))
-					.thenApply(LinuxNamespaceContext::outputToString)
-					.thenAccept(id::setGroup);
+			id.setGroup(outputToString(wsExecAndJoinCmd(Arrays.asList("id", "-r", "--group"), true)));
 			// get groups
-			lst[2] = actInContext(new ExecRemoteProcess(Arrays.asList("id", "-r", "--groups")))
-					.thenApply(LinuxNamespaceContext::outputToString)
-					.thenApply(s -> s.split(" "))
-					.thenAccept(id::setGroups);
+			id.setGroups(outputToString(wsExecAndJoinCmd(Arrays.asList("id", "-r", "--groups"), true)).split(" "));
+
+			this._lnxIdentityFuture.complete(id);
 		} catch (IOException | InterruptedException e) {
-			future.completeExceptionally(e);
+			this._lnxIdentityFuture.completeExceptionally(e);
 		}
-
-		CompletableFuture.allOf(lst)
-				.handle((result, error) -> {
-					if (error != null)
-						future.completeExceptionally(error);
-					future.complete(id);
-					return null;
-				});
-
-		return this._lnxIdentityFuture = future;
+		return this._lnxIdentityFuture;
 	}
 
 	public LnxIdentity lnxIdentity() throws Throwable {
@@ -154,6 +151,20 @@ public class LinuxNamespaceContext implements IsolationContext {
 		return null;
 	}
 
+	public synchronized TaskListener logListener() {
+		if (this._logListener != null)
+			return _logListener;
+		try {
+			return _logListener = getNodeRuntime().isolationHandler()
+					.logTaskListener();
+		} catch (Throwable e) {
+			this._logListener = new LogTaskListener(LOGGER, Level.INFO);
+			this._logListener.error("Failed to create Remote-Logger, redirection activated!");
+			e.printStackTrace(this._logListener.getLogger());
+			return this._logListener;
+		}
+	}
+
 	public List<String> nsenterCmd() throws Throwable {
 		final List<String> cmd = new ArrayList<>();
 
@@ -162,7 +173,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 		// sudo nsenter --target=75008 --mount --uts --ipc --net --pid --
 		cmd.add("sudo");
 		cmd.add("nsenter");
-		cmd.add("--target=" + LinuxNamespaceContext.this.processId);
+		cmd.add("--target=" + LinuxNodeNamespaceContext.this.processId);
 		cmd.add("--mount");
 		cmd.add("--uts");
 		cmd.add("--ipc");
@@ -202,7 +213,8 @@ public class LinuxNamespaceContext implements IsolationContext {
 		if (this.processId != -1)
 			return;
 
-		final PrintStream log = this.listener.getLogger();
+		final PrintStream pipeLog = this.listener.getLogger();
+		final PrintStream nodeLog = logListener().getLogger();
 
 		final List<String> cmd = new ArrayList<>();
 
@@ -233,15 +245,13 @@ public class LinuxNamespaceContext implements IsolationContext {
 					.mkdirs();
 			this.envCachePath.mkdirs();
 
-			ExecRemoteProcess remoteProcess = new ExecRemoteProcess(cmd);
-			CompletableFuture<Process> future = this.ws.getWorkspace()
-					.act(remoteProcess);
-			this.processId = remoteProcess.processId();
-			future.thenAccept(p -> logProcessException(p, 137));
-
+			final RemoteProcess2 process2 = this.ws.getWorkspace()
+					.act(new ExecRemoteProcess(cmd));
+			this.processId = process2.pid();
+			// expected exit code, post kill all: 137
 		} catch (IOException | InterruptedException e) {
-			log.println("[Linux-Namespace] Failed to start isolated environment!");
-			e.printStackTrace(log);
+			pipeLog.println("[Linux-Namespace] Failed to start isolated environment!");
+			e.printStackTrace(nodeLog);
 			return;
 		}
 
@@ -254,11 +264,11 @@ public class LinuxNamespaceContext implements IsolationContext {
 			netCmd.add("lo");
 			netCmd.add("up");
 
-			actInContext(new ExecRemoteProcess(netCmd).await(true)).thenAccept(this::logProcessException);
+			wsExecAndJoinCmd(netCmd, true);
 
 		} catch (Throwable e) {
-			log.println(String.format(TEMPL_LINE, this.processId, "Network Setup Failed!"));
-			e.printStackTrace(log);
+			pipeLog.println(String.format(TEMPL_LINE, this.processId, "Network Setup Failed!"));
+			e.printStackTrace(nodeLog);
 			return;
 		}
 
@@ -266,7 +276,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 		// log.println("Run Subnet: " + link.getHostIfaceName() + " - "
 		// + link.getSubnetV4().toCidrNotation());
 
-		log.println(String.format(TEMPL_LINE, this.processId, "Started isolated environment"));
+		pipeLog.println(String.format(TEMPL_LINE, this.processId, "Started isolated environment"));
 	}
 
 	@Override
@@ -274,21 +284,23 @@ public class LinuxNamespaceContext implements IsolationContext {
 		if (this.processId == -1)
 			return;
 
-		final PrintStream log = this.listener.getLogger();
+		final PrintStream pipeLog = this.listener.getLogger();
+		final PrintStream nodeLog = logListener().getLogger();
 
 		// Kill process tree
 		try {
 			final ExecRemoteProcess remoteProcess = new ExecRemoteProcess(
 					Arrays.asList("kill", "-KILL", "-" + this.processId));
 			this.ws.getWorkspace()
-					.act(remoteProcess.await(true));
+					.act(remoteProcess)
+					.join();
 			this.envCachePath.deleteRecursive();
 
-			log.println(String.format(TEMPL_LINE, this.processId, "Stopped isolated environment"));
+			pipeLog.println(String.format(TEMPL_LINE, this.processId, "Stopped isolated environment"));
 			this.processId = -1;
 		} catch (InterruptedException | IOException e) {
-			log.println(String.format(TEMPL_LINE, this.processId, "Failed to stop isolated environment!"));
-			e.printStackTrace(log);
+			pipeLog.println(String.format(TEMPL_LINE, this.processId, "Failed to stop isolated environment!"));
+			e.printStackTrace(nodeLog);
 		}
 
 		// Cleanup active LnxLinks
@@ -299,7 +311,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 					// Remove veth interfaces
 					disconnectNetLink(link);
 				} catch (IOException | InterruptedException e) {
-					e.printStackTrace(this.listener.getLogger());
+					e.printStackTrace(nodeLog);
 				}
 			}
 		}
@@ -335,6 +347,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
 		if (nodeRuntime == null)
 			return null;
+		final TaskListener nodeLog = logListener();
 
 		synchronized (this.linkLock) {
 			int linkNum = this._activeLinks.isEmpty() ? 0 : this._activeLinks.lastKey() + 1;
@@ -344,7 +357,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 			final Set<IpAddress<?>> hostIpSet = new LinkedHashSet<>();
 			final Set<IpNetAddress<?, ?>> subnetSet = new LinkedHashSet<>();
-			final IpNet4Address subnet4 = nodeRuntime.reserveIpv4Subnet(this.run, this.listener);
+			final IpNet4Address subnet4 = nodeRuntime.reserveIpv4Subnet(this.run, nodeLog);
 			Ip4Address hostAddr4 = null, contextAddr4 = null;
 			if (subnet4 != null) {
 				hostAddr4 = subnet4.getLowestAddress()
@@ -355,7 +368,7 @@ public class LinuxNamespaceContext implements IsolationContext {
 				subnetSet.add(subnet4);
 			}
 
-			final IpNet6Address subnet6 = nodeRuntime.reserveIpv6Subnet(this.run, this.listener);
+			final IpNet6Address subnet6 = nodeRuntime.reserveIpv6Subnet(this.run, nodeLog);
 			Ip6Address hostAddr6 = null, contextAddr6 = null;
 			if (subnet6 != null) {
 				hostAddr6 = subnet6.getLowestAddress()
@@ -377,54 +390,54 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 			try {
 
-				actInContext(new ExecRemoteProcess(//
+				wsExecAndJoinCmd(//
 						Arrays.asList("sudo", "ip", "link", "add", hostIfaceName, "type", "veth", "peer", "name",
 								contextIfaceName)//
-				).await(true)).thenAccept(this::logProcessException);
-				actInContext(new ExecRemoteProcess(//
+						, true);
+				wsExecAndJoinCmd(//
 						Arrays.asList("sudo", "ip", "link", "set", contextIfaceName, "netns",
 								Long.toString(this.processId))//
-				).await(true)).thenAccept(this::logProcessException);
+						, true);
 				if (subnet4 != null) {
-					actInContext(new ExecRemoteProcess(//
+					wsExecAndJoinCmd(//
 							Arrays.asList("sudo", "ip", "addr", "add", link.getHostAddressV4()
 									.toCidrNotation() + "/30", "dev", hostIfaceName)//
-					).await(true)).thenAccept(this::logProcessException);
+							, true);
 				}
 				if (subnet6 != null) {
-					actInContext(new ExecRemoteProcess(//
+					wsExecAndJoinCmd(//
 							Arrays.asList("sudo", "ip", "addr", "add", link.getHostAddressV6()
 									.toCidrNotation() + "/126", "dev", hostIfaceName)//
-					).await(true)).thenAccept(this::logProcessException);
+							, true);
 				}
-				actInContext(new ExecRemoteProcess(//
+				wsExecAndJoinCmd(//
 						Arrays.asList("sudo", "ip", "link", "set", hostIfaceName, "up")//
-				).await(true)).thenAccept(this::logProcessException);
+						, true);
 				List<String> cmd;
 				if (subnet4 != null) {
 					cmd = nsenterNetCmd(this.processId);
 					cmd.addAll(Arrays.asList("ip", "addr", "add", link.getContextAddressV4()
 							.toCidrNotation() + "/30", "dev", contextIfaceName));
-					actInContext(new ExecRemoteProcess(cmd).await(true)).thenAccept(this::logProcessException);
+					wsExecAndJoinCmd(cmd, true);
 				}
 				if (subnet6 != null) {
 					cmd = nsenterNetCmd(this.processId);
 					cmd.addAll(Arrays.asList("ip", "addr", "add", link.getContextAddressV6()
 							.toCidrNotation() + "/126", "dev", contextIfaceName));
-					actInContext(new ExecRemoteProcess(cmd).await(true)).thenAccept(this::logProcessException);
+					wsExecAndJoinCmd(cmd, true);
 				}
 				cmd = nsenterNetCmd(this.processId);
 				cmd.addAll(Arrays.asList("ip", "link", "set", contextIfaceName, "up"));
-				actInContext(new ExecRemoteProcess(cmd).await(true)).thenAccept(this::logProcessException);
+				wsExecAndJoinCmd(cmd, true);
 
 				if (nodeRuntime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
-					handler.networkHostInterfaceAdd(Set.of(hostIfaceName), this.listener);
+					handler.networkHostInterfaceAdd(Set.of(hostIfaceName), nodeLog);
 				}
 			} catch (InterruptedException | IOException e) {
-				final PrintStream log = this.listener.getLogger();
-				log.println(String.format(TEMPL_LINE, this.processId,
+				final PrintStream pipeLog = this.listener.getLogger();
+				pipeLog.println(String.format(TEMPL_LINE, this.processId,
 						"Failed to connect host-only veth-link to isolated environment!"));
-				e.printStackTrace(log);
+				e.printStackTrace(pipeLog);
 
 				disconnectNetLink(link);
 				return null;
@@ -440,42 +453,72 @@ public class LinuxNamespaceContext implements IsolationContext {
 		final LnxNetLink link = (LnxNetLink) anyLink;
 		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
 
+		final TaskListener nodeLog = logListener();
+
 		synchronized (this.linkLock) {
 			if (!this._activeLinks.containsValue(link))
 				return;
 
 			try {
-				actInContext(new ExecRemoteProcess(//
-						Arrays.asList("sudo", "ip", "link", "del", link.getHostIfaceName())//
-				).await(true));
+				wsExecAndJoinCmd(Arrays.asList("sudo", "ip", "link", "del", link.getHostIfaceName()), true);
 
 				if (nodeRuntime != null) {
-					nodeRuntime.freeIpv4Subnet(link.getSubnetV4(), this.listener);
-					nodeRuntime.freeIpv6Subnet(link.getSubnetV6(), this.listener);
+					nodeRuntime.freeIpv4Subnet(link.getSubnetV4(), nodeLog);
+					nodeRuntime.freeIpv6Subnet(link.getSubnetV6(), nodeLog);
 				}
 			} finally {
 				if (nodeRuntime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
-					handler.networkHostInterfaceRemove(Set.of(link.getHostIfaceName()), this.listener);
+					handler.networkHostInterfaceRemove(Set.of(link.getHostIfaceName()), nodeLog);
 				}
 			}
 		}
 	}
 
-	protected void logProcessException(final Process process) {
-		logProcessException(process, 0);
+	protected Proc wsExecAndJoinCmd(final List<String> cmd, final boolean readStderr)
+			throws IOException, InterruptedException {
+		return wsExecAndJoinCmd(cmd, readStderr, 0);
 	}
 
-	protected void logProcessException(final Process process, final int expectedExitCode) {
-		final PrintStream log = this.listener.getLogger();
-		final int exitCode = process.exitValue();
+	protected Proc wsExecAndJoinCmd(final List<String> cmd, final boolean readStderr, final int expectedExitCode)
+			throws IOException, InterruptedException {
+		final ProcStarter procStarter = getWorkspace().createLauncher(logListener())
+				.launch()
+				.cmds(cmd)
+				.readStdout();
+		if (readStderr)
+			procStarter.readStderr();
+
+		final Proc proc = procStarter.start();
+		if (readStderr)
+			joinAndLogProcessException(proc, expectedExitCode);
+		else
+			proc.join();
+		return proc;
+	}
+
+	protected void joinAndLogProcessException(final Proc process, final int expectedExitCode)
+			throws IOException, InterruptedException {
+		final PrintStream nodeLog = logListener().getLogger();
+		final int exitCode = process.join();
 		if (exitCode == expectedExitCode)
 			return;
-		log.println("exitCode=" + exitCode);
+		nodeLog.println("exitCode=" + exitCode);
 		try {
-			process.getInputStream()
-					.transferTo(log);
+			final InputStream errStream = process.getStderr();
+			if (errStream == null)
+				return;
+			errStream.transferTo(nodeLog);
 		} catch (IOException e) {
-			e.printStackTrace(log);
+			e.printStackTrace(nodeLog);
+		}
+	}
+
+	protected static String outputToString(final Proc proc) {
+		try {
+			return new String(proc.getStdout()
+					.readAllBytes()).trim();
+		} catch (IOException e) {
+			throw new CompletionException(e);
 		}
 	}
 
@@ -492,9 +535,9 @@ public class LinuxNamespaceContext implements IsolationContext {
 
 		private static final long serialVersionUID = 1L;
 
-		private final LinuxNamespaceContext ctx;
+		private final LinuxNodeNamespaceContext ctx;
 
-		protected DecoratorFactory(final LinuxNamespaceContext lnxContext) {
+		protected DecoratorFactory(final LinuxNodeNamespaceContext lnxContext) {
 			this.ctx = lnxContext;
 		}
 
@@ -585,22 +628,34 @@ public class LinuxNamespaceContext implements IsolationContext {
 		}
 	}
 
-	public static class ExecRemoteProcess extends MasterToSlaveFileCallable<CompletableFuture<Process>> {
+	public static class IOTriplet2 extends Launcher.IOTriplet {
+		@CheckForNull
+		public InputStream stdout, stderr;
+		@CheckForNull
+		public OutputStream stdin;
+		private static final long serialVersionUID = 1L;
+	}
+
+	public static interface RemoteProcess2 extends Launcher.RemoteProcess {
+
+		public long pid();
+
+		@NonNull
+		IOTriplet2 getIOtriplet();
+	}
+
+	public static class ExecRemoteProcess implements ControllerToAgentFileCallable<RemoteProcess2> {
 
 		private static final long serialVersionUID = 1L;
 
 		protected final List<String> cmd;
-
-		protected boolean await = false;
-		protected long processId = -1;
 
 		public ExecRemoteProcess(final List<String> cmd) {
 			this.cmd = cmd;
 		}
 
 		@Override
-		// TODO check if Future survives Master Agent transmission ... I expect failure!
-		public CompletableFuture<Process> invoke(File wsDir, VirtualChannel channel)
+		public RemoteProcess2 invoke(final File wsDir, final VirtualChannel channel)
 				throws IOException, InterruptedException {
 			final ProcessBuilder pb = new ProcessBuilder(cmd);
 
@@ -613,19 +668,44 @@ public class LinuxNamespaceContext implements IsolationContext {
 			pb.directory(wsDir);
 			pb.redirectErrorStream(true);
 			final Process process = pb.start();
-			this.processId = process.pid();
-			if (this.await)
-				process.waitFor();
-			return process.onExit();
-		}
 
-		public long processId() {
-			return this.processId;
-		}
+			return channel.export(RemoteProcess2.class, new RemoteProcess2() {
 
-		public ExecRemoteProcess await(boolean value) {
-			this.await = value;
-			return this;
+				@Override
+				public long pid() {
+					return process.pid();
+				}
+
+				@Override
+				public void kill() throws IOException, InterruptedException {
+					process.destroy();
+				}
+
+				@Override
+				public int join() throws InterruptedException, IOException {
+					try {
+						return process.waitFor();
+					} catch (InterruptedException e) {
+						kill();
+						throw e;
+					}
+				}
+
+				@Override
+				public boolean isAlive() throws IOException, InterruptedException {
+					return process.isAlive();
+				}
+
+				@Override
+				public IOTriplet2 getIOtriplet() {
+					IOTriplet2 r = new IOTriplet2();
+					r.stdout = new RemoteInputStream(process.getInputStream(), RemoteInputStream.Flag.NOT_GREEDY);
+					// r.stderr = new
+					// RemoteInputStream(process.getErrorStream(),RemoteInputStream.Flag.NOT_GREEDY);
+					r.stdin = new RemoteOutputStream(process.getOutputStream());
+					return r;
+				}
+			});
 		}
 	}
 

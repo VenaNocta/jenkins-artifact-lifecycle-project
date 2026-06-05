@@ -125,7 +125,11 @@ public class IsolationContextFlowListener extends FlowExecutionListener {
 			return;
 
 		final IsolationContext isolation = action.getContext();
-		if (isolation != null)
-			isolation.destroy();
+		try {
+			if (isolation != null)
+				isolation.destroy();
+		} catch (IOException | InterruptedException e) {
+			e.printStackTrace();
+		}
 	}
 }

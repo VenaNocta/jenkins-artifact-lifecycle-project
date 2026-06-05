@@ -25,10 +25,14 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.jenkinsci.plugins.isolationctx.Scripts;
+import org.jenkinsci.plugins.isolationctx.ctx.LinuxNodeNamespaceContext;
 import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -36,27 +40,37 @@ import hudson.model.Computer;
 import hudson.model.Node;
 import hudson.model.TaskListener;
 import hudson.util.ArgumentListBuilder;
+import hudson.util.LogTaskListener;
+import hudson.util.StreamTaskListener;
 import jenkins.util.io.OnMaster;
 
 public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
+
+	private static final Logger LOGGER = Logger.getLogger(LinuxNodeNamespaceContext.class.getName());
+
+	protected final AtomicBoolean active = new AtomicBoolean(false);
 
 	@NonNull
 	protected final Node node;
 	@NonNull
 	protected final Computer computer;
 	@NonNull
+	protected final FilePath logPath;
+	@NonNull
 	protected final FilePath rootPath;
 	@NonNull
 	protected final FilePath dataRootPath;
 	@NonNull
 	protected final FilePath firewallPath;
-
-	protected AtomicBoolean active = new AtomicBoolean(false);
+	@CheckForNull
+	protected TaskListener logListener;
 
 	public LnxNodeIsolationHandler(@NonNull final Node node) {
 		Objects.requireNonNull(this.node = node);
 		Objects.requireNonNull(this.computer = node.toComputer());
 
+		this.logPath = node.getRootPath()
+				.child("logs/NodeIsolation.log");
 		this.rootPath = this.node.getRootPath()
 				.child("isolation-context");
 		this.dataRootPath = this.rootPath.child("data");
@@ -66,6 +80,20 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 	@Override
 	public boolean isActive() {
 		return this.active.get();
+	}
+
+	@Override
+	public synchronized TaskListener logTaskListener() {
+		if (this.logListener != null)
+			return this.logListener;
+		try {
+			return this.logListener = new StreamTaskListener(this.logPath.write(), StandardCharsets.UTF_8);
+		} catch (IOException | InterruptedException e) {
+			final TaskListener listener = new LogTaskListener(LOGGER, Level.INFO);
+			listener.error("Failed to create Remote-Logger, redirection activated!");
+			e.printStackTrace(listener.getLogger());
+			return this.logListener = listener;
+		}
 	}
 
 	protected void execScriptTask(final Collection<String> tasks, final TaskListener listener)
@@ -192,8 +220,8 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 				});
 				stream.flush();
 			}
-			final Launcher launcher = this.node.createLauncher(listener);
-			launcher.launch()
+			this.node.createLauncher(listener)
+					.launch()
 					.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallPath.absolutize()
 							.getRemote()).add("set", "traffic-port", operation, tmpFilePath.absolutize()
 									.getRemote()))
@@ -209,7 +237,7 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 			throws IOException, InterruptedException {
 		if (data == null || data.isEmpty())
 			return;
-		firewallInputExec(data, "add", listener);
+		firewallInputExec(data, "add", logTaskListener());
 	}
 
 	@Override
@@ -217,7 +245,7 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 			throws IOException, InterruptedException {
 		if (data == null || data.isEmpty())
 			return;
-		firewallInputExec(data, "set", listener);
+		firewallInputExec(data, "set", logTaskListener());
 	}
 
 	@Override
@@ -225,17 +253,18 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 			throws IOException, InterruptedException {
 		if (data == null || data.isEmpty())
 			return;
-		firewallInputExec(data, "del", listener);
+		firewallInputExec(data, "del", logTaskListener());
 	}
 
 	@Override
 	public void firewallInputCloseAll(final TaskListener listener) throws IOException, InterruptedException {
-		final Launcher launcher = this.node.createLauncher(listener);
+		final TaskListener nodeLog = logTaskListener();
+		final Launcher launcher = this.node.createLauncher(nodeLog);
 		launcher.launch()
 				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallPath.absolutize()
 						.getRemote()).add("set", "traffic-port", "clear"))
 				.start()
-				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
+				.joinWithTimeout(30, TimeUnit.SECONDS, nodeLog);
 	}
 
 }

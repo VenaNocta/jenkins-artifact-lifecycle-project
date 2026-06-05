@@ -24,6 +24,8 @@ public interface NodeIsolationHandler {
 
 	public boolean isActive();
 
+	public TaskListener logTaskListener();
+
 	public void setup(TaskListener listener) throws IOException, InterruptedException;
 
 	public void shutdown(TaskListener listener) throws IOException, InterruptedException;

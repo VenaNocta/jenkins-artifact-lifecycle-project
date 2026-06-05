@@ -33,9 +33,9 @@ public interface IsolationContext extends Serializable {
 
 	public LauncherDecorator launcherDecorator();
 
-	public void setup();
+	public void setup() throws IOException, InterruptedException;
 
-	public void destroy();
+	public void destroy() throws IOException, InterruptedException;
 
 	@CheckForNull
 	public FilePath getWorkspace();

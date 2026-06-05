@@ -26,7 +26,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.IsolationContextProvider;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntimeAction;
-import org.jenkinsci.plugins.isolationctx.ctx.LinuxNamespaceContext;
+import org.jenkinsci.plugins.isolationctx.ctx.LinuxNodeNamespaceContext;
 import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler;
 import org.jenkinsci.plugins.isolationctx.handler.NodeIsolationHandler;
 import org.jenkinsci.plugins.isolationctx.hooks.IsolationContextRunListener;
@@ -80,7 +80,7 @@ public class NodeIsolationCtxProvider implements IsolationContextProvider {
 		}
 
 		if (isolationHandler instanceof LnxNodeIsolationHandler) {
-			return new LinuxNamespaceContext(run, node, ws, listener);
+			return new LinuxNodeNamespaceContext(run, node, ws, listener);
 		}
 		return null;
 	}
