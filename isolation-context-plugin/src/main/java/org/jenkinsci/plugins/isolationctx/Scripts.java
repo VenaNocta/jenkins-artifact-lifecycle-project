@@ -23,6 +23,8 @@ import hudson.FilePath;
 
 public enum Scripts {
 
+	// jar:/scripts/data/linux-mount-python3.py
+	DATA_LINUX_MOUNT_PYTHON3("data/linux-mount-python3.py"),
 	// jar:/scripts/firewall/nftables-python3.py
 	FIREWALL_NFTABLES_PYTHON3("firewall/nftables-python3.py"),
 	// jar:/scripts/network/elinux-python3.py

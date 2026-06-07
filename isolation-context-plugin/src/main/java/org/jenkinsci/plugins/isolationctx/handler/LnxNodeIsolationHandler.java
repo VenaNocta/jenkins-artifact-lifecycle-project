@@ -20,6 +20,8 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -36,6 +38,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.Util;
 import hudson.model.Computer;
 import hudson.model.Node;
 import hudson.model.TaskListener;
@@ -61,7 +64,11 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 	@NonNull
 	protected final FilePath dataRootPath;
 	@NonNull
-	protected final FilePath firewallPath;
+	protected final FilePath mountRootPath;
+	@NonNull
+	protected final FilePath firewallToolPath;
+	@NonNull
+	protected final FilePath mountToolPath;
 	@CheckForNull
 	protected TaskListener logListener;
 
@@ -74,7 +81,9 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		this.rootPath = this.node.getRootPath()
 				.child("isolation-context");
 		this.dataRootPath = this.rootPath.child("data");
-		this.firewallPath = this.rootPath.child("firewall-tool.py");
+		this.mountRootPath = this.rootPath.child("mnt");
+		this.firewallToolPath = this.rootPath.child("firewall-tool.py");
+		this.mountToolPath = this.rootPath.child("mount-tool.py");
 	}
 
 	@Override
@@ -103,7 +112,9 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		// jar:/scripts/network/elinux-python3.py
 		Scripts.NETWORK_ENTERPRISE_LINUX_PYTHON3.deployTo(networkPath);
 		// jar:/scripts/firewall/nftables-python3.py
-		Scripts.FIREWALL_NFTABLES_PYTHON3.deployTo(this.firewallPath);
+		Scripts.FIREWALL_NFTABLES_PYTHON3.deployTo(this.firewallToolPath);
+		// jar:/scripts/data/linux-mount-python3.py
+		Scripts.DATA_LINUX_MOUNT_PYTHON3.deployTo(this.mountToolPath);
 
 		final Launcher launcher = this.node.createLauncher(listener);
 		// network setup
@@ -114,7 +125,13 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
 		// firewall setup
 		launcher.launch()
-				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallPath.absolutize()
+				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallToolPath.absolutize()
+						.getRemote()).add(tasks))
+				.start()
+				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
+		// mount isolation setup
+		launcher.launch()
+				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.mountToolPath.absolutize()
 						.getRemote()).add(tasks))
 				.start()
 				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
@@ -155,9 +172,10 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 			}
 			final Launcher launcher = this.node.createLauncher(listener);
 			launcher.launch()
-					.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallPath.absolutize()
-							.getRemote()).add("set", "hostif", operation, tmpFilePath.absolutize()
-									.getRemote()))
+					.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3",
+							this.firewallToolPath.absolutize()
+									.getRemote()).add("set", "hostif", operation, tmpFilePath.absolutize()
+											.getRemote()))
 					.start()
 					.joinWithTimeout(30, TimeUnit.SECONDS, listener);
 		} finally {
@@ -189,7 +207,7 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 	public void networkHostInterfaceRemoveAll(final TaskListener listener) throws IOException, InterruptedException {
 		final Launcher launcher = this.node.createLauncher(listener);
 		launcher.launch()
-				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallPath.absolutize()
+				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallToolPath.absolutize()
 						.getRemote()).add("set", "hostif", "clear"))
 				.start()
 				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
@@ -222,9 +240,10 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 			}
 			this.node.createLauncher(listener)
 					.launch()
-					.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallPath.absolutize()
-							.getRemote()).add("set", "traffic-port", operation, tmpFilePath.absolutize()
-									.getRemote()))
+					.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3",
+							this.firewallToolPath.absolutize()
+									.getRemote()).add("set", "traffic-port", operation, tmpFilePath.absolutize()
+											.getRemote()))
 					.start()
 					.joinWithTimeout(30, TimeUnit.SECONDS, listener);
 		} finally {
@@ -261,10 +280,85 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		final TaskListener nodeLog = logTaskListener();
 		final Launcher launcher = this.node.createLauncher(nodeLog);
 		launcher.launch()
-				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallPath.absolutize()
+				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.firewallToolPath.absolutize()
 						.getRemote()).add("set", "traffic-port", "clear"))
 				.start()
 				.joinWithTimeout(30, TimeUnit.SECONDS, nodeLog);
 	}
 
+	protected void mountToolExec(final List<String> operations, final TaskListener listener)
+			throws IOException, InterruptedException {
+		this.mountRootPath.mkdirs();
+		final Launcher launcher = this.node.createLauncher(listener);
+		launcher.launch()
+				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.mountToolPath.absolutize()
+						.getRemote()).add(operations))
+				.start()
+				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
+	}
+
+	public OverlayMountData overlayCreate(final String id) throws IOException, InterruptedException {
+		final TaskListener nodeLog = logTaskListener();
+		mountToolExec(Arrays.asList("mount", "overlay", "create", this.mountRootPath.child(id)
+				.absolutize()
+				.getRemote()), nodeLog);
+		final OverlayMountData overlay = new OverlayMountData(this, rootPath);
+		return overlay;
+	}
+
+	public void overlayRemove(final String id) throws IOException, InterruptedException {
+		final TaskListener nodeLog = logTaskListener();
+		mountToolExec(Arrays.asList("mount", "overlay", "cleanup", this.mountRootPath.child(id)
+				.absolutize()
+				.getRemote()), nodeLog);
+
+	}
+
+	public static class OverlayMountData {
+
+		protected final List<FilePath> extraMounts = new LinkedList<>();
+
+		protected final LnxNodeIsolationHandler handler;
+		// /var/jenkins/iso/<job>/
+		protected final FilePath basePath;
+		// /var/jenkins/iso/<job>/root
+		protected final FilePath rootPath;
+
+		protected OverlayMountData(final LnxNodeIsolationHandler handler, final FilePath basePath) {
+			this.handler = handler;
+			this.basePath = basePath;
+			this.rootPath = basePath.child("root");
+		}
+
+		public OverlayMountData export(String name, final FilePath exportPath)
+				throws IOException, InterruptedException {
+			Objects.requireNonNull(name = Util.fixEmptyAndTrim(name));
+			this.handler.mountToolExec(Arrays.asList("mount", "export", this.basePath.child("export-" + name)
+					.absolutize()
+					.getRemote(),
+					this.rootPath.child(exportPath.getRemote())
+							.absolutize()
+							.getRemote()),
+					this.handler.logTaskListener());
+			return this;
+		}
+
+		public OverlayMountData bind(final FilePath bindPath) throws IOException, InterruptedException {
+			this.handler.mountToolExec(Arrays.asList("mount", "bind", bindPath.absolutize()
+					.getRemote(),
+					this.rootPath.child(bindPath.getRemote())
+							.absolutize()
+							.getRemote()),
+					this.handler.logTaskListener());
+			return this;
+		}
+
+		public OverlayMountData unbind(final FilePath bindPath) throws IOException, InterruptedException {
+			this.handler.mountToolExec(Arrays.asList("mount", "unbind", this.rootPath.child(bindPath.getRemote())
+					.absolutize()
+					.getRemote()), this.handler.logTaskListener());
+			return this;
+		}
+
+	}
 }

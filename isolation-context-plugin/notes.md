@@ -10,7 +10,6 @@ mkdir -p /var/jenkins/iso/job/{upper,work,root}
 mount -t overlay overlay \
     -o lowerdir=/,upperdir=/var/jenkins/iso/job/upper,workdir=/var/jenkins/iso/job/work \
     /var/jenkins/iso/job/root
-#mount --make-rprivate /var/jenkins/iso/job/root
 
 # build export
 mkdir -p /run/jenkins/workspace-export/job /var/jenkins/iso/job/root/var/jenkins/workspace
