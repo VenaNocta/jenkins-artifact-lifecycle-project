@@ -64,8 +64,6 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 	@NonNull
 	protected final FilePath dataRootPath;
 	@NonNull
-	protected final FilePath mountRootPath;
-	@NonNull
 	protected final FilePath firewallToolPath;
 	@NonNull
 	protected final FilePath mountToolPath;
@@ -81,7 +79,6 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		this.rootPath = this.node.getRootPath()
 				.child("isolation-context");
 		this.dataRootPath = this.rootPath.child("data");
-		this.mountRootPath = this.rootPath.child("mnt");
 		this.firewallToolPath = this.rootPath.child("firewall-tool.py");
 		this.mountToolPath = this.rootPath.child("mount-tool.py");
 	}
@@ -288,7 +285,6 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 
 	protected void mountToolExec(final List<String> operations, final TaskListener listener)
 			throws IOException, InterruptedException {
-		this.mountRootPath.mkdirs();
 		final Launcher launcher = this.node.createLauncher(listener);
 		launcher.launch()
 				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.mountToolPath.absolutize()
@@ -297,19 +293,17 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
 	}
 
-	public OverlayMountData overlayCreate(final String id) throws IOException, InterruptedException {
+	public OverlayMountData overlayCreate(final FilePath overlayBasePath) throws IOException, InterruptedException {
 		final TaskListener nodeLog = logTaskListener();
-		mountToolExec(Arrays.asList("mount", "overlay", "create", this.mountRootPath.child(id)
-				.absolutize()
+		mountToolExec(Arrays.asList("mount", "overlay", "create", overlayBasePath.absolutize()
 				.getRemote()), nodeLog);
 		final OverlayMountData overlay = new OverlayMountData(this, rootPath);
 		return overlay;
 	}
 
-	public void overlayRemove(final String id) throws IOException, InterruptedException {
+	public void overlayRemove(final FilePath overlayBasePath) throws IOException, InterruptedException {
 		final TaskListener nodeLog = logTaskListener();
-		mountToolExec(Arrays.asList("mount", "overlay", "cleanup", this.mountRootPath.child(id)
-				.absolutize()
+		mountToolExec(Arrays.asList("mount", "overlay", "cleanup", overlayBasePath.absolutize()
 				.getRemote()), nodeLog);
 
 	}
@@ -324,10 +318,14 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		// /var/jenkins/iso/<job>/root
 		protected final FilePath rootPath;
 
-		protected OverlayMountData(final LnxNodeIsolationHandler handler, final FilePath basePath) {
+		protected OverlayMountData(final LnxNodeIsolationHandler handler, final FilePath overlayBasePath) {
 			this.handler = handler;
-			this.basePath = basePath;
-			this.rootPath = basePath.child("root");
+			this.basePath = overlayBasePath;
+			this.rootPath = overlayBasePath.child("root");
+		}
+
+		public FilePath rootPath() {
+			return this.rootPath;
 		}
 
 		public OverlayMountData export(String name, final FilePath exportPath)

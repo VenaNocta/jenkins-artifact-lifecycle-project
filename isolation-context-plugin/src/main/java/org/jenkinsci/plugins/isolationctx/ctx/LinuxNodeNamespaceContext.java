@@ -44,6 +44,7 @@ import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntime;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntimeAction;
 import org.jenkinsci.plugins.isolationctx.ctx.net.LnxNetLink;
 import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler;
+import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler.OverlayMountData;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 
 import com.google.common.io.Files;
@@ -91,6 +92,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 	protected transient final FilePath envCachePath;
 
 	protected long processId = -1;
+	protected boolean hasOverlay = false;
 
 	protected transient final SortedMap<Integer, LnxNetLink> _activeLinks = new TreeMap<>();
 	protected transient CompletableFuture<LnxIdentity> _lnxIdentityFuture = null;
@@ -216,34 +218,51 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		final PrintStream pipeLog = this.listener.getLogger();
 		final PrintStream nodeLog = logListener().getLogger();
 
-		final List<String> cmd = new ArrayList<>();
-
-		cmd.add("setsid");
-		cmd.add("unshare");
-		cmd.add("--mount");
-		cmd.add("--uts");
-		cmd.add("--ipc");
-		cmd.add("--net");
-		cmd.add("--pid");
-		cmd.add("--fork");
-		cmd.add("--mount-proc");
-		cmd.add("--propagation=private");
-		cmd.add("--wd=" + this.ws.getPath());
-		cmd.add("--");
-
-		// Keep namespace alive
-		cmd.add("/usr/bin/bash");
-		cmd.add("-c");
-		// //log.print(String.join(" ", cmd));
-		cmd.add("exec tail -f /dev/null");
-		// ip link set lo up &&
-
-		// //log.println(" \"exec tail -f /dev/null\"\n");
+		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
 
 		try {
-			this.ws.getWorkspace()
-					.mkdirs();
+			final FilePath workspacePath = this.ws.getWorkspace();
+			workspacePath.mkdirs();
 			this.envCachePath.mkdirs();
+
+			final List<String> cmd = new ArrayList<>();
+
+			cmd.add("sudo");
+			cmd.add("setsid");
+			cmd.add("unshare");
+			cmd.add("--mount");
+			cmd.add("--propagation=slave");
+			cmd.add("--uts");
+			cmd.add("--ipc");
+			cmd.add("--net");
+			cmd.add("--pid");
+			cmd.add("--fork");
+			cmd.add("--mount-proc");
+			cmd.add("--wd=" + this.ws.getPath());
+			cmd.add("--");
+
+			if (nodeRuntime != null && nodeRuntime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
+				final OverlayMountData mountData = handler.overlayCreate(workspacePath.withSuffix("@overlay"));
+				this.hasOverlay = true;
+				// TODO check if there is a WORKSPACE macro to use
+				mountData.export("workspace", workspacePath.getParent());
+				mountData.bind(workspacePath);
+				mountData.bind(workspacePath.withSuffix("@tmp"));
+				mountData.bind(this.envCachePath);
+				// inject switch_root call to enter overlay into startup cmd
+				cmd.addAll(Arrays.asList("switch_root", mountData.rootPath()
+						.absolutize()
+						.getRemote()));
+			}
+
+			// Keep namespace alive
+			cmd.add("/usr/bin/bash");
+			cmd.add("-c");
+			// //log.print(String.join(" ", cmd));
+			cmd.add("exec tail -f /dev/null");
+			// ip link set lo up &&
+
+			// //log.println(" \"exec tail -f /dev/null\"\n");
 
 			final RemoteProcess2 process2 = this.ws.getWorkspace()
 					.act(new ExecRemoteProcess(cmd));
@@ -301,17 +320,25 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		} catch (InterruptedException | IOException e) {
 			pipeLog.println(String.format(TEMPL_LINE, this.processId, "Failed to stop isolated environment!"));
 			e.printStackTrace(nodeLog);
-		}
-
-		// Cleanup active LnxLinks
-		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
-		if (nodeRuntime != null) {
-			for (LnxNetLink link : this._activeLinks.values()) {
-				try {
-					// Remove veth interfaces
-					disconnectNetLink(link);
-				} catch (IOException | InterruptedException e) {
-					e.printStackTrace(nodeLog);
+		} finally {
+			// Cleanup active LnxLinks
+			final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
+			if (nodeRuntime != null) {
+				for (LnxNetLink link : this._activeLinks.values()) {
+					try {
+						// Remove veth interfaces
+						disconnectNetLink(link);
+					} catch (IOException | InterruptedException e) {
+						e.printStackTrace(nodeLog);
+					}
+				}
+				if (nodeRuntime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
+					try {
+						handler.overlayRemove(this.ws.getWorkspace()
+								.withSuffix("@overlay"));
+					} catch (IOException | InterruptedException e) {
+						e.printStackTrace(nodeLog);
+					}
 				}
 			}
 		}
