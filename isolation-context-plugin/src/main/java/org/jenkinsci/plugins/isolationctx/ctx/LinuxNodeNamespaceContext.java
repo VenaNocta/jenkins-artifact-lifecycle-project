@@ -15,13 +15,16 @@
  */
 package org.jenkinsci.plugins.isolationctx.ctx;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.net.UnixDomainSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -89,10 +92,9 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 	protected transient final Node node;
 	protected transient final WorkspaceAction ws;
 	protected transient final TaskListener listener;
-	protected transient final FilePath envCachePath;
 
 	protected long processId = -1;
-	protected boolean hasOverlay = false;
+	protected OverlayMountData overlayData = null;
 
 	protected transient final SortedMap<Integer, LnxNetLink> _activeLinks = new TreeMap<>();
 	protected transient CompletableFuture<LnxIdentity> _lnxIdentityFuture = null;
@@ -105,13 +107,27 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		this.node = node;
 		this.ws = ws;
 		this.listener = listener;
-		this.envCachePath = ws.getWorkspace()
-				.withSuffix("@env_cache");
+	}
+
+	// XStream2 hook -> handles unmarshal
+	private Object readResolve() {
+		final NodeIsolationRuntime runtime = getNodeRuntime();
+		if (runtime != null && runtime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
+			// reinit overlayData
+			if (this.overlayData != null)
+				this.overlayData.initHandler(handler);
+		}
+		return this;
 	}
 
 	@Override
 	public LauncherDecorator launcherDecorator() {
 		return this.factory;
+	}
+
+	protected FilePath envCachePath() {
+		return ws.getWorkspace()
+				.withSuffix("@env_cache");
 	}
 
 	public synchronized CompletableFuture<LnxIdentity> lnxIdentityFuture() {
@@ -181,7 +197,9 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		cmd.add("--ipc");
 		cmd.add("--net");
 		cmd.add("--pid");
-		cmd.add("--wd");
+		cmd.add("--wdns=" + this.ws.getWorkspace()
+				.absolutize()
+				.getRemote());
 		cmd.add("--");
 		// setpriv --reuid=<uid> --regid=<gid> --groups=<groups> --inh-caps=-all
 		// --reset-env
@@ -223,51 +241,55 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		try {
 			final FilePath workspacePath = this.ws.getWorkspace();
 			workspacePath.mkdirs();
-			this.envCachePath.mkdirs();
+			final FilePath envCachePath = envCachePath();
+			envCachePath.mkdirs();
+			final FilePath tmpPath = workspacePath.withSuffix("@tmp");
+			tmpPath.mkdirs();
 
-			final List<String> cmd = new ArrayList<>();
-
-			cmd.add("sudo");
-			cmd.add("setsid");
-			cmd.add("unshare");
-			cmd.add("--mount");
-			cmd.add("--propagation=slave");
-			cmd.add("--uts");
-			cmd.add("--ipc");
-			cmd.add("--net");
-			cmd.add("--pid");
-			cmd.add("--fork");
-			cmd.add("--mount-proc");
-			cmd.add("--wd=" + this.ws.getPath());
-			cmd.add("--");
+			final StringBuilder scriptBuilder = new StringBuilder();
+			scriptBuilder.append("set -e\n\n");
+			scriptBuilder.append("/usr/bin/unshare --mount --propagation=slave "
+					+ "--uts --ipc --net --pid --fork --mount-proc --wd=" + this.ws.getPath() + " -- ");
 
 			if (nodeRuntime != null && nodeRuntime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
 				final OverlayMountData mountData = handler.overlayCreate(workspacePath.withSuffix("@overlay"));
-				this.hasOverlay = true;
 				// TODO check if there is a WORKSPACE macro to use
 				mountData.export("workspace", workspacePath.getParent());
+				// ensure paths exist on disk before script is called or root will own them!
 				mountData.bind(workspacePath);
-				mountData.bind(workspacePath.withSuffix("@tmp"));
-				mountData.bind(this.envCachePath);
+				mountData.bind(tmpPath);
+				mountData.bind(envCachePath);
 				// inject switch_root call to enter overlay into startup cmd
-				cmd.addAll(Arrays.asList("switch_root", mountData.rootPath()
+				scriptBuilder.append("switch_root " + mountData.rootPath()
 						.absolutize()
-						.getRemote()));
+						.getRemote() + " ");
+				this.overlayData = mountData;
 			}
 
 			// Keep namespace alive
-			cmd.add("/usr/bin/bash");
-			cmd.add("-c");
-			// //log.print(String.join(" ", cmd));
-			cmd.add("exec tail -f /dev/null");
-			// ip link set lo up &&
+			scriptBuilder.append("/usr/bin/bash -c \"exec tail -f /dev/null\"");
+			// redirect output to error stream & move to background
+			scriptBuilder.append(" 1>&2 &\n");
+			// write namespace pid to stdout & await namespace exit
+			scriptBuilder.append("\nUNSHARE_PID=$!\nprintf \"%d\\\\n\" $UNSHARE_PID\nwait $UNSHARE_PID\n");
 
-			// //log.println(" \"exec tail -f /dev/null\"\n");
+			final FilePath scriptPath = workspacePath.withSuffix("@isoCtxExec.sh");
+			scriptPath.delete();
+			try (OutputStream stream = scriptPath.write()) {
+				stream.write(scriptBuilder.toString()
+						.getBytes(StandardCharsets.UTF_8));
+			}
+			scriptPath.chmod(0500);
 
 			final RemoteProcess2 process2 = this.ws.getWorkspace()
-					.act(new ExecRemoteProcess(cmd));
-			this.processId = process2.pid();
-			// expected exit code, post kill all: 137
+					.act(new ExecRemoteProcess(
+							Arrays.asList("sudo", "/usr/bin/bash", "-c", "--", scriptPath.absolutize()
+									.getRemote())));
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process2.getIOtriplet().stdout))) {
+				this.processId = Long.parseLong(reader.readLine());
+				// this.processId = process2.pid(); <-- now would get sudo id = host-namespace!
+				// expected exit code, post kill all: 137
+			}
 		} catch (IOException | InterruptedException e) {
 			pipeLog.println("[Linux-Namespace] Failed to start isolated environment!");
 			e.printStackTrace(nodeLog);
@@ -308,12 +330,11 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 		// Kill process tree
 		try {
-			final ExecRemoteProcess remoteProcess = new ExecRemoteProcess(
-					Arrays.asList("kill", "-KILL", "-" + this.processId));
-			this.ws.getWorkspace()
-					.act(remoteProcess)
-					.join();
-			this.envCachePath.deleteRecursive();
+			// kill process group (may already be dead)
+			wsExecAndJoinCmd(Arrays.asList("sudo", "kill", "-KILL", "-" + this.processId), true);
+			// kill namespace process
+			wsExecAndJoinCmd(Arrays.asList("sudo", "kill", "-KILL", "" + this.processId), true);
+			envCachePath().deleteRecursive();
 
 			pipeLog.println(String.format(TEMPL_LINE, this.processId, "Stopped isolated environment"));
 			this.processId = -1;
@@ -334,6 +355,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 				}
 				if (nodeRuntime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
 					try {
+						// just try it even if it wasn't created - maybe it was lost before!
 						handler.overlayRemove(this.ws.getWorkspace()
 								.withSuffix("@overlay"));
 					} catch (IOException | InterruptedException e) {
@@ -359,6 +381,26 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 	public <T> Future<T> actInContextAsync(final FileCallable<T> callable) throws IOException, InterruptedException {
 		return this.ws.getWorkspace()
 				.actAsync(callable);
+	}
+
+	@Override
+	public boolean mountWorkspacePath(final FilePath workspacePath) throws IOException, InterruptedException {
+		if (!workspacePath.exists())
+			return false;
+		if (this.overlayData == null) {
+			// I expect it to just exist
+			return true;
+		}
+		return this.overlayData.bind(workspacePath);
+	}
+
+	@Override
+	public boolean unmountWorkspacePath(final FilePath workspacePath) throws IOException, InterruptedException {
+		if (this.overlayData == null) {
+			// I expect it to just exist
+			return true;
+		}
+		return this.overlayData.unbind(workspacePath);
 	}
 
 	@Override
@@ -588,7 +630,8 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 					final String envFileName;
 					try {
 						cmd = DecoratorFactory.this.ctx.nsenterCmd();
-						envFileName = DecoratorFactory.this.ctx.envCachePath.act(new WriteEnvFile(env));
+						envFileName = DecoratorFactory.this.ctx.envCachePath()
+								.act(new WriteEnvFile(env));
 					} catch (Throwable e) {
 						if (e instanceof RuntimeException runE)
 							throw runE;
@@ -693,7 +736,6 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 			// env.put("LC_ALL", "C");
 
 			pb.directory(wsDir);
-			pb.redirectErrorStream(true);
 			final Process process = pb.start();
 
 			return channel.export(RemoteProcess2.class, new RemoteProcess2() {
@@ -727,8 +769,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 				public IOTriplet2 getIOtriplet() {
 					IOTriplet2 r = new IOTriplet2();
 					r.stdout = new RemoteInputStream(process.getInputStream(), RemoteInputStream.Flag.NOT_GREEDY);
-					// r.stderr = new
-					// RemoteInputStream(process.getErrorStream(),RemoteInputStream.Flag.NOT_GREEDY);
+					r.stderr = new RemoteInputStream(process.getErrorStream(), RemoteInputStream.Flag.NOT_GREEDY);
 					r.stdin = new RemoteOutputStream(process.getOutputStream());
 					return r;
 				}

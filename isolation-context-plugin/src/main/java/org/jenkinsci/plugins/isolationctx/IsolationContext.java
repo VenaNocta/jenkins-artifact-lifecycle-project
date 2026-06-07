@@ -44,6 +44,12 @@ public interface IsolationContext extends Serializable {
 
 	public <T> Future<T> actInContextAsync(FileCallable<T> callable) throws IOException, InterruptedException;
 
+	// try to mount a path that is a child of the $JENKINS_HOME/workspace/ path
+	public boolean mountWorkspacePath(FilePath workspacePath) throws IOException, InterruptedException;
+
+	// try to unmount a path that is a child of the $JENKINS_HOME/workspace/ path
+	public boolean unmountWorkspacePath(FilePath workspacePath) throws IOException, InterruptedException;
+
 	public UnixDomainSocketAddress connectUnixSocket(String path) throws IOException, InterruptedException;
 
 	public NetLink connectNetLink() throws IOException, InterruptedException;

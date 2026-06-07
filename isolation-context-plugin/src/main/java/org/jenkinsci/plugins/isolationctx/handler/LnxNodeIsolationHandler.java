@@ -17,10 +17,13 @@ package org.jenkinsci.plugins.isolationctx.handler;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.LinkedList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,7 +36,6 @@ import java.util.logging.Logger;
 import org.jenkinsci.plugins.isolationctx.Scripts;
 import org.jenkinsci.plugins.isolationctx.ctx.LinuxNodeNamespaceContext;
 import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
-
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
@@ -297,7 +299,7 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		final TaskListener nodeLog = logTaskListener();
 		mountToolExec(Arrays.asList("mount", "overlay", "create", overlayBasePath.absolutize()
 				.getRemote()), nodeLog);
-		final OverlayMountData overlay = new OverlayMountData(this, rootPath);
+		final OverlayMountData overlay = new OverlayMountData(this, overlayBasePath);
 		return overlay;
 	}
 
@@ -308,55 +310,91 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 
 	}
 
-	public static class OverlayMountData {
+	public static class OverlayMountData implements Serializable {
 
-		protected final List<FilePath> extraMounts = new LinkedList<>();
+		private static final long serialVersionUID = 1L;
 
-		protected final LnxNodeIsolationHandler handler;
+		protected final Map<String, String> exportedMounts = new LinkedHashMap<>();
+		protected final Set<String> bindMounts = new LinkedHashSet<>();
+
 		// /var/jenkins/iso/<job>/
-		protected final FilePath basePath;
+		protected final String basePath;
 		// /var/jenkins/iso/<job>/root
-		protected final FilePath rootPath;
+		protected final String rootPath;
+
+		protected transient LnxNodeIsolationHandler handler;
 
 		protected OverlayMountData(final LnxNodeIsolationHandler handler, final FilePath overlayBasePath) {
 			this.handler = handler;
-			this.basePath = overlayBasePath;
-			this.rootPath = overlayBasePath.child("root");
+			this.basePath = overlayBasePath.getRemote();
+			this.rootPath = overlayBasePath.child("root")
+					.getRemote();
+		}
+
+		public void initHandler(final LnxNodeIsolationHandler handler) {
+			this.handler = handler;
+		}
+
+		public FilePath basePath() {
+			return new FilePath(this.handler.node.getChannel(), this.basePath);
 		}
 
 		public FilePath rootPath() {
-			return this.rootPath;
+			return new FilePath(this.handler.node.getChannel(), this.rootPath);
 		}
 
-		public OverlayMountData export(String name, final FilePath exportPath)
+		public synchronized boolean export(String name, final FilePath exportPath)
 				throws IOException, InterruptedException {
 			Objects.requireNonNull(name = Util.fixEmptyAndTrim(name));
-			this.handler.mountToolExec(Arrays.asList("mount", "export", this.basePath.child("export-" + name)
+			final String exportRemote = exportPath.absolutize()
+					.getRemote();
+
+			if (this.exportedMounts.containsKey(name))
+				return false;
+
+			this.handler.mountToolExec(Arrays.asList("mount", "export", basePath().child("export-" + name)
 					.absolutize()
 					.getRemote(),
-					this.rootPath.child(exportPath.getRemote())
+					rootPath().child(
+							/* trim starting / to make it relative */
+							exportRemote.substring(1))
 							.absolutize()
 							.getRemote()),
 					this.handler.logTaskListener());
-			return this;
+			this.exportedMounts.put(name, exportRemote);
+			return true;
 		}
 
-		public OverlayMountData bind(final FilePath bindPath) throws IOException, InterruptedException {
-			this.handler.mountToolExec(Arrays.asList("mount", "bind", bindPath.absolutize()
-					.getRemote(),
-					this.rootPath.child(bindPath.getRemote())
+		public synchronized boolean bind(final FilePath bindPath) throws IOException, InterruptedException {
+			final String bindRemote = bindPath.absolutize()
+					.getRemote();
+			final Path compPath = Path.of(bindPath.absolutize()
+					.getRemote());
+			if (!this.exportedMounts.values()
+					.stream()
+					.anyMatch(compPath::startsWith))
+				throw new IllegalArgumentException("No Parent path was exported of: " + bindRemote);
+
+			if (this.bindMounts.contains(bindRemote))
+				return false;
+
+			this.handler.mountToolExec(Arrays.asList("mount", "bind", bindRemote,
+					rootPath().child(bindRemote.substring(1))
 							.absolutize()
 							.getRemote()),
 					this.handler.logTaskListener());
-			return this;
+			this.bindMounts.add(bindRemote);
+			return true;
 		}
 
-		public OverlayMountData unbind(final FilePath bindPath) throws IOException, InterruptedException {
-			this.handler.mountToolExec(Arrays.asList("mount", "unbind", this.rootPath.child(bindPath.getRemote())
+		public boolean unbind(final FilePath bindPath) throws IOException, InterruptedException {
+			final String bindRemote = bindPath.absolutize()
+					.getRemote();
+			this.handler.mountToolExec(Arrays.asList("mount", "unbind", rootPath().child(bindRemote.substring(1))
 					.absolutize()
 					.getRemote()), this.handler.logTaskListener());
-			return this;
+			this.bindMounts.remove(bindRemote);
+			return true;
 		}
-
 	}
 }

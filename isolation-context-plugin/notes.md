@@ -6,21 +6,21 @@ so the sequence should be:
 # host
 
 # build overlay - make it private
-mkdir -p /var/jenkins/iso/job/{upper,work,root}
-mount -t overlay overlay \
+sudo mkdir -p /var/jenkins/iso/job/{upper,work,root}
+sudo mount -t overlay overlay \
     -o lowerdir=/,upperdir=/var/jenkins/iso/job/upper,workdir=/var/jenkins/iso/job/work \
     /var/jenkins/iso/job/root
 
 # build export
-mkdir -p /run/jenkins/workspace-export/job /var/jenkins/iso/job/root/var/jenkins/workspace
-mount --bind /run/jenkins/workspace-export/job /var/jenkins/iso/job/root/var/jenkins/workspace
-mount --make-rshared /var/jenkins/iso/job/root/var/jenkins/workspace
+sudo mkdir -p /run/jenkins/workspace-export/job /var/jenkins/iso/job/root/var/jenkins/workspace
+sudo mount --bind /run/jenkins/workspace-export/job /var/jenkins/iso/job/root/var/jenkins/workspace
+sudo mount --make-rshared /var/jenkins/iso/job/root/var/jenkins/workspace
 
 # create namespace
 sudo setsid unshare --mount --propagation=slave --uts --ipc --net --pid --fork --mount-proc --wd=/var/jenkins/workspace/job/ -- switch_root /var/jenkins/iso/job/root /usr/bin/bash -c "exec tail -f /dev/null"
 
 # enter
-sudo nsenter --target=208477 --mount --uts --ipc --net --pid -- setpriv --reuid=1000 --regid=1000 --groups=basti --inh-caps=-all --reset-env -- /usr/bin/bash
+sudo nsenter --target=208477 --mount --uts --ipc --net --pid --wd -- setpriv --reuid=1000 --regid=1000 --groups=basti --inh-caps=-all --reset-env -- /usr/bin/bash
 
 # cleanup
 umount /var/jenkins/iso/job/root/var/jenkins/workspace
@@ -41,6 +41,9 @@ mount --bind \
 umount /var/jenkins/iso/job/root/var/jenkins/workspace/job-3@extra
 
 # and it will appear as /extra inside the namespace!
+
+# diagnostics
+findmnt -o TARGET,PROPAGATION
 
 ```
 

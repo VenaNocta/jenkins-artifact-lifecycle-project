@@ -1,3 +1,4 @@
+import sys
 import os
 import shutil
 import subprocess
@@ -6,6 +7,7 @@ import subprocess
 def mkdir(path):
     try:
         os.makedirs(path)
+        # TODO chown to user who executed this scrip (via sudo!)
     except FileExistsError:
         pass
 
@@ -23,8 +25,8 @@ def umount(mountPath):
 # overlayRootPath=/var/jenkins/iso/<job>/
 # mountPath=/var/jenkins/iso/<job>/root
 def mount_overlay_create(rootPath, overlayRootPath, mountPath):
-    overlayUpperPath = overlayRootPath + "upper"
-    overlayWorkPath = overlayRootPath + "work"
+    overlayUpperPath = overlayRootPath + "/upper"
+    overlayWorkPath = overlayRootPath + "/work"
 
     mkdir(overlayUpperPath)
     mkdir(overlayWorkPath)
@@ -114,9 +116,9 @@ usage: script.py setup/shutdown\
                 sys.exit(1)
             op = sys.argv[3]
             if op == "create":
-                mount_overlay_create("/", sys.argv[4].trim(), sys.argv[4].trim() + "/root")
+                mount_overlay_create("/", sys.argv[4].strip(), sys.argv[4].strip() + "/root")
             elif op == "cleanup":
-                mount_overlay_cleanup(sys.argv[4].trim(), sys.argv[4].trim() + "/root")
+                mount_overlay_cleanup(sys.argv[4].strip(), sys.argv[4].strip() + "/root")
             else:
                 print("unknown op » mount overlay " + op)
                 sys.exit(1)
@@ -125,19 +127,19 @@ usage: script.py setup/shutdown\
             if len(sys.argv) != 5:
                 print("<exportPath> & <mountPath> required!")
                 sys.exit(1)
-            mount_export_create(sys.argv[3].trim(), sys.argv[4].trim())
+            mount_export_create(sys.argv[3].strip(), sys.argv[4].strip())
 
         elif op == "bind":
             if len(sys.argv) != 5:
                 print("<bindPath> & <mountPath> required!")
                 sys.exit(1)
-            mount_bind(sys.argv[3].trim(), sys.argv[4].trim())
+            mount_bind(sys.argv[3].strip(), sys.argv[4].strip())
 
         elif op == "unbind":
             if len(sys.argv) != 4:
                 print("<mountPath> required!")
                 sys.exit(1)
-            mount_bind(sys.argv[3].trim())
+            mount_bind(sys.argv[3].strip())
 
         else:
             print("unknown op » mount " + op)

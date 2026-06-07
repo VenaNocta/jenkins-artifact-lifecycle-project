@@ -67,6 +67,16 @@ public class NoOpIsolationContext implements IsolationContext {
 	}
 
 	@Override
+	public boolean mountWorkspacePath(final FilePath workspacePath) throws IOException, InterruptedException {
+		return true;
+	}
+
+	@Override
+	public boolean unmountWorkspacePath(final FilePath workspacePath) throws IOException, InterruptedException {
+		return true;
+	}
+
+	@Override
 	public NetLink connectNetLink() {
 		return DefaultNetLink.createLoopback(null, true, true);
 	}

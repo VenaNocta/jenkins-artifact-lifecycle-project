@@ -86,6 +86,16 @@ public class UnsupportedContext implements IsolationContext {
 	}
 
 	@Override
+	public boolean mountWorkspacePath(final FilePath workspacePath) throws IOException, InterruptedException {
+		return false;
+	}
+
+	@Override
+	public boolean unmountWorkspacePath(final FilePath workspacePath) throws IOException, InterruptedException {
+		return false;
+	}
+
+	@Override
 	public UnixDomainSocketAddress connectUnixSocket(final String path) {
 		throw new UnsupportedOperationException(ERR_FORCED_ISOLATION);
 	}
