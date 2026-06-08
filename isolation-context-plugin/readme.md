@@ -25,3 +25,7 @@ jenkins ALL=(root) NOPASSWD: \
   /usr/sbin/ip link set * up
 ```
 
+### Known Issues
+
++ if a run is currently blocked (no executors available) and starts later the correct isolationCtx does not get injected
+

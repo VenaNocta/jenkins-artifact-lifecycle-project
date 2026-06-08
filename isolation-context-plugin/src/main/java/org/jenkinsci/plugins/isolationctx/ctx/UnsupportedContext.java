@@ -20,6 +20,7 @@ import java.io.Serializable;
 import java.net.UnixDomainSocketAddress;
 
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
 
 import hudson.AbortException;
 import hudson.FilePath;
@@ -40,6 +41,10 @@ public class UnsupportedContext implements IsolationContext {
 
 	public UnsupportedContext() {
 		this.factory = new DecoratorFactory();
+	}
+
+	@Override
+	public void onLoad(final FlowNode parent) {
 	}
 
 	@Override
@@ -96,13 +101,13 @@ public class UnsupportedContext implements IsolationContext {
 	}
 
 	@Override
-	public UnixDomainSocketAddress connectUnixSocket(final String path) {
-		throw new UnsupportedOperationException(ERR_FORCED_ISOLATION);
+	public UnixDomainSocketAddress connectUnixSocket(final String path) throws IOException, InterruptedException {
+		throw new AbortException(ERR_FORCED_ISOLATION);
 	}
 
 	@Override
-	public NetLink connectNetLink() {
-		throw new UnsupportedOperationException(ERR_FORCED_ISOLATION);
+	public NetLink connectNetLink() throws IOException, InterruptedException {
+		throw new AbortException(ERR_FORCED_ISOLATION);
 	}
 
 	@Override

@@ -16,10 +16,12 @@
 package org.jenkinsci.plugins.isolationctx.config;
 
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
+import org.jenkinsci.plugins.workflow.actions.FlowNodeAction;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
 
 import hudson.model.InvisibleAction;
 
-public class IsolationContextAction extends InvisibleAction {
+public class IsolationContextAction extends InvisibleAction implements FlowNodeAction {
 
 	protected final IsolationContext context;
 
@@ -29,5 +31,12 @@ public class IsolationContextAction extends InvisibleAction {
 
 	public IsolationContext getContext() {
 		return this.context;
+	}
+
+	@Override
+	public void onLoad(final FlowNode parent) {
+		if (this.context != null) {
+			this.context.onLoad(parent);
+		}
 	}
 }

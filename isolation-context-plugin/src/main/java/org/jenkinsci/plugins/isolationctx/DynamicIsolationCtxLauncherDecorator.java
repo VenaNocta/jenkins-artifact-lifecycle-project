@@ -38,7 +38,8 @@ public class DynamicIsolationCtxLauncherDecorator extends DynamicContext.Typed<L
 		final Run<?, ?> run = context.get(Run.class);
 		final FlowNode flowNode = context.get(FlowNode.class);
 		// apply overrides if available
-		final IsolationContextAction action = WorkflowUtils.findContextAction(run, flowNode);
+		final IsolationContextAction action = WorkflowUtils.findContextAction(IsolationContextAction.class, run,
+				flowNode);
 		if (action == null)
 			return null;
 		final IsolationContext isolation = action.getContext();

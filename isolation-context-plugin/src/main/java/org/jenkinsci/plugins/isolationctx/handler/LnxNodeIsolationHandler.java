@@ -321,6 +321,7 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		protected final String basePath;
 		// /var/jenkins/iso/<job>/root
 		protected final String rootPath;
+		protected String relWorkspacePath = "";
 
 		protected transient LnxNodeIsolationHandler handler;
 
@@ -341,6 +342,16 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 
 		public FilePath rootPath() {
 			return new FilePath(this.handler.node.getChannel(), this.rootPath);
+		}
+
+		public FilePath workspacePath() {
+			return rootPath().child(this.relWorkspacePath);
+		}
+
+		public void computeWorkspacePath(final FilePath wsPath) throws IOException, InterruptedException {
+			this.relWorkspacePath = wsPath.absolutize()
+					.getRemote()
+					.substring(1);
 		}
 
 		public synchronized boolean export(String name, final FilePath exportPath)

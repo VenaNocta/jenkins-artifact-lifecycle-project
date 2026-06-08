@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.jenkinsci.plugins.isolationctx.FirewallDelegate;
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.WorkflowUtils;
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
@@ -38,6 +37,7 @@ import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.repoproxy.config.RepoProxyConfigurationProvider;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStopCallable;
+import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
@@ -63,22 +63,32 @@ public class RepoProxyStepExecution extends StepExecution {
 
 	protected transient NetLink link;
 
-	protected RepoProxyStepExecution(@NonNull final StepContext context, @NonNull final RepoProxyStep step) {
+	protected transient WorkspaceAction _ws = null;
+
+	protected RepoProxyStepExecution(@NonNull final StepContext context, @NonNull final RepoProxyStep step)
+			throws IOException, InterruptedException {
 		super(context);
 		this.step = step;
-		final IsolationContext isoContext = tryGetIsolationContext();
-		if (isoContext == null)
-			this.cacheFolder = null;
-		else {
-			this.cacheFolder = isoContext.getWorkspace()
-					.withSuffix("@proxy_cache");
-		}
+		this.cacheFolder = getWorkspace().withSuffix("@proxy_cache");
+		// final IsolationContext isoContext = tryGetIsolationContext();
+	}
+
+	protected synchronized WorkspaceAction getWorkspaceAction() throws IOException, InterruptedException {
+		if (this._ws != null)
+			return this._ws;
+		final StepContext context = getContext();
+		return this._ws = WorkflowUtils.findContextAction( //
+				WorkspaceAction.class, context.get(Run.class), context.get(FlowNode.class));
+	}
+
+	protected FilePath getWorkspace() throws IOException, InterruptedException {
+		return getWorkspaceAction().getWorkspace();
 	}
 
 	protected IsolationContext getIsolationContext() throws IOException, InterruptedException {
 		final StepContext context = getContext();
 		final IsolationContextAction action = WorkflowUtils.findContextAction( //
-				context.get(Run.class), context.get(FlowNode.class));
+				IsolationContextAction.class, context.get(Run.class), context.get(FlowNode.class));
 		return action == null ? null : action.getContext();
 	}
 
@@ -88,6 +98,13 @@ public class RepoProxyStepExecution extends StepExecution {
 		} catch (IOException | InterruptedException ignored) {
 		}
 		return null;
+	}
+
+	protected FilePath getIsolatedWorkspace() throws IOException, InterruptedException {
+		final IsolationContext isolationCtx = getIsolationContext();
+		if (isolationCtx == null)
+			return null;
+		return isolationCtx.getWorkspace();
 	}
 
 	@Override

@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.UnixDomainSocketAddress;
 
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
+
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.FilePath;
 import hudson.LauncherDecorator;
@@ -30,6 +32,8 @@ import net.runeduniverse.lib.utils.net.api.IpNet4Address;
 import net.runeduniverse.lib.utils.net.api.IpNet6Address;
 
 public interface IsolationContext extends Serializable {
+
+	public void onLoad(FlowNode parent);
 
 	public LauncherDecorator launcherDecorator();
 

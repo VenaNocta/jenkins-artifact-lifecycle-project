@@ -32,6 +32,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -49,6 +50,9 @@ import org.jenkinsci.plugins.isolationctx.ctx.net.LnxNetLink;
 import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler;
 import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler.OverlayMountData;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
+import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
 import com.google.common.io.Files;
 
@@ -71,6 +75,7 @@ import hudson.remoting.VirtualChannel;
 import hudson.util.LogTaskListener;
 import jenkins.MasterToSlaveFileCallable;
 import jenkins.agents.ControllerToAgentFileCallable;
+import jenkins.model.Jenkins;
 import net.runeduniverse.lib.utils.net.api.Ip4Address;
 import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
@@ -85,16 +90,17 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 	public static final String TEMPL_LINE = "[ Linux-Namespace » %d ] %s";
 
-	protected transient final Object linkLock = new Object();
-
-	protected transient final DecoratorFactory factory;
-	protected transient final Run<?, ?> run;
-	protected transient final Node node;
-	protected transient final WorkspaceAction ws;
-	protected transient final TaskListener listener;
+	protected final DecoratorFactory factory;
 
 	protected long processId = -1;
 	protected OverlayMountData overlayData = null;
+
+	protected transient final Object linkLock = new Object();
+
+	protected transient Run<?, ?> run;
+	protected transient Node node;
+	protected transient WorkspaceAction ws;
+	protected transient TaskListener listener;
 
 	protected transient final SortedMap<Integer, LnxNetLink> _activeLinks = new TreeMap<>();
 	protected transient CompletableFuture<LnxIdentity> _lnxIdentityFuture = null;
@@ -109,15 +115,41 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		this.listener = listener;
 	}
 
-	// XStream2 hook -> handles unmarshal
-	private Object readResolve() {
+	@Override
+	public void onLoad(final FlowNode parent) {
+		Objects.requireNonNull(parent, "LinuxNodeNamespaceContext can not be loaded with FlowNode: null");
+
+		this.ws = parent.getAction(WorkspaceAction.class);
+		this.node = Jenkins.get()
+				.getNode(this.ws.getNode());
+
+		final String flowNodeId = parent.getId();
+		try {
+			StepExecution.acceptAll(exec -> {
+				try {
+					final StepContext stepContext = exec.getContext();
+					final String id = stepContext.get(FlowNode.class)
+							.getId();
+
+					if (flowNodeId.equals(id)) {
+						LinuxNodeNamespaceContext.this.run = stepContext.get(Run.class);
+						LinuxNodeNamespaceContext.this.listener = stepContext.get(TaskListener.class);
+					}
+				} catch (Exception ignore) {
+				}
+			})
+					.get();
+		} catch (InterruptedException | ExecutionException e) {
+			e.printStackTrace();
+		}
+
+		// getNodeRuntime() requires this.node to be set
 		final NodeIsolationRuntime runtime = getNodeRuntime();
 		if (runtime != null && runtime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
 			// reinit overlayData
 			if (this.overlayData != null)
 				this.overlayData.initHandler(handler);
 		}
-		return this;
 	}
 
 	@Override
@@ -257,6 +289,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 				mountData.export("workspace", workspacePath.getParent());
 				// ensure paths exist on disk before script is called or root will own them!
 				mountData.bind(workspacePath);
+				mountData.computeWorkspacePath(workspacePath);
 				mountData.bind(tmpPath);
 				mountData.bind(envCachePath);
 				// inject switch_root call to enter overlay into startup cmd
@@ -368,19 +401,20 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 	@Override
 	public FilePath getWorkspace() {
-		return this.ws.getWorkspace();
+		if (this.overlayData == null) {
+			return this.ws.getWorkspace();
+		}
+		return this.overlayData.workspacePath();
 	}
 
 	@Override
 	public <T> T actInContext(final FileCallable<T> callable) throws IOException, InterruptedException {
-		return this.ws.getWorkspace()
-				.act(callable);
+		return getWorkspace().act(callable);
 	}
 
 	@Override
 	public <T> Future<T> actInContextAsync(final FileCallable<T> callable) throws IOException, InterruptedException {
-		return this.ws.getWorkspace()
-				.actAsync(callable);
+		return getWorkspace().actAsync(callable);
 	}
 
 	@Override
@@ -550,7 +584,8 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 	protected Proc wsExecAndJoinCmd(final List<String> cmd, final boolean readStderr, final int expectedExitCode)
 			throws IOException, InterruptedException {
-		final ProcStarter procStarter = getWorkspace().createLauncher(logListener())
+		final ProcStarter procStarter = this.ws.getWorkspace()
+				.createLauncher(logListener())
 				.launch()
 				.cmds(cmd)
 				.readStdout();

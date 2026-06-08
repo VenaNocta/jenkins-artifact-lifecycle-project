@@ -15,10 +15,10 @@
  */
 package org.jenkinsci.plugins.isolationctx;
 
-import org.jenkinsci.plugins.isolationctx.config.IsolationContextAction;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 
+import hudson.model.Action;
 import hudson.model.Run;
 
 // class requires org.jenkinsci.plugins.workflow.graph package
@@ -27,24 +27,25 @@ public class WorkflowUtils {
 	private WorkflowUtils() {
 	}
 
-	public static IsolationContextAction findContextAction(final FlowNode flowNode) {
-		IsolationContextAction action = flowNode.getAction(IsolationContextAction.class);
+	public static <T extends Action> T findContextAction(final Class<T> type, final FlowNode flowNode) {
+		T action = flowNode.getAction(type);
 		if (action != null)
 			return action;
 
 		for (BlockStartNode node : flowNode.iterateEnclosingBlocks()) {
-			action = node.getAction(IsolationContextAction.class);
+			action = node.getAction(type);
 			if (action != null)
 				return action;
 		}
 		return null;
 	}
 
-	public static IsolationContextAction findContextAction(final Run<?, ?> run, final FlowNode flowNode) {
-		IsolationContextAction action = findContextAction(flowNode);
+	public static <T extends Action> T findContextAction(final Class<T> type, final Run<?, ?> run,
+			final FlowNode flowNode) {
+		T action = findContextAction(type, flowNode);
 		if (action != null)
 			return action;
-		action = run.getAction(IsolationContextAction.class);
+		action = run.getAction(type);
 		if (action != null)
 			return action;
 		return null;

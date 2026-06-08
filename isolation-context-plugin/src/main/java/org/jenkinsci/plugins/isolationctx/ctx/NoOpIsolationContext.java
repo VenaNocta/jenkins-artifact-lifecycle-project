@@ -21,6 +21,7 @@ import java.net.UnixDomainSocketAddress;
 import org.apache.commons.lang3.NotImplementedException;
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.ctx.net.DefaultNetLink;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
 
 import hudson.FilePath.FileCallable;
 import hudson.FilePath;
@@ -30,6 +31,10 @@ import hudson.remoting.Future;
 public class NoOpIsolationContext implements IsolationContext {
 
 	private static final long serialVersionUID = 1L;
+
+	@Override
+	public void onLoad(final FlowNode parent) {
+	}
 
 	@Override
 	public LauncherDecorator launcherDecorator() {
