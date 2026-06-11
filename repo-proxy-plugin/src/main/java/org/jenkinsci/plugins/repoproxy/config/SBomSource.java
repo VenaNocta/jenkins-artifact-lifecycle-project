@@ -15,14 +15,19 @@
  */
 package org.jenkinsci.plugins.repoproxy.config;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.UUID;
 
 import org.kohsuke.stapler.DataBoundSetter;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.FilePath;
+import hudson.Launcher;
 import hudson.Util;
 import hudson.model.Describable;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 
 public abstract class SBomSource implements Describable<SBomSource>, Serializable {
 
@@ -67,6 +72,9 @@ public abstract class SBomSource implements Describable<SBomSource>, Serializabl
 	public void setDescription(@NonNull final String description) {
 		this.description = Util.fixEmptyAndTrim(description);
 	}
+
+	public abstract void retrieve(final Run<?, ?> run, final Launcher nodeBasedLauncher, final FilePath target,
+			final TaskListener listener) throws IOException, InterruptedException;
 
 	@Override
 	public SBomSourceDescriptor getDescriptor() {

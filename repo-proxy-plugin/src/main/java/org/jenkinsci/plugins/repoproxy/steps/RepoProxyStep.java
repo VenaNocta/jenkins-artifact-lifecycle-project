@@ -60,7 +60,7 @@ public class RepoProxyStep extends Step implements Serializable {
 	protected static boolean entryFilter(final Map.Entry<String, String> entry) {
 		if (entry == null)
 			return false;
-		if (StringUtils.isAllBlank(entry.getKey()) || StringUtils.isAllBlank(entry.getValue()))
+		if (StringUtils.isBlank(entry.getKey()) || StringUtils.isBlank(entry.getValue()))
 			return false;
 		return true;
 	}

@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 
-import org.jenkinsci.plugins.isolationctx.FirewallDelegate;
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 

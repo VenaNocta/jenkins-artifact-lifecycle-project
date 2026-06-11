@@ -15,20 +15,30 @@
  */
 package org.jenkinsci.plugins.repoproxy.config;
 
+import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-
+import java.util.concurrent.Callable;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
 
+import hudson.AbortException;
 import hudson.Extension;
 import hudson.ExtensionList;
+import hudson.FilePath;
+import hudson.Functions;
+import hudson.Launcher;
 import hudson.Util;
 import hudson.model.Item;
+import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.scm.SCM;
+import jenkins.model.Jenkins;
+import jenkins.scm.api.SCMRevision;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceDescriptor;
 
@@ -50,6 +60,50 @@ public class ScmSBomSource extends SBomSource {
 		super(UUID.fromString(id), name);
 		this.version = Util.fixEmptyAndTrim(version);
 		this.scm = scm;
+	}
+
+	@Override
+	public void retrieve(final Run<?, ?> run, final Launcher nodeBasedLauncher, final FilePath target,
+			final TaskListener listener) throws IOException, InterruptedException {
+		final SCMRevision revision = retrySCMOperation(listener,
+				() -> this.scm.fetch(this.version, listener, run.getParent()));
+		if (revision == null) {
+			throw new AbortException("No version " + this.version + " found for library " + name);
+		}
+		final SCM scm = this.scm.build(revision.getHead(), revision);
+		retrySCMOperation(listener, () -> {
+			scm.checkout(run, nodeBasedLauncher, target, listener, null, null);
+			return null;
+		});
+	}
+
+	protected static <T> T retrySCMOperation(final TaskListener listener, final Callable<T> task)
+			throws IOException, InterruptedException {
+		for (int retryCount = Jenkins.get()
+				.getScmCheckoutRetryCount(); retryCount >= 0; retryCount--) {
+			try {
+				return task.call();
+			} catch (AbortException e) {
+				// abort exception might have a null message.
+				// If so, just skip echoing it.
+				if (e.getMessage() != null) {
+					listener.error(e.getMessage());
+				}
+			} catch (InterruptedIOException e) {
+				throw e;
+			} catch (Exception e) {
+				// checkout error not yet reported
+				Functions.printStackTrace(e, listener.error("Checkout failed"));
+			}
+
+			if (retryCount == 0) // all attempts failed
+				throw new AbortException("Maximum checkout retry attempts reached, aborting");
+
+			listener.getLogger()
+					.println("Retrying after 10 seconds");
+			Thread.sleep(10000);
+		}
+		return null;
 	}
 
 	@Extension
