@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
@@ -28,7 +29,6 @@ import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
@@ -39,13 +39,13 @@ public class MvnProxyConfig extends ProxyConfig {
 
 	protected Map<String, RepoSourceConfig> sourceMap = new LinkedHashMap<>();
 
-	public MvnProxyConfig(@NonNull final String id) {
-		super(id);
+	public MvnProxyConfig(final UUID id, final String name) {
+		super(id, name);
 	}
 
 	@DataBoundConstructor
-	public MvnProxyConfig(@NonNull final String id, @CheckForNull final String description) {
-		super(id, description);
+	public MvnProxyConfig(final String id, final String name) {
+		super(UUID.fromString(id), name);
 	}
 
 	public List<RepoSourceConfig> getSources() {

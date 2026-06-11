@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
-	<input type="hidden" name="currentId"
+	<input type="hidden" name="id"
 		value="${instance == null ? null : instance.id}" />
-	<f:entry title="${%ID}" field="id">
+	<f:entry title="${%ID}">
+		<div style="color:#888">
+			${instance == null ? "???" : instance.id}
+		</div>
+	</f:entry>
+	<f:entry title="${%Name}" field="name">
 		<f:textbox />
 	</f:entry>
 	<f:entry title="${%Description}" field="description">

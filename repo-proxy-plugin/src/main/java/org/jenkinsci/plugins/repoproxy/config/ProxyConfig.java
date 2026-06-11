@@ -16,32 +16,43 @@
 package org.jenkinsci.plugins.repoproxy.config;
 
 import java.io.Serializable;
+import java.util.UUID;
 
 import org.kohsuke.stapler.DataBoundSetter;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionPoint;
+import hudson.Util;
 import hudson.model.Describable;
 
 public abstract class ProxyConfig implements Describable<ProxyConfig>, Serializable, ExtensionPoint {
 
 	private static final long serialVersionUID = 1L;
 
-	protected String id;
+	public static final String JSON_ID_FIELD_NAME = "id";
+
+	@NonNull
+	protected final UUID id;
+
+	protected String name;
 	protected String description;
 
-	protected ProxyConfig(@NonNull final String id) {
-		this(id, null);
+	public ProxyConfig(final UUID id, final String name) {
+		this(id, name, null);
 	}
 
-	protected ProxyConfig(@NonNull final String id, @CheckForNull final String description) {
-		this.id = id;
-		this.description = description;
+	public ProxyConfig(final UUID id, final String name, final String description) {
+		this.id = id == null ? UUID.randomUUID() : id;
+		this.name = Util.fixEmptyAndTrim(name);
+		this.description = Util.fixEmptyAndTrim(description);
 	}
 
-	public String getId() {
+	public UUID getId() {
 		return this.id;
+	}
+
+	public String getName() {
+		return this.name;
 	}
 
 	public String getDescription() {
@@ -49,8 +60,8 @@ public abstract class ProxyConfig implements Describable<ProxyConfig>, Serializa
 	}
 
 	@DataBoundSetter
-	public void setId(@NonNull final String id) {
-		this.id = id;
+	public void setName(@NonNull final String name) {
+		this.name = Util.fixEmptyAndTrim(name);
 	}
 
 	@DataBoundSetter

@@ -15,43 +15,28 @@
  */
 package org.jenkinsci.plugins.repoproxy.config;
 
-import java.util.UUID;
-
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
-import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Descriptor;
 import hudson.util.FormValidation;
 
 public abstract class ProxyConfigDescriptor extends Descriptor<ProxyConfig> {
 
-	@NonNull
-	public String randomId() {
-		return UUID.randomUUID()
-				.toString();
-	}
-
 	@Restricted(NoExternalUse.class)
 	@POST
-	public FormValidation doCheckId(@QueryParameter String value, @QueryParameter String currentId) {
+	public FormValidation doCheckName(@QueryParameter String value, @QueryParameter String currentId) {
 		value = StringUtils.trimToNull(value);
-		// generated id
+		// name is optional anyway
 		if (value == null)
-			return FormValidation.ok("ID will be generated!");
-		// unchanged
-		if (value.equals(StringUtils.trimToEmpty(currentId)))
 			return FormValidation.ok();
 		// check invalid chars
-		if (!value.matches("[a-zA-Z0-9_\\.-<>]+"))
+		if (!value.matches("[a-zA-Z0-9_\\.\\-<>]+"))
 			return FormValidation.error("Invalid characters");
 		// check duplicates
-		if (RepoProxyConfiguration.get()
-				.getConfig(value) != null)
-			return FormValidation.error("ID already in use!");
 		return FormValidation.ok();
 	}
 }

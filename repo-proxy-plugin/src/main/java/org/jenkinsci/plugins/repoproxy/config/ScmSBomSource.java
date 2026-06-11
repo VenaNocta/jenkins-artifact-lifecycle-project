@@ -25,7 +25,6 @@ import java.util.concurrent.Callable;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
-
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.ExtensionList;
@@ -60,6 +59,14 @@ public class ScmSBomSource extends SBomSource {
 		super(UUID.fromString(id), name);
 		this.version = Util.fixEmptyAndTrim(version);
 		this.scm = scm;
+	}
+
+	public String getVersion() {
+		return this.version;
+	}
+
+	public SCMSource getScm() {
+		return this.scm;
 	}
 
 	@Override

@@ -15,8 +15,28 @@
  */
 package org.jenkinsci.plugins.repoproxy.config;
 
+import org.apache.commons.lang.StringUtils;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
+
 import hudson.model.Descriptor;
+import hudson.util.FormValidation;
 
 public abstract class SBomSourceDescriptor extends Descriptor<SBomSource> {
 
+	@Restricted(NoExternalUse.class)
+	@POST
+	public FormValidation doCheckName(@QueryParameter String value, @QueryParameter String currentId) {
+		value = StringUtils.trimToNull(value);
+		// name is optional anyway
+		if (value == null)
+			return FormValidation.ok();
+		// check invalid chars
+		if (!value.matches("[a-zA-Z0-9_\\.\\-<>]+"))
+			return FormValidation.error("Invalid characters");
+		// check duplicates
+		return FormValidation.ok();
+	}
 }

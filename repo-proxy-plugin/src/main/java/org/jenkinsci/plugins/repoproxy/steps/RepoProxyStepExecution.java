@@ -133,7 +133,7 @@ public class RepoProxyStepExecution extends StepExecution {
 			for (Entry<String, String> entry : this.step.getRequestedRepos()
 					.entrySet()) {
 				final String id = entry.getKey();
-				final ProxyConfig config = RepoProxyConfigurationProvider.findConfig(context.get(Run.class), id);
+				final ProxyConfig config = RepoProxyConfigurationProvider.findConfigByName(context.get(Run.class), id);
 				if (config == null)
 					log.println("[ RepoProxy ] Proxy unavailable! ID: " + id);
 				else
@@ -173,7 +173,7 @@ public class RepoProxyStepExecution extends StepExecution {
 				continue;
 			}
 
-			this.activeProxies.put(config.getId(), bootstrapper);
+			this.activeProxies.put(config.getName(), bootstrapper);
 		}
 
 		for (ProxyBootstrapper bootstrap : new HashSet<>(this.activeProxies.values())) {
