@@ -15,7 +15,6 @@
  */
 package org.jenkinsci.plugins.repoproxy.config;
 
-import java.util.Optional;
 import java.util.UUID;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -32,22 +31,22 @@ public interface RepoProxyConfigurationProvider extends ExtensionPoint {
 	 *
 	 * @param run the Run from where the config is requested
 	 * @param id  the config-id
-	 * @return {@code Optional} when the provider has a definition covering the
+	 * @return {@code ProxyConfig} when the provider has a definition covering the
 	 *         given id; otherwise {@code null}
 	 */
 	@CheckForNull
-	public Optional<ProxyConfig> getConfigById(@Nullable final Run<?, ?> run, @NonNull final UUID id);
+	public ProxyConfig getConfigById(@Nullable final Run<?, ?> run, @NonNull final UUID id);
 
 	/**
 	 * Asks the provider to return the config
 	 *
 	 * @param run  the Run from where the config is requested
 	 * @param name the config-name
-	 * @return {@code Optional} when the provider has a definition covering the
+	 * @return {@code ProxyConfig} when the provider has a definition covering the
 	 *         given id; otherwise {@code null}
 	 */
 	@CheckForNull
-	public Optional<ProxyConfig> getConfigByName(@Nullable final Run<?, ?> run, @NonNull final String name);
+	public ProxyConfig getConfigByName(@Nullable final Run<?, ?> run, @NonNull final String name);
 
 	public static ExtensionList<RepoProxyConfigurationProvider> all() {
 		return ExtensionList.lookup(RepoProxyConfigurationProvider.class);
@@ -55,23 +54,23 @@ public interface RepoProxyConfigurationProvider extends ExtensionPoint {
 
 	@CheckForNull
 	public static ProxyConfig findConfigById(@Nullable final Run<?, ?> run, @NonNull final UUID id) {
-		Optional<ProxyConfig> cnf = null;
+		ProxyConfig cnf = null;
 		for (RepoProxyConfigurationProvider provider : all()) {
 			cnf = provider.getConfigById(run, id);
 			if (cnf != null)
 				break;
 		}
-		return cnf == null || cnf.isEmpty() ? null : cnf.get();
+		return cnf;
 	}
 
 	@CheckForNull
 	public static ProxyConfig findConfigByName(@Nullable final Run<?, ?> run, @NonNull final String name) {
-		Optional<ProxyConfig> cnf = null;
+		ProxyConfig cnf = null;
 		for (RepoProxyConfigurationProvider provider : all()) {
 			cnf = provider.getConfigByName(run, name);
 			if (cnf != null)
 				break;
 		}
-		return cnf == null || cnf.isEmpty() ? null : cnf.get();
+		return cnf;
 	}
 }

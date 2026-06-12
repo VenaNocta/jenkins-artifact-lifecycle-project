@@ -17,9 +17,12 @@ package org.jenkinsci.plugins.repoproxy.maven.config;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -38,6 +41,7 @@ public class MvnProxyConfig extends ProxyConfig {
 	private static final long serialVersionUID = 1L;
 
 	protected Map<String, RepoSourceConfig> sourceMap = new LinkedHashMap<>();
+	protected Set<ValidatorConfig> validatorCol = new LinkedHashSet<>();
 
 	public MvnProxyConfig(final UUID id, final String name) {
 		super(id, name);
@@ -49,7 +53,15 @@ public class MvnProxyConfig extends ProxyConfig {
 	}
 
 	public List<RepoSourceConfig> getSources() {
-		return new ArrayList<RepoSourceConfig>(this.sourceMap.values());
+		if (this.sourceMap == null)
+			return new ArrayList<>();
+		return new ArrayList<>(this.sourceMap.values());
+	}
+
+	public List<ValidatorConfig> getValidatorCol() {
+		if (this.validatorCol == null)
+			return new ArrayList<>();
+		return new ArrayList<>(this.validatorCol);
 	}
 
 	@DataBoundSetter
@@ -74,6 +86,14 @@ public class MvnProxyConfig extends ProxyConfig {
 			}
 			this.sourceMap.put(key, source);
 		}
+	}
+
+	@DataBoundSetter
+	public void setValidatorCol(final Collection<ValidatorConfig> collection) {
+		if (collection == null || collection.isEmpty())
+			this.validatorCol = new LinkedHashSet<>();
+		else
+			this.validatorCol = new LinkedHashSet<>(collection);
 	}
 
 	public Map<String, RepositorySource> buildSourceMap(final Path repoPath) {

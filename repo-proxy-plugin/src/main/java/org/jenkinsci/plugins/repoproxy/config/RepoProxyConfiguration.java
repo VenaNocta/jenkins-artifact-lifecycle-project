@@ -146,13 +146,13 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 		private RepoProxyConfiguration cnf;
 
 		@Override
-		public Optional<ProxyConfig> getConfigById(final Run<?, ?> run, final UUID id) {
-			return Optional.ofNullable(this.cnf.getConfigById(id));
+		public ProxyConfig getConfigById(final Run<?, ?> run, final UUID id) {
+			return this.cnf.getConfigById(id);
 		}
 
 		@Override
-		public Optional<ProxyConfig> getConfigByName(final Run<?, ?> run, final String name) {
-			return Optional.ofNullable(this.cnf.getConfigByName(name));
+		public ProxyConfig getConfigByName(final Run<?, ?> run, final String name) {
+			return this.cnf.getConfigByName(name);
 		}
 	}
 }

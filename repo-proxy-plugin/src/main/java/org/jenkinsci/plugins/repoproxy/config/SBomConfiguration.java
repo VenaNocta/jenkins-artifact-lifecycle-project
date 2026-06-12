@@ -28,6 +28,8 @@ import org.kohsuke.stapler.StaplerRequest2;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
+import hudson.model.Item;
+import hudson.model.Run;
 import jenkins.model.GlobalConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -133,4 +135,25 @@ public class SBomConfiguration extends GlobalConfiguration {
 				.getInstance(SBomConfiguration.class);
 	}
 
+	@Extension(ordinal = -10000)
+	public static final class GlobalSBomSourceProvider implements SBomSourceProvider {
+
+		@Override
+		public SBomSource getSourceById(final Run<?, ?> run, final UUID id) {
+			return SBomConfiguration.get()
+					.getSourceById(id);
+		}
+
+		@Override
+		public SBomSource getSourceByName(final Run<?, ?> run, final String name) {
+			return SBomConfiguration.get()
+					.getSourceByName(name);
+		}
+
+		@Override
+		public List<SBomSource> getSources(final Item item) {
+			return SBomConfiguration.get()
+					.getSources();
+		}
+	}
 }
