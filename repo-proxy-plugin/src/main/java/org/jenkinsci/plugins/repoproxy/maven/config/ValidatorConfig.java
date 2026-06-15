@@ -16,6 +16,9 @@
 package org.jenkinsci.plugins.repoproxy.maven.config;
 
 import java.io.Serializable;
+import java.util.Set;
+import java.util.UUID;
+
 import hudson.ExtensionPoint;
 import hudson.model.Describable;
 
@@ -26,8 +29,16 @@ public abstract class ValidatorConfig implements Describable<ValidatorConfig>, S
 	protected ValidatorConfig() {
 	}
 
+	public abstract boolean isValid();
+
+	public abstract Set<UUID> getRequiredSBoms();
+
 	@Override
 	public ValidatorConfigDescriptor getDescriptor() {
 		return (ValidatorConfigDescriptor) Describable.super.getDescriptor();
+	}
+
+	public static boolean checkValid(final ValidatorConfig config) {
+		return config != null && config.isValid();
 	}
 }

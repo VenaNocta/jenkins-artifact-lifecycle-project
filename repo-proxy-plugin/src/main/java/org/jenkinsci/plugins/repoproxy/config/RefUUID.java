@@ -53,10 +53,18 @@ public class RefUUID implements Describable<RefUUID> {
 	@DataBoundSetter
 	public void setStrValue(final String value) {
 		try {
-			this.value = UUID.fromString(value);
+			this.value = value == null ? null : UUID.fromString(value);
 		} catch (IllegalArgumentException e) {
 			this.value = null;
 		}
+	}
+
+	public boolean isValid() {
+		return this.value != null;
+	}
+
+	public static boolean checkValid(final RefUUID ref) {
+		return ref != null && ref.isValid();
 	}
 
 	public static abstract class DescriptorRefUUID extends Descriptor<RefUUID> {

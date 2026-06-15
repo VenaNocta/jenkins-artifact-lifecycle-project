@@ -92,8 +92,20 @@ public class MvnProxyConfig extends ProxyConfig {
 	public void setValidatorCol(final Collection<ValidatorConfig> collection) {
 		if (collection == null || collection.isEmpty())
 			this.validatorCol = new LinkedHashSet<>();
-		else
-			this.validatorCol = new LinkedHashSet<>(collection);
+		else {
+			this.validatorCol = new LinkedHashSet<>();
+			collection.stream()
+					.filter(ValidatorConfig::checkValid)
+					.forEach(this.validatorCol::add);
+		}
+	}
+
+	public Set<UUID> getRequiredSBoms() {
+		final Set<UUID> ids = new LinkedHashSet<>();
+		this.validatorCol.stream()
+				.map(ValidatorConfig::getRequiredSBoms)
+				.forEach(ids::addAll);
+		return ids;
 	}
 
 	public Map<String, RepositorySource> buildSourceMap(final Path repoPath) {

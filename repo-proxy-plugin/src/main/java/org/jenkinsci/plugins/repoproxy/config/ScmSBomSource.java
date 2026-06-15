@@ -70,12 +70,19 @@ public class ScmSBomSource extends SBomSource {
 	}
 
 	@Override
+	public SBomSourceCache buildCache(final Run<?, ?> run, final Launcher nodeBasedLauncher, final FilePath cachePath,
+			final TaskListener listener) throws IOException, InterruptedException {
+		cachePath.mkdirs();
+		retrieve(run, nodeBasedLauncher, cachePath, listener);
+		return new ScmSBomSourceCache(this.id, this.version, cachePath);
+	}
+
 	public void retrieve(final Run<?, ?> run, final Launcher nodeBasedLauncher, final FilePath target,
 			final TaskListener listener) throws IOException, InterruptedException {
 		final SCMRevision revision = retrySCMOperation(listener,
 				() -> this.scm.fetch(this.version, listener, run.getParent()));
 		if (revision == null) {
-			throw new AbortException("No version " + this.version + " found for library " + name);
+			throw new AbortException("No version " + this.version + " found for SBom-Repo " + this.name);
 		}
 		final SCM scm = this.scm.build(revision.getHead(), revision);
 		retrySCMOperation(listener, () -> {

@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
 import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStartCallable;
@@ -43,13 +44,15 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 	private static final long serialVersionUID = 1L;
 
 	protected final Map<String, MvnProxyConfig> instanceConfigs;
+	protected final Map<UUID, SBomSourceCache> sbomCacheMap;
 	protected final Set<InetAddress> addressSet;
 	protected final int port;
 
-	public MvnNettyStartCallable(final String flowNodeId, Map<String, MvnProxyConfig> instanceConfigs,
-			final Set<InetAddress> addressSet, final int port) {
+	public MvnNettyStartCallable(final String flowNodeId, final Map<String, MvnProxyConfig> instanceConfigs,
+			final Map<UUID, SBomSourceCache> sbomCacheMap, final Set<InetAddress> addressSet, final int port) {
 		super(flowNodeId);
 		this.instanceConfigs = instanceConfigs;
+		this.sbomCacheMap = sbomCacheMap;
 		this.addressSet = addressSet;
 		this.port = port;
 	}
@@ -84,6 +87,8 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 		for (Entry<String, MvnProxyConfig> entry : this.instanceConfigs.entrySet()) {
 			// TODO configure with instanceConfigs
 			final MvnProxyConfig config = entry.getValue();
+
+			// TODO build validator + parse cyclonedx sbom from file
 
 			final DefaultRepositoryProxyInstance instance = new DefaultRepositoryProxyInstance(entry.getKey(),
 					DefaultCache::new);

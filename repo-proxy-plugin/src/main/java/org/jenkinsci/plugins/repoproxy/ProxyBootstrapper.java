@@ -17,9 +17,11 @@ package org.jenkinsci.plugins.repoproxy;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
+import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import hudson.model.TaskListener;
@@ -27,8 +29,10 @@ import jenkins.agents.ControllerToAgentFileCallable;
 
 public interface ProxyBootstrapper {
 
+	public Set<UUID> getRequiredSBoms();
+
 	public ControllerToAgentFileCallable<UUID> serverStartCallable(NetLink link, //
-			StepContext context, Map<String, String> proxyEnv, TaskListener listener)
-			throws IOException, InterruptedException;
+			StepContext context, Map<String, String> proxyEnv, Map<UUID, SBomSourceCache> sbomCacheMap,
+			TaskListener listener) throws IOException, InterruptedException;
 
 }

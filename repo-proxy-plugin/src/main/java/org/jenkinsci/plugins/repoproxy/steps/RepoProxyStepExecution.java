@@ -20,6 +20,7 @@ import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -36,6 +37,8 @@ import org.jenkinsci.plugins.repoproxy.ProxyProvider;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.repoproxy.config.RepoProxyConfigurationProvider;
+import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
+import org.jenkinsci.plugins.repoproxy.config.SBomSourceProvider;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStopCallable;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
@@ -46,6 +49,7 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
+import hudson.Launcher;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import jenkins.agents.ControllerToAgentFileCallable;
@@ -60,6 +64,7 @@ public class RepoProxyStepExecution extends StepExecution {
 
 	protected final RepoProxyStep step;
 	protected final FilePath cacheFolder;
+	protected final FilePath cacheSBomFolder;
 
 	protected transient NetLink link;
 
@@ -70,7 +75,7 @@ public class RepoProxyStepExecution extends StepExecution {
 		super(context);
 		this.step = step;
 		this.cacheFolder = getWorkspace().withSuffix("@proxy_cache");
-		// final IsolationContext isoContext = tryGetIsolationContext();
+		this.cacheSBomFolder = getWorkspace().withSuffix("@proxy_sbom_cache");
 	}
 
 	protected synchronized WorkspaceAction getWorkspaceAction() throws IOException, InterruptedException {
@@ -164,9 +169,12 @@ public class RepoProxyStepExecution extends StepExecution {
 			final Map<String, ProxyConfig> configs, final Set<IpAddress<?>> ips)
 			throws IOException, InterruptedException {
 		final StepContext context = getContext();
+		final Run<?, ?> run = context.get(Run.class);
 		final FlowNode flowNode = context.get(FlowNode.class);
 		final TaskListener listener = context.get(TaskListener.class);
 		final PrintStream log = listener.getLogger();
+
+		final Set<UUID> sbomIds = new LinkedHashSet<>();
 
 		for (Entry<String, ProxyConfig> entry : configs.entrySet()) {
 			final String refKey = entry.getKey();
@@ -184,6 +192,14 @@ public class RepoProxyStepExecution extends StepExecution {
 			}
 
 			this.activeProxies.put(refKey, bootstrapper);
+			sbomIds.addAll(bootstrapper.getRequiredSBoms());
+		}
+
+		final Launcher nodeBasedLauncher = this.cacheSBomFolder.createLauncher(listener);
+		final Map<UUID, SBomSourceCache> sbomCacheMap = new LinkedHashMap<>();
+		for (UUID uuid : sbomIds) {
+			sbomCacheMap.put(uuid, SBomSourceProvider.findSourceById(run, uuid)
+					.buildCache(run, nodeBasedLauncher, this.cacheSBomFolder.child(uuid.toString()), listener));
 		}
 
 		for (ProxyBootstrapper bootstrap : new HashSet<>(this.activeProxies.values())) {
@@ -194,7 +210,7 @@ public class RepoProxyStepExecution extends StepExecution {
 			} while (this.activeNettyHandleCacheRefMap.containsValue(cacheRef));
 			// create new cachePath for bootstrap in context and call it
 			final ControllerToAgentFileCallable<UUID> callable = //
-					bootstrap.serverStartCallable(link, context, proxyEnv, listener);
+					bootstrap.serverStartCallable(link, context, proxyEnv, sbomCacheMap, listener);
 			final FilePath dir = this.cacheFolder.child(cacheRef.toString());
 			dir.mkdirs();
 			this.activeNettyHandleCacheRefMap.put(dir.act(callable), cacheRef);
@@ -223,6 +239,7 @@ public class RepoProxyStepExecution extends StepExecution {
 			isoContext.actInContext(new AgentNettyStopCallable(this.activeNettyHandleCacheRefMap.keySet()));
 		}
 		this.cacheFolder.deleteRecursive();
+		this.cacheSBomFolder.deleteRecursive();
 	}
 
 	private static class BlockCallback extends BodyExecutionCallback {

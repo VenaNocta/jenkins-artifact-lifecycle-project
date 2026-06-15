@@ -20,7 +20,10 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
+import org.jenkinsci.plugins.repoproxy.config.RefUUID;
 import org.jenkinsci.plugins.repoproxy.config.SBomConfiguration;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -46,24 +49,27 @@ public class CyclonedxValidatorConfig extends ValidatorConfig {
 	public void setSourceIds(final Collection<SBomConfiguration.IdRef> col) {
 		if (col == null || col.isEmpty())
 			this.sourceIds.clear();
-		else
-			this.sourceIds = new LinkedHashSet<>(col);
+		else {
+			this.sourceIds = new LinkedHashSet<>();
+			col.stream()
+					.filter(RefUUID::checkValid)
+					.forEach(this.sourceIds::add);
+		}
+	}
+
+	@Override
+	public Set<UUID> getRequiredSBoms() {
+		return this.sourceIds.stream()
+				.map(RefUUID::getValue)
+				.collect(Collectors.toUnmodifiableSet());
+	}
+
+	@Override
+	public boolean isValid() {
+		return !this.sourceIds.isEmpty();
 	}
 
 	@Extension
 	public static class Descriptor extends ValidatorConfigDescriptor {
-		/*
-		 * public ListBoxModel doFillSourceIdsItems(@AncestorInPath Item
-		 * item, @QueryParameter String[] sourceIds) { final ListBoxModel model =
-		 * SBomSourceProvider.allSourcesAsListBox(item); final Set<String> selectedIds;
-		 * if (sourceIds == null) selectedIds = Collections.emptySet(); else selectedIds
-		 * = Arrays.asList(sourceIds) .stream() .map(Util::fixEmptyAndTrim)
-		 * .filter(Objects::nonNull) .collect(Collectors.toSet());
-		 *
-		 * System.out.println("SelectedIds: " + String.join(", ", selectedIds));
-		 *
-		 * if (!selectedIds.isEmpty()) { model.forEach(o -> { if
-		 * (selectedIds.contains(o.value)) o.selected = true; }); } return model; }
-		 */
 	}
 }

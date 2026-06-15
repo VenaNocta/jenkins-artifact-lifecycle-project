@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -31,6 +32,7 @@ import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
 import org.jenkinsci.plugins.isolationctx.dto.TrafficMap.Protocol;
 import org.jenkinsci.plugins.repoproxy.AProxyBootstrapper;
 import org.jenkinsci.plugins.repoproxy.ProxyBootstrapper;
+import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
 import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -76,8 +78,19 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBoo
 	}
 
 	@Override
+	public Set<UUID> getRequiredSBoms() {
+		final Set<UUID> ids = new LinkedHashSet<>();
+		this.instConfigs.values()
+				.stream()
+				.map(MvnProxyConfig::getRequiredSBoms)
+				.forEach(ids::addAll);
+		return ids;
+	}
+
+	@Override
 	public ControllerToAgentFileCallable<UUID> serverStartCallable(final NetLink link, //
-			final StepContext context, final Map<String, String> proxyEnv, final TaskListener listener)
+			final StepContext context, final Map<String, String> proxyEnv,
+			final Map<UUID, SBomSourceCache> sbomCacheMap, final TaskListener listener)
 			throws IOException, InterruptedException {
 
 		final Set<InetAddress> addressSet = this.ipSet.stream()
@@ -87,7 +100,7 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBoo
 
 		final FlowNode node = context.get(FlowNode.class);
 		final MvnNettyStartCallable callable = new MvnNettyStartCallable(//
-				node.getId(), this.instConfigs, addressSet, this.port);
+				node.getId(), this.instConfigs, sbomCacheMap, addressSet, this.port);
 
 		updateEnv(this.instConfigs.keySet(), this.ipSet, this.port, proxyEnv, "MVN");
 

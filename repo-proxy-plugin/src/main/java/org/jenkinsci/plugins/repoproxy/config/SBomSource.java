@@ -73,8 +73,8 @@ public abstract class SBomSource implements Describable<SBomSource>, Serializabl
 		this.description = Util.fixEmptyAndTrim(description);
 	}
 
-	public abstract void retrieve(final Run<?, ?> run, final Launcher nodeBasedLauncher, final FilePath target,
-			final TaskListener listener) throws IOException, InterruptedException;
+	public abstract SBomSourceCache buildCache(final Run<?, ?> run, final Launcher nodeBasedLauncher,
+			final FilePath cachePath, final TaskListener listener) throws IOException, InterruptedException;
 
 	@Override
 	public SBomSourceDescriptor getDescriptor() {
