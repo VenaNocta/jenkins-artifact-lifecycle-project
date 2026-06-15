@@ -36,7 +36,7 @@ public class MavenProxyProvider implements ProxyProvider {
 	}
 
 	@Override
-	public ProxyBootstrapper createBootstrapper(final FlowNode flowNode, final String refId, final ProxyConfig config,
+	public ProxyBootstrapper createBootstrapper(final FlowNode flowNode, final String refKey, final ProxyConfig config,
 			final Set<IpAddress<?>> availableIps) {
 		if (!(config instanceof MvnProxyConfig))
 			return null;
@@ -44,10 +44,10 @@ public class MavenProxyProvider implements ProxyProvider {
 		MvnProxyBootstrapper instance = flowNode.getAction(MvnProxyBootstrapper.class);
 		if (instance == null) {
 			flowNode.addAction(instance = new MvnProxyBootstrapper(availableIps, 8000));
-		} else if (instance.canSupport(refId, availableIps, 8000))
+		} else if (instance.canSupport(refKey, availableIps, 8000))
 			return null;
 
-		instance.addRepoInstance(refId, (MvnProxyConfig) config);
+		instance.addRepoInstance(refKey, (MvnProxyConfig) config);
 
 		return instance;
 	}

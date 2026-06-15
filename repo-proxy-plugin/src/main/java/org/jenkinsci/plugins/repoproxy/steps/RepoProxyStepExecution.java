@@ -110,6 +110,7 @@ public class RepoProxyStepExecution extends StepExecution {
 	@Override
 	public boolean start() throws Exception {
 		final StepContext context = getContext();
+		final Run<?, ?> run = context.get(Run.class);
 		final TaskListener listener = context.get(TaskListener.class);
 		final PrintStream log = listener.getLogger();
 
@@ -132,12 +133,20 @@ public class RepoProxyStepExecution extends StepExecution {
 			final Map<String, ProxyConfig> configs = new LinkedHashMap<>();
 			for (Entry<String, String> entry : this.step.getRequestedRepos()
 					.entrySet()) {
-				final String id = entry.getKey();
-				final ProxyConfig config = RepoProxyConfigurationProvider.findConfigByName(context.get(Run.class), id);
+				final String configKey = entry.getKey();
+				final String refKey = entry.getValue();
+
+				if (configs.containsKey(refKey)) {
+					log.println("[ RepoProxy ] Proxy skipped, RefKey already exists! Name: " + configKey + " | RefKey: "
+							+ refKey);
+					continue;
+				}
+
+				final ProxyConfig config = RepoProxyConfigurationProvider.findConfigByName(run, configKey);
 				if (config == null)
-					log.println("[ RepoProxy ] Proxy unavailable! ID: " + id);
+					log.println("[ RepoProxy ] Proxy unavailable! Name: " + configKey);
 				else
-					configs.put(entry.getValue(), config);
+					configs.put(refKey, config);
 			}
 
 			spawnProxies(link, proxyEnv, configs, proxyIps);
@@ -160,6 +169,7 @@ public class RepoProxyStepExecution extends StepExecution {
 		final PrintStream log = listener.getLogger();
 
 		for (Entry<String, ProxyConfig> entry : configs.entrySet()) {
+			final String refKey = entry.getKey();
 			final ProxyConfig config = entry.getValue();
 			final ProxyProvider provider = findProvider(config.getDescriptor());
 			if (provider == null) {
@@ -167,13 +177,13 @@ public class RepoProxyStepExecution extends StepExecution {
 				continue;
 			}
 
-			final ProxyBootstrapper bootstrapper = provider.createBootstrapper(flowNode, entry.getKey(), config, ips);
+			final ProxyBootstrapper bootstrapper = provider.createBootstrapper(flowNode, refKey, config, ips);
 			if (bootstrapper == null) {
 				log.println("[ RepoProxy ] Proxy Configuration failed! ID: " + config.getId());
 				continue;
 			}
 
-			this.activeProxies.put(config.getName(), bootstrapper);
+			this.activeProxies.put(refKey, bootstrapper);
 		}
 
 		for (ProxyBootstrapper bootstrap : new HashSet<>(this.activeProxies.values())) {

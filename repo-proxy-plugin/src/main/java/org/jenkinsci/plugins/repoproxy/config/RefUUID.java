@@ -64,7 +64,6 @@ public class RefUUID implements Describable<RefUUID> {
 		public abstract ListBoxModel allValuesAsListBox(final Item item);
 
 		public ListBoxModel doFillStrValueItems(@AncestorInPath final Item item, @QueryParameter String strValue) {
-			System.out.println(">>> " + strValue);
 			final ListBoxModel model = allValuesAsListBox(item);
 
 			boolean hasValue = false;
