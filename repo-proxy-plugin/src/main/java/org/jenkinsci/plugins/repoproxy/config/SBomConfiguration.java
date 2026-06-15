@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
 import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest2;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -30,6 +31,7 @@ import hudson.Extension;
 import hudson.Util;
 import hudson.model.Item;
 import hudson.model.Run;
+import hudson.util.ListBoxModel;
 import jenkins.model.GlobalConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -154,6 +156,23 @@ public class SBomConfiguration extends GlobalConfiguration {
 		public List<SBomSource> getSources(final Item item) {
 			return SBomConfiguration.get()
 					.getSources();
+		}
+	}
+
+	public static final class IdRef extends RefUUID {
+
+		@DataBoundConstructor
+		public IdRef() {
+			super();
+		}
+
+		@Extension
+		public static final class Descriptor extends DescriptorRefUUID {
+
+			@Override
+			public ListBoxModel allValuesAsListBox(final Item item) {
+				return SBomSourceProvider.allSourcesAsListBox(item);
+			}
 		}
 	}
 }

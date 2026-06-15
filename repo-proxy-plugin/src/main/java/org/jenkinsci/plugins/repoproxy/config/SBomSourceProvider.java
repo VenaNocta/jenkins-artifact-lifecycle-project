@@ -25,6 +25,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.ExtensionList;
 import hudson.ExtensionPoint;
+import hudson.Util;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.util.ListBoxModel;
@@ -97,8 +98,10 @@ public interface SBomSourceProvider extends ExtensionPoint {
 	public static ListBoxModel allSourcesAsListBox(final Item item) {
 		final ListBoxModel model = new ListBoxModel();
 		for (SBomSource source : allSources(item)) {
-			model.add(source.getName(), source.getId()
-					.toString());
+			final UUID id = source.getId();
+			if (id == null)
+				continue;
+			model.add(Util.fixEmptyAndTrim(source.getName()), id.toString());
 		}
 		return model;
 	}
