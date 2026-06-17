@@ -34,19 +34,19 @@ public abstract class AProxyBootstrapper implements ProxyBootstrapper {
 		return map;
 	}
 
-	public static void updateEnv(final Set<String> refIds, final Set<IpAddress<?>> ipSet, final int port,
+	public static void updateEnv(final Set<String> refKeys, final Set<IpAddress<?>> ipSet, final int port,
 			final Map<String, String> proxyEnv, final String envPrefix) {
 		final Map<Short, Set<IpAddress<?>>> groupedIps = groupByIpFamily(ipSet);
 		if (ipSet.isEmpty())
 			return;
 
-		for (String refId : refIds) {
-			final String defaultEnvId = envPrefix + "_PROXY_" + refId + "_URL";
+		for (String refKey : refKeys) {
+			final String defaultEnvId = envPrefix + "_PROXY_" + refKey + "_URL";
 			// only 1 ip -> default-entry
 			if (ipSet.size() == 1) {
 				proxyEnv.put(defaultEnvId, String.format("http://%s:%d/%s/", ipSet.iterator()
 						.next()
-						.toCidrNotation(), port, refId));
+						.toCidrNotation(), port, refKey));
 				continue;
 			}
 			// more then 1 ip
@@ -63,7 +63,7 @@ public abstract class AProxyBootstrapper implements ProxyBootstrapper {
 					if (envId0 == null)
 						envId0 = envId;
 
-					proxyEnv.put(envId, String.format("http://%s:%d/%s/", ip.toCidrNotation(), port, refId));
+					proxyEnv.put(envId, String.format("http://%s:%d/%s/", ip.toCidrNotation(), port, refKey));
 				}
 			}
 			proxyEnv.put(defaultEnvId, proxyEnv.get(envId0));

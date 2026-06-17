@@ -1,7 +1,6 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
 	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
-	<f:select field="strValue" default="---"
-		style="font-family: monospace;" />
-	<f:repeatableDeleteButton />
+	<st:include page="uuid-and-delete"
+		class="${descriptor.clazz}" />
 </j:jelly>
