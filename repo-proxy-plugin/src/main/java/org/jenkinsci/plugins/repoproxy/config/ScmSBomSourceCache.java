@@ -15,6 +15,8 @@
  */
 package org.jenkinsci.plugins.repoproxy.config;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.UUID;
 
 import org.jenkinsci.remoting.SerializableOnlyOverRemoting;
@@ -43,5 +45,11 @@ public class ScmSBomSourceCache implements SBomSourceCache, SerializableOnlyOver
 	@Override
 	public UUID sourceId() {
 		return this.id;
+	}
+
+	@Override
+	public Path toPath() throws IOException, InterruptedException {
+		return Path.of(this.cachePath.absolutize()
+				.getRemote());
 	}
 }

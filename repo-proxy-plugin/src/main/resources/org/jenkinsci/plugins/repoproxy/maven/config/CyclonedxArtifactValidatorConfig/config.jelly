@@ -1,0 +1,28 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
+	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+
+	<f:entry title="skip missing Artifacts"
+		field="skipMissingArtifacts">
+		<f:checkbox />
+	</f:entry>
+	<f:entry title="skip missing POM-Artifacts" field="skipMissingPomArtifacts">
+		<f:checkbox />
+	</f:entry>
+
+	<f:section title="Public Keyservers">
+		<f:entry title="OpenPGP Keyserver"
+			field="enableKeyserverOpenPgp">
+			<f:checkbox />
+		</f:entry>
+		<f:entry title="Ubuntu Keyserver"
+			field="enableKeyserverUbuntu">
+			<f:checkbox />
+		</f:entry>
+		<f:entry title="MIT Keyserver"
+			field="enableKeyserverMit">
+			<f:checkbox />
+		</f:entry>
+	</f:section>
+	<st:include page="sbom-section" class="${descriptor.clazz}" />
+</j:jelly>

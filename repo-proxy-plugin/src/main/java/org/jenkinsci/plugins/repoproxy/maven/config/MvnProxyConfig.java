@@ -15,15 +15,18 @@
  */
 package org.jenkinsci.plugins.repoproxy.maven.config;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
@@ -34,6 +37,9 @@ import org.kohsuke.stapler.DataBoundSetter;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import net.runeduniverse.lib.repo.maven.api.ArtifactValidator;
+import net.runeduniverse.lib.repo.maven.api.MetadataValidator;
+import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
 
 public class MvnProxyConfig extends ProxyConfig {
@@ -96,7 +102,7 @@ public class MvnProxyConfig extends ProxyConfig {
 			this.validatorCol = new LinkedHashSet<>();
 			collection.stream()
 					.filter(ValidatorConfig::checkValid)
-					.forEach(this.validatorCol::add);
+					.forEachOrdered(this.validatorCol::add);
 		}
 	}
 
@@ -108,10 +114,31 @@ public class MvnProxyConfig extends ProxyConfig {
 		return ids;
 	}
 
-	public Map<String, RepositorySource> buildSourceMap(final Path repoPath) {
+	public Map<String, RepositorySource> buildSourceMap(final Path repoPath, final Map<UUID, Path> sbomCacheMap,
+			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+		final List<MetadataValidator> metadataValidators = new LinkedList<>();
+		final List<ArtifactValidator> artifactValidators = new LinkedList<>();
+		for (ValidatorConfig config : this.validatorCol) {
+			if (!ValidatorConfig.checkValid(config))
+				continue;
+			final MetadataValidator metadataValidator = config.buildMetadataValidator(sbomCacheMap, pipelineKiller);
+			final ArtifactValidator artifactValidator = config.buildArtifactValidator(sbomCacheMap, pipelineKiller);
+
+			if (metadataValidator != null)
+				metadataValidators.add(metadataValidator);
+			if (artifactValidator != null)
+				artifactValidators.add(artifactValidator);
+		}
 		return this.sourceMap.values()
 				.stream()
-				.collect(Collectors.toMap(RepoSourceConfig::getKey, c -> c.buildSource(repoPath)));
+				.collect(Collectors.toMap(RepoSourceConfig::getKey, c -> {
+					final RepositorySource source = c.buildSource(repoPath);
+					metadataValidators.stream()
+							.forEachOrdered(source::addLastValidator);
+					artifactValidators.stream()
+							.forEachOrdered(source::addLastValidator);
+					return source;
+				}));
 	}
 
 	@Extension

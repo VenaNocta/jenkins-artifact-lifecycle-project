@@ -1,0 +1,19 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
+	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+
+	<f:section title="SBOM Selection">
+		<f:entry title="skip Excluded Components"
+			field="ignoreExcludedComponents">
+			<f:checkbox />
+		</f:entry>
+		<f:entry title="skip Test Components"
+			field="ignoreTestComponents">
+			<f:checkbox />
+		</f:entry>
+	</f:section>
+	<f:entry title="Sources">
+		<f:repeatableProperty field="sourceIds"
+			header="Source Ref." />
+	</f:entry>
+</j:jelly>

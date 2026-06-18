@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -29,11 +30,15 @@ import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStartCallable;
 import org.jenkinsci.plugins.repoproxy.steps.ArtifactValidationInterruption;
 import org.jenkinsci.plugins.repoproxy.steps.StopStepCallable;
 
+import hudson.remoting.VirtualChannel;
+
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import io.netty.channel.group.ChannelGroup;
 import net.runeduniverse.lib.repo.maven.data.DefaultFileTypeIndex;
+import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.proxy.DefaultCache;
 import net.runeduniverse.lib.repo.maven.proxy.DefaultRepositoryProxyInstance;
 import net.runeduniverse.lib.repo.maven.proxy.ProxyServer;
@@ -63,7 +68,10 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 		final ProxyServer server = new ProxyServer(new DefaultFileTypeIndex(), HttpRepoServerInitializer::new);
 		final Path cachePath = cacheFolder.toPath();
 
-		configure(server, cachePath);
+		configure(server, cachePath, e -> {
+			killPipeline(AgentNettyRegistry.get(handleId)
+					.getJenkinsChannel(), e);
+		});
 
 		for (InetAddress address : this.addressSet) {
 			channelGroup.add(server.bindChannel(address, this.port)
@@ -83,7 +91,20 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 	}
 
-	protected void configure(final ProxyServer server, final Path cachePath) {
+	public boolean killPipeline(final VirtualChannel channel, final ArtifactException ex) {
+		try {
+			channel.callAsync(
+					new StopStepCallable(this.flowNodeId, new ArtifactValidationInterruption(ex.getMessage())));
+			return true;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
+
+	protected void configure(final ProxyServer server, final Path cachePath,
+			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+		final Map<UUID, Path> sbomCacheMap = resolveSBomCacheMap();
 		for (Entry<String, MvnProxyConfig> entry : this.instanceConfigs.entrySet()) {
 			// TODO configure with instanceConfigs
 			final MvnProxyConfig config = entry.getValue();
@@ -95,9 +116,21 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 			final Path repoPath = cachePath.resolve(entry.getKey());
 			instance.sources()
-					.putAll(config.buildSourceMap(repoPath));
+					.putAll(config.buildSourceMap(repoPath, sbomCacheMap, pipelineKiller));
 
 			server.addInstance(instance);
 		}
+	}
+
+	protected Map<UUID, Path> resolveSBomCacheMap() throws IOException, InterruptedException {
+		final Map<UUID, Path> map = new LinkedHashMap<>();
+		for (Entry<UUID, SBomSourceCache> entry : this.sbomCacheMap.entrySet()) {
+			final UUID uuid = entry.getKey();
+			final SBomSourceCache cache = entry.getValue();
+			if (uuid == null || cache == null)
+				continue;
+			map.put(uuid, cache.toPath());
+		}
+		return map;
 	}
 }

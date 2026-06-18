@@ -15,16 +15,27 @@
  */
 package org.jenkinsci.plugins.repoproxy.maven.config;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.cyclonedx.model.Bom;
+import org.cyclonedx.model.Component;
 import org.jenkinsci.plugins.repoproxy.config.RefUUID;
 import org.jenkinsci.plugins.repoproxy.config.SBomSourceProvider;
 import org.kohsuke.accmod.Restricted;
@@ -39,21 +50,36 @@ import hudson.Util;
 import hudson.model.Item;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import net.runeduniverse.lib.repo.maven.api.ArtifactValidator;
+import net.runeduniverse.lib.repo.maven.api.MetadataValidator;
+import net.runeduniverse.lib.repo.maven.error.ArtifactException;
+import net.runeduniverse.lib.repo.maven.validation.cyclonedx.ComponentIndex;
 
-public class CyclonedxValidatorConfig extends ValidatorConfig {
+public abstract class ACyclonedxValidatorConfig extends ValidatorConfig {
 
 	private static final long serialVersionUID = 1L;
 
 	protected Set<IdRef> sourceIds = new LinkedHashSet<>();
 
-	@DataBoundConstructor
-	public CyclonedxValidatorConfig() {
+	protected boolean ignoreExcludedComponents = false;
+	protected boolean ignoreTestComponents = false;
+
+	protected ACyclonedxValidatorConfig() {
+		super();
 	}
 
 	public List<IdRef> getSourceIds() {
 		if (this.sourceIds == null)
 			return new ArrayList<>();
 		return new ArrayList<>(this.sourceIds);
+	}
+
+	public boolean getIgnoreExcludedComponents() {
+		return this.ignoreExcludedComponents;
+	}
+
+	public boolean getIgnoreTestComponents() {
+		return this.ignoreTestComponents;
 	}
 
 	@DataBoundSetter
@@ -64,8 +90,18 @@ public class CyclonedxValidatorConfig extends ValidatorConfig {
 			this.sourceIds = new LinkedHashSet<>();
 			col.stream()
 					.filter(RefUUID::checkValid)
-					.forEach(this.sourceIds::add);
+					.forEachOrdered(this.sourceIds::add);
 		}
+	}
+
+	@DataBoundSetter
+	public void setIgnoreExcludedComponents(final boolean ignoreExcludedDependency) {
+		this.ignoreExcludedComponents = ignoreExcludedDependency;
+	}
+
+	@DataBoundSetter
+	public void setIgnoreTestComponents(final boolean ignoreTestDependency) {
+		this.ignoreTestComponents = ignoreTestDependency;
 	}
 
 	@Override
@@ -80,8 +116,37 @@ public class CyclonedxValidatorConfig extends ValidatorConfig {
 		return !this.sourceIds.isEmpty();
 	}
 
-	@Extension
-	public static class Descriptor extends ValidatorConfigDescriptor {
+	public List<Bom> getSBomList(final Map<UUID, Path> sbomPaths) {
+		final List<Bom> col = new LinkedList<>();
+		this.sourceIds.stream()
+				.map(ref -> ref.parseBoms(sbomPaths.get(ref.getUuidValue())))
+				.forEach(col::addAll);
+		return col;
+	}
+
+	protected Predicate<Component> buildFilter() {
+		Predicate<Component> filter = null;
+		if (this.ignoreExcludedComponents)
+			filter = ComponentIndex.ignoreExcludedDependency();
+		if (this.ignoreTestComponents)
+			filter = combine(filter, ComponentIndex.ignoreTestDependency());
+		return filter;
+	}
+
+	protected static Predicate<Component> combine(final Predicate<Component> a, final Predicate<Component> b) {
+		return a == null ? b : a.and(b);
+	}
+
+	@Override
+	public MetadataValidator buildMetadataValidator(final Map<UUID, Path> sbomPaths,
+			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+		return null;
+	}
+
+	@Override
+	public ArtifactValidator buildArtifactValidator(final Map<UUID, Path> sbomPaths,
+			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+		return null;
 	}
 
 	public static final class IdRef extends RefUUID {
@@ -114,6 +179,26 @@ public class CyclonedxValidatorConfig extends ValidatorConfig {
 			return this == obj || obj instanceof IdRef other //
 					&& StringUtils.compare(this.filterPath, other.filterPath, true) == 0 //
 					&& super.equals(obj);
+		}
+
+		// NOTE: Bom instances have to be handled on node as they are not serializable!
+		public List<Bom> parseBoms(Path sbomPath) {
+			if (sbomPath == null || !isValid())
+				return Collections.emptyList();
+			if (this.filterPath != null)
+				sbomPath = sbomPath.resolve(this.filterPath);
+
+			final boolean isDir = Files.isDirectory(sbomPath, LinkOption.NOFOLLOW_LINKS);
+			if (!(isDir || Files.isRegularFile(sbomPath, LinkOption.NOFOLLOW_LINKS)))
+				return Collections.emptyList();
+			final List<Bom> col = new LinkedList<>();
+
+			if (isDir) {
+				// TODO walk file-tree & parse sbom files
+			} else {
+				// TODO parse sbom file
+			}
+			return col;
 		}
 
 		@Extension
