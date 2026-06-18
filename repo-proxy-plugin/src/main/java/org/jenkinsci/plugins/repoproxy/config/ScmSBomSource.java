@@ -17,6 +17,7 @@ package org.jenkinsci.plugins.repoproxy.config;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -36,6 +37,7 @@ import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.scm.SCM;
+import hudson.util.StreamTaskListener;
 import jenkins.model.Jenkins;
 import jenkins.scm.api.SCMRevision;
 import jenkins.scm.api.SCMSource;
@@ -73,7 +75,8 @@ public class ScmSBomSource extends SBomSource {
 	public SBomSourceCache buildCache(final Run<?, ?> run, final Launcher nodeBasedLauncher, final FilePath cachePath,
 			final TaskListener listener) throws IOException, InterruptedException {
 		cachePath.mkdirs();
-		retrieve(run, nodeBasedLauncher, cachePath, listener);
+		retrieve(run, nodeBasedLauncher, cachePath, new StreamTaskListener(cachePath.withSuffix(".log")
+				.write(), StandardCharsets.UTF_8));
 		return new ScmSBomSourceCache(this.id, this.version, cachePath);
 	}
 
