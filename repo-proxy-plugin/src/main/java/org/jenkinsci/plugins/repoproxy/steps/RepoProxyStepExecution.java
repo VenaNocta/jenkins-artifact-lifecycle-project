@@ -42,6 +42,7 @@ import org.jenkinsci.plugins.repoproxy.config.SBomSourceProvider;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStopCallable;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.steps.BodyExecution;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -69,6 +70,8 @@ public class RepoProxyStepExecution extends StepExecution {
 	protected transient NetLink link;
 
 	protected transient WorkspaceAction _ws = null;
+
+	protected BodyExecution bodyExec = null;
 
 	protected RepoProxyStepExecution(@NonNull final StepContext context, @NonNull final RepoProxyStep step)
 			throws IOException, InterruptedException {
@@ -157,7 +160,7 @@ public class RepoProxyStepExecution extends StepExecution {
 			spawnProxies(link, proxyEnv, configs, proxyIps);
 		}
 
-		context.newBodyInvoker()
+		this.bodyExec = context.newBodyInvoker()
 				.withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class),
 						EnvironmentExpander.constant(proxyEnv)))
 				.withCallback(new BlockCallback(this))
@@ -227,9 +230,9 @@ public class RepoProxyStepExecution extends StepExecution {
 
 	@Override
 	public void stop(final Throwable cause) throws Exception {
-		System.out.println("STOPPPPPP!!!!!!!!!");
-		cause.printStackTrace(System.out);
 		shutdown();
+		if (this.bodyExec != null)
+			this.bodyExec.cancel(cause);
 		super.stop(cause);
 	}
 

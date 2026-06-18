@@ -78,17 +78,6 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 					.sync()
 					.channel());
 		}
-
-		// ---
-
-		if (false) {
-			// TODO use this to kill step in case of issues
-			AgentNettyRegistry.get(handleId)
-					.getJenkinsChannel()
-					.callAsync(new StopStepCallable(this.flowNodeId,
-							new ArtifactValidationInterruption("SBOM: invalid artifact requested!")));
-		}
-
 	}
 
 	public boolean killPipeline(final VirtualChannel channel, final ArtifactException ex) {
