@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +60,7 @@ import com.google.common.io.Files;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
+import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.FilePath.FileCallable;
 import hudson.Launcher.ProcStarter;
@@ -367,7 +369,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 			wsExecAndJoinCmd(Arrays.asList("sudo", "kill", "-KILL", "-" + this.processId), true);
 			// kill namespace process
 			wsExecAndJoinCmd(Arrays.asList("sudo", "kill", "-KILL", "" + this.processId), true);
-			envCachePath().deleteRecursive();
+			// envCachePath().deleteRecursive();
 
 			pipeLog.println(String.format(TEMPL_LINE, this.processId, "Stopped isolated environment"));
 			this.processId = -1;
@@ -653,20 +655,14 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 					if (DecoratorFactory.this.ctx.processId == -1)
 						throw new AbortException("[Linux-Namespace] Namespace unavailable!");
 
-					final Map<String, String> env = Arrays.asList(starter.envs())
-							.stream()
-							.map(s -> s.split("=", 2))
-							// Filter out bash functions
-							.filter(arr -> !arr[0].endsWith("%%"))
-							.collect(Collectors.toMap(arr -> arr[0], arr -> arr[1]));
-
 					// Wrap command with nsenter
 					final List<String> cmd;
 					final String envFileName;
 					try {
 						cmd = DecoratorFactory.this.ctx.nsenterCmd();
-						envFileName = DecoratorFactory.this.ctx.envCachePath()
-								.act(new WriteEnvFile(env));
+						final FilePath envCachePath = DecoratorFactory.this.ctx.envCachePath();
+						envFileName = envCachePath
+								.act(new WriteEnvFile(inherit(envCachePath.getChannel(), starter.envs())));
 					} catch (Throwable e) {
 						if (e instanceof RuntimeException runE)
 							throw runE;
@@ -699,6 +695,39 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 					return super.launch(starter);
 				}
 			};
+		}
+
+		/**
+		 * Expands the list of environment variables by inheriting current env
+		 * variables.
+		 *
+		 * @throws IOException
+		 * @throws InterruptedException
+		 */
+		private static EnvVars inherit(@NonNull final VirtualChannel channel, @NonNull final String[] env)
+				throws IOException, InterruptedException {
+			// convert String[] to Map first
+			EnvVars m = new EnvVars();
+			if (env != null) {
+				for (String e : env) {
+					int index = e.indexOf('=');
+					m.put(e.substring(0, index), e.substring(index + 1));
+				}
+			}
+			m = EnvVars.getRemote(channel)
+					.overrideExpandingAll(m);
+
+			// apply filters
+			for (Iterator<Map.Entry<String, String>> i = m.entrySet()
+					.iterator(); i.hasNext();) {
+				final Map.Entry<String, String> entry = i.next();
+				final String key;
+				// Filter out bash functions
+				if (entry == null || (key = entry.getKey()) == null || key.endsWith("%%"))
+					i.remove();
+			}
+
+			return m;
 		}
 	}
 
