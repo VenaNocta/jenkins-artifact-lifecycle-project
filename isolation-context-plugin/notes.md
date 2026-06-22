@@ -5,27 +5,21 @@ so the sequence should be:
 
 # host
 
-# build overlay - make it private
-sudo mkdir -p /var/jenkins/iso/job/{upper,work,root}
+# build overlay
+sudo mkdir -p /var/jenkins/workspace/job@overlay/{upper,work,rootfs}
 sudo mount -t overlay overlay \
-    -o lowerdir=/,upperdir=/var/jenkins/iso/job/upper,workdir=/var/jenkins/iso/job/work \
-    /var/jenkins/iso/job/root
-
-# build export
-sudo mkdir -p /run/jenkins/workspace-export/job /var/jenkins/iso/job/root/var/jenkins/workspace
-sudo mount --bind /run/jenkins/workspace-export/job /var/jenkins/iso/job/root/var/jenkins/workspace
-sudo mount --make-rshared /var/jenkins/iso/job/root/var/jenkins/workspace
+    -o lowerdir=/,upperdir=/var/jenkins/workspace/job@overlay/upper,workdir=/var/jenkins/workspace/job@overlay/work \
+    /var/jenkins/workspace/job@overlay/rootfs
 
 # create namespace
-sudo setsid unshare --mount --propagation=slave --uts --ipc --net --pid --fork --mount-proc --wd=/var/jenkins/workspace/job/ -- switch_root /var/jenkins/iso/job/root /usr/bin/bash -c "exec tail -f /dev/null"
+#sudo setsid unshare --mount --propagation=slave --uts --ipc --net --pid --fork --mount-proc --wd=/var/jenkins/workspace/job/ -- switch_root /var/jenkins/iso/job/root /usr/bin/bash -c "exec tail -f /dev/null"
 
 # enter
 sudo nsenter --target=208477 --mount --uts --ipc --net --pid --wd -- setpriv --reuid=1000 --regid=1000 --groups=basti --inh-caps=-all --reset-env -- /usr/bin/bash
 
 # cleanup
-umount /var/jenkins/iso/job/root/var/jenkins/workspace
-umount /var/jenkins/iso/job/root
-rm -rf /var/jenkins/iso/job/{upper,work,root}
+sudo umount /var/jenkins/workspace/job@overlay/rootfs
+sudo rm -rf /var/jenkins/workspace/job@overlay/{upper,work,rootfs}
 
 ####
 
@@ -44,6 +38,148 @@ umount /var/jenkins/iso/job/root/var/jenkins/workspace/job-3@extra
 
 # diagnostics
 findmnt -o TARGET,PROPAGATION
+
+```
+
+bundle: config.json
+
+```json
+{
+  "ociVersion": "1.0.2",
+
+  "process": {
+    "terminal": false,
+    "user": { "uid": 1000, "gid": 1000 },
+    "args": ["/usr/bin/tail", "-f", "/dev/null"],
+    "env": [],
+    "cwd": "/"
+  },
+
+  "root": {
+    "path": "rootfs",
+    "readonly": false
+  },
+  "mounts": [
+    {
+      "destination": "/proc",
+      "type": "proc",
+      "source": "proc"
+    },
+    {
+      "destination": "/tmp",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": [
+        "nosuid",
+        "nodev",
+        "mode=1777",
+        "size=1g"
+      ]
+    },
+    {
+      "destination": "/dev",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": [
+        "nosuid",
+        "strictatime",
+        "mode=755",
+        "size=64m"
+      ]
+    },
+    {
+      "destination": "/dev/null",
+      "type": "bind",
+      "source": "/dev/null",
+      "options": ["rbind","rw"]
+    },
+    {
+      "destination": "/dev/zero",
+      "type": "bind",
+      "source": "/dev/zero",
+      "options": ["rbind","rw"]
+    },
+    {
+      "destination": "/dev/full",
+      "type": "bind",
+      "source": "/dev/full",
+      "options": ["rbind","rw"]
+    },
+    {
+      "destination": "/dev/random",
+      "type": "bind",
+      "source": "/dev/random",
+      "options": ["rbind","rw"]
+    },
+    {
+      "destination": "/dev/urandom",
+      "type": "bind",
+      "source": "/dev/urandom",
+      "options": ["rbind","rw"]
+    },
+    {
+      "destination": "/dev/shm",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": [
+        "nosuid",
+        "nodev",
+        "mode=1777",
+        "size=64m"
+      ]
+    },
+    {
+      "destination": "/boot",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": [
+        "mode=700",
+        "size=64k"
+      ]
+    },
+    {
+      "destination": "/var/jenkins",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": [
+        "mode=755",
+        "size=64m"
+      ]
+    },
+    {
+      "destination": "/var/jenkins/workspace/job",
+      "type": "bind",
+      "source": "/var/jenkins/workspace/job",
+      "options": [
+        "bind",
+        "rw",
+        "rshared"
+      ]
+    },
+    {
+      "destination": "/var/jenkins/workspace/job@tmp",
+      "type": "bind",
+      "source": "/var/jenkins/workspace/job@tmp",
+      "options": [
+        "bind",
+        "rw",
+        "rshared"
+      ]
+    }
+  ],
+
+  "hostname": "jenkins-agent",
+
+  "linux": {
+    "namespaces": [
+      { "type": "uts" },
+      { "type": "ipc" },
+      { "type": "network" },
+      { "type": "pid" },
+      { "type": "mount" }
+    ]
+  }
+}
 
 ```
 

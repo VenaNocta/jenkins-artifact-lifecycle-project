@@ -15,24 +15,21 @@
  */
 package org.jenkinsci.plugins.isolationctx.ctx;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.net.UnixDomainSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
@@ -48,8 +45,10 @@ import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntime;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntimeAction;
 import org.jenkinsci.plugins.isolationctx.ctx.net.LnxNetLink;
+import org.jenkinsci.plugins.isolationctx.dto.LinuxMountEntry;
 import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler;
 import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler.OverlayMountData;
+import org.jenkinsci.plugins.isolationctx.handler.OciRuntimeHandler;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -93,6 +92,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 	public static final String TEMPL_LINE = "[ Linux-Namespace » %d ] %s";
 
 	protected final DecoratorFactory factory;
+	protected final String containerId;
 
 	protected long processId = -1;
 	protected OverlayMountData overlayData = null;
@@ -115,6 +115,10 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		this.node = node;
 		this.ws = ws;
 		this.listener = listener;
+
+		this.containerId = "jenkins_" + this.run.getParent()
+				.getFullName()
+				.replace('/', '-');
 	}
 
 	@Override
@@ -145,8 +149,8 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 			e.printStackTrace();
 		}
 
-		// getNodeRuntime() requires this.node to be set
-		final NodeIsolationRuntime runtime = getNodeRuntime();
+		// getNodeRuntime2() requires this.node to be set
+		final NodeIsolationRuntime runtime = getNodeRuntime2();
 		if (runtime != null && runtime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
 			// reinit overlayData
 			if (this.overlayData != null)
@@ -186,17 +190,28 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		return this._lnxIdentityFuture;
 	}
 
-	public LnxIdentity lnxIdentity() throws Throwable {
+	public LnxIdentity lnxIdentity() throws IOException, InterruptedException {
 		try {
 			return lnxIdentityFuture().get();
 		} catch (ExecutionException e) {
-			throw e.getCause();
+			final Throwable cause = e.getCause();
+			if (cause instanceof IOException ex)
+				throw ex;
+			if (cause instanceof InterruptedException ex)
+				throw ex;
+			if (cause instanceof RuntimeException ex)
+				throw ex;
+			throw new RuntimeException(cause);
 		}
 	}
 
-	protected NodeIsolationRuntime getNodeRuntime() {
+	protected NodeIsolationRuntime getNodeRuntime() throws IOException, InterruptedException {
+		return NodeIsolationRuntimeAction.get(this.node);
+	}
+
+	protected NodeIsolationRuntime getNodeRuntime2() {
 		try {
-			return NodeIsolationRuntimeAction.get(this.node);
+			return getNodeRuntime();
 		} catch (IOException | InterruptedException ignored) {
 			ignored.printStackTrace();
 		}
@@ -207,7 +222,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		if (this._logListener != null)
 			return _logListener;
 		try {
-			return _logListener = getNodeRuntime().isolationHandler()
+			return _logListener = getNodeRuntime2().isolationHandler()
 					.logTaskListener();
 		} catch (Throwable e) {
 			this._logListener = new LogTaskListener(LOGGER, Level.INFO);
@@ -215,6 +230,13 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 			e.printStackTrace(this._logListener.getLogger());
 			return this._logListener;
 		}
+	}
+
+	protected OciRuntimeHandler ociHandler() throws IOException, InterruptedException {
+		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
+		if (nodeRuntime != null && nodeRuntime.isolationHandler() instanceof OciRuntimeHandler handler)
+			return handler;
+		return null;
 	}
 
 	public List<String> nsenterCmd() throws Throwable {
@@ -270,61 +292,60 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		final PrintStream pipeLog = this.listener.getLogger();
 		final PrintStream nodeLog = logListener().getLogger();
 
-		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
-
 		try {
+			final OciRuntimeHandler ociHandler = ociHandler();
+			if (ociHandler == null) {
+				pipeLog.println("[Linux-Namespace] Failed to start isolated environment, Oci-Runtime unavailable!");
+				return;
+			}
+
 			final FilePath workspacePath = this.ws.getWorkspace();
+			final String workspacePathRemote = workspacePath.absolutize()
+					.getRemote();
 			workspacePath.mkdirs();
 			final FilePath envCachePath = envCachePath();
+			final String envCachePathRemote = envCachePath.absolutize()
+					.getRemote();
 			envCachePath.mkdirs();
 			final FilePath tmpPath = workspacePath.withSuffix("@tmp");
+			final String tmpPathRemote = tmpPath.absolutize()
+					.getRemote();
 			tmpPath.mkdirs();
 
-			final StringBuilder scriptBuilder = new StringBuilder();
-			scriptBuilder.append("set -e\n\n");
-			scriptBuilder.append("/usr/bin/unshare --mount --propagation=slave "
-					+ "--uts --ipc --net --pid --fork --mount-proc --wd=" + this.ws.getPath() + " -- ");
+			FilePath ociBundlePath = workspacePath.withSuffix("@ociBundle");
 
-			if (nodeRuntime != null && nodeRuntime.isolationHandler() instanceof LnxNodeIsolationHandler handler) {
+			final OciConfigFileCallable ociConfigBuilder = //
+					new OciConfigFileCallable(lnxIdentity(), "jenkins-agent") //
+							.addProcMount()
+							.addTmpfsMount("/tmp", "nosuid", "nodev", "mode=1777", "size=1g")
+							.addTmpfsMount("/dev", "nosuid", "strictatime", "mode=755", "size=64m")
+							.addBindMount("/dev/null", "/dev/null", "rbind", "rw")
+							.addBindMount("/dev/zero", "/dev/zero", "rbind", "rw")
+							.addBindMount("/dev/full", "/dev/full", "rbind", "rw")
+							.addBindMount("/dev/random", "/dev/random", "rbind", "rw")
+							.addBindMount("/dev/urandom", "/dev/urandom", "rbind", "rw")
+							.addTmpfsMount("/dev/shm", "nosuid", "nodev", "mode=1777", "size=64m")
+							.addTmpfsMount("/boot", "mode=700", "size=64k")
+							.addTmpfsMount(Jenkins.get()
+									.getRootDir()
+									.getAbsolutePath(), "mode=755", "size=64m")
+							.addBindMount(workspacePathRemote, workspacePathRemote, "bind", "rw", "rshared")
+							.addBindMount(tmpPathRemote, tmpPathRemote, "bind", "rw", "rshared")
+							.addBindMount(envCachePathRemote, envCachePathRemote, "bind", "rw", "rshared");
+
+			if (ociHandler instanceof LnxNodeIsolationHandler handler) {
 				final OverlayMountData mountData = handler.overlayCreate(workspacePath.withSuffix("@overlay"));
-				// TODO check if there is a WORKSPACE macro to use
-				mountData.export("workspace", workspacePath.getParent());
-				// ensure paths exist on disk before script is called or root will own them!
-				mountData.bind(workspacePath);
+				ociConfigBuilder.setRootFs("rootfs");
+				ociBundlePath = mountData.basePath();
 				mountData.computeWorkspacePath(workspacePath);
-				mountData.bind(tmpPath);
-				mountData.bind(envCachePath);
-				// inject switch_root call to enter overlay into startup cmd
-				scriptBuilder.append("switch_root " + mountData.rootPath()
-						.absolutize()
-						.getRemote() + " ");
 				this.overlayData = mountData;
 			}
 
-			// Keep namespace alive
-			scriptBuilder.append("/usr/bin/bash -c \"exec tail -f /dev/null\"");
-			// redirect output to error stream & move to background
-			scriptBuilder.append(" 1>&2 &\n");
-			// write namespace pid to stdout & await namespace exit
-			scriptBuilder.append("\nUNSHARE_PID=$!\nprintf \"%d\\\\n\" $UNSHARE_PID\nwait $UNSHARE_PID\n");
+			ociBundlePath.mkdirs();
+			final FilePath ociConfigPath = ociBundlePath.child("config.json");
+			ociConfigPath.act(ociConfigBuilder);
 
-			final FilePath scriptPath = workspacePath.withSuffix("@isoCtxExec.sh");
-			scriptPath.delete();
-			try (OutputStream stream = scriptPath.write()) {
-				stream.write(scriptBuilder.toString()
-						.getBytes(StandardCharsets.UTF_8));
-			}
-			scriptPath.chmod(0500);
-
-			final RemoteProcess2 process2 = this.ws.getWorkspace()
-					.act(new ExecRemoteProcess(
-							Arrays.asList("sudo", "/usr/bin/bash", "-c", "--", scriptPath.absolutize()
-									.getRemote())));
-			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process2.getIOtriplet().stdout))) {
-				this.processId = Long.parseLong(reader.readLine());
-				// this.processId = process2.pid(); <-- now would get sudo id = host-namespace!
-				// expected exit code, post kill all: 137
-			}
+			this.processId = ociHandler.ociRuntimeStart(ociBundlePath, containerId, this.listener);
 		} catch (IOException | InterruptedException e) {
 			pipeLog.println("[Linux-Namespace] Failed to start isolated environment!");
 			e.printStackTrace(nodeLog);
@@ -348,10 +369,6 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 			return;
 		}
 
-		// LnxNetLink link = connectNetLink();
-		// log.println("Run Subnet: " + link.getHostIfaceName() + " - "
-		// + link.getSubnetV4().toCidrNotation());
-
 		pipeLog.println(String.format(TEMPL_LINE, this.processId, "Started isolated environment"));
 	}
 
@@ -365,10 +382,13 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 		// Kill process tree
 		try {
-			// kill process group (may already be dead)
-			wsExecAndJoinCmd(Arrays.asList("sudo", "kill", "-KILL", "-" + this.processId), true);
-			// kill namespace process
-			wsExecAndJoinCmd(Arrays.asList("sudo", "kill", "-KILL", "" + this.processId), true);
+			final OciRuntimeHandler ociHandler = ociHandler();
+			if (ociHandler == null) {
+				pipeLog.println("[Linux-Namespace] Failed to stop isolated environment, Oci-Runtime unavailable!");
+				return;
+			}
+
+			ociHandler.ociRuntimeKill(this.processId, this.containerId, this.listener);
 			// envCachePath().deleteRecursive();
 
 			pipeLog.println(String.format(TEMPL_LINE, this.processId, "Stopped isolated environment"));
@@ -378,7 +398,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 			e.printStackTrace(nodeLog);
 		} finally {
 			// Cleanup active LnxLinks
-			final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
+			final NodeIsolationRuntime nodeRuntime = getNodeRuntime2();
 			if (nodeRuntime != null) {
 				for (LnxNetLink link : this._activeLinks.values()) {
 					try {
@@ -421,22 +441,24 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 	@Override
 	public boolean mountWorkspacePath(final FilePath workspacePath) throws IOException, InterruptedException {
-		if (!workspacePath.exists())
+		final OciRuntimeHandler ociHandler = ociHandler();
+		if (ociHandler == null || !workspacePath.exists() || this.processId == -1)
 			return false;
-		if (this.overlayData == null) {
-			// I expect it to just exist
-			return true;
-		}
-		return this.overlayData.bind(workspacePath);
+		final String workspacePathRemote = workspacePath.absolutize()
+				.getRemote();
+		final LinuxMountEntry entry = new LinuxMountEntry("bind", workspacePathRemote, workspacePathRemote);
+		return ociHandler.ociRuntimeMountsAdd(this.processId, this.containerId, Set.of(entry), this.listener);
 	}
 
 	@Override
 	public boolean unmountWorkspacePath(final FilePath workspacePath) throws IOException, InterruptedException {
-		if (this.overlayData == null) {
-			// I expect it to just exist
-			return true;
-		}
-		return this.overlayData.unbind(workspacePath);
+		final OciRuntimeHandler ociHandler = ociHandler();
+		if (ociHandler == null || !workspacePath.exists() || this.processId == -1)
+			return false;
+		final String workspacePathRemote = workspacePath.absolutize()
+				.getRemote();
+		final LinuxMountEntry entry = new LinuxMountEntry("bind", workspacePathRemote, workspacePathRemote);
+		return ociHandler.ociRuntimeMountsRemove(this.processId, this.containerId, Set.of(entry), this.listener);
 	}
 
 	@Override
@@ -449,8 +471,8 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 	@Override
 	public LnxNetLink connectNetLink() throws IOException, InterruptedException {
-		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
-		if (nodeRuntime == null)
+		final NodeIsolationRuntime nodeRuntime = getNodeRuntime2();
+		if (nodeRuntime == null || this.processId == -1)
 			return null;
 		final TaskListener nodeLog = logListener();
 
@@ -556,7 +578,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		if (!(anyLink instanceof LnxNetLink))
 			return;
 		final LnxNetLink link = (LnxNetLink) anyLink;
-		final NodeIsolationRuntime nodeRuntime = getNodeRuntime();
+		final NodeIsolationRuntime nodeRuntime = getNodeRuntime2();
 
 		final TaskListener nodeLog = logListener();
 
@@ -661,8 +683,8 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 					try {
 						cmd = DecoratorFactory.this.ctx.nsenterCmd();
 						final FilePath envCachePath = DecoratorFactory.this.ctx.envCachePath();
-						envFileName = envCachePath
-								.act(new WriteEnvFile(inherit(envCachePath.getChannel(), starter.envs())));
+						envFileName = envCachePath.act(
+								new WriteTempEnvFileCallable(inherit(envCachePath.getChannel(), starter.envs()), true));
 					} catch (Throwable e) {
 						if (e instanceof RuntimeException runE)
 							throw runE;
@@ -841,36 +863,65 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		}
 	}
 
-	public static class WriteEnvFile extends MasterToSlaveFileCallable<String> {
+	public static class OciConfigFileCallable extends MasterToSlaveFileCallable<Void> {
 
 		private static final long serialVersionUID = 1L;
 
-		protected final Map<String, String> env;
+		public static final String OCI_VERSION = "1.0.2";
 
-		public WriteEnvFile(final Map<String, String> env) {
-			this.env = env;
+		protected final List<LinuxMountEntry> mounts = new LinkedList<>();
+
+		protected final LnxIdentity identity;
+		protected final String hostname;
+
+		protected String rootfs = "/";
+
+		public OciConfigFileCallable(final LnxIdentity identity, final String hostname) {
+			this.identity = identity;
+			this.hostname = hostname;
+		}
+
+		public OciConfigFileCallable setRootFs(final String rootfs) {
+			this.rootfs = rootfs;
+			return this;
+		}
+
+		public OciConfigFileCallable addProcMount() {
+			this.mounts.add(new LinuxMountEntry("proc", "proc", "/proc"));
+			return this;
+		}
+
+		public OciConfigFileCallable addTmpfsMount(final String destination, final String... options) {
+			this.mounts.add(new LinuxMountEntry("tmpfs", "tmpfs", destination).options(options));
+			return this;
+		}
+
+		public OciConfigFileCallable addBindMount(final String source, final String destination,
+				final String... options) {
+			this.mounts.add(new LinuxMountEntry("bind", source, destination).options(options));
+			return this;
 		}
 
 		@Override
-		public String invoke(final File wsDir, final VirtualChannel channel) throws IOException, InterruptedException {
-			final File envFile = File.createTempFile("cmd-", ".env", wsDir);
-
-			final StringBuilder builder = new StringBuilder();
-			for (Entry<String, String> entry : this.env.entrySet())
-				builder.append("export " + entry.getKey() + "=" + singleQuote(entry.getValue()) + "\n");
-
-			Files.write(builder.toString()
-					.getBytes(), envFile);
-
-			return envFile.getAbsolutePath();
+		public Void invoke(final File configFile, final VirtualChannel channel)
+				throws IOException, InterruptedException {
+			Files.write(toJson().getBytes(), configFile);
+			return null;
 		}
 
-		public static String singleQuote(final String value) {
-			if (value == null) {
-				return "''";
-			}
-			// replace ' with '\'' (close quote, escaped quote, reopen)
-			return "'" + value.replace("'", "'\"'\"'") + "'";
+		public String toJson() {
+			return "{\"ociVersion\":\"" + OCI_VERSION + "\"," //
+					+ "\"process\":{\"terminal\": false," //
+					+ "\"user\":{\"uid\":" + this.identity.getUser() + ",\"gid\":" + this.identity.getGroup() + "}," //
+					+ "\"args\":[\"/usr/bin/tail\",\"-f\",\"/dev/null\"],\"env\":[],\"cwd\":\"/\"}," //
+					+ "\"root\":{\"path\":\"" + this.rootfs + "\",\"readonly\":false}," //
+					+ "\"mounts\":[" //
+					+ this.mounts.stream()
+							.map(LinuxMountEntry::toOciJson)
+							.collect(Collectors.joining(",")) //
+					+ "],\"hostname\":\"" + this.hostname //
+					+ "\",\"linux\":{\"namespaces\":[{\"type\":\"uts\"},{\"type\":\"ipc\"}," //
+					+ "{\"type\":\"network\"},{\"type\":\"pid\"},{\"type\":\"mount\"}]}}\n";
 		}
 	}
 }

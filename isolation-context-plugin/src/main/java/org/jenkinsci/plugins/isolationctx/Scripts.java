@@ -24,11 +24,13 @@ import hudson.FilePath;
 public enum Scripts {
 
 	// jar:/scripts/data/linux-mount-python3.py
-	DATA_LINUX_MOUNT_PYTHON3("data/linux-mount-python3.py"),
+	DATA__LINUX_MOUNT_PYTHON3("data/linux-mount-python3.py"),
 	// jar:/scripts/firewall/nftables-python3.py
-	FIREWALL_NFTABLES_PYTHON3("firewall/nftables-python3.py"),
+	FIREWALL__NFTABLES_PYTHON3("firewall/nftables-python3.py"),
 	// jar:/scripts/network/elinux-python3.py
-	NETWORK_ENTERPRISE_LINUX_PYTHON3("network/elinux-python3.py");
+	NETWORK__ENTERPRISE_LINUX_PYTHON3("network/elinux-python3.py"),
+	// jar:/scripts/runtime/linux-crun.sh
+	RUNTIME__LINUX_CRUN_SHELL("runtime/linux-crun.sh");
 
 	protected final String embeddedScript;
 

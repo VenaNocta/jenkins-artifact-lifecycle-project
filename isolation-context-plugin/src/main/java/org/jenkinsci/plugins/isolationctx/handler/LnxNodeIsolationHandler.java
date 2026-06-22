@@ -19,10 +19,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,15 +30,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.isolationctx.Scripts;
 import org.jenkinsci.plugins.isolationctx.ctx.LinuxNodeNamespaceContext;
+import org.jenkinsci.plugins.isolationctx.dto.LinuxMountEntry;
 import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
 import hudson.Launcher;
-import hudson.Util;
 import hudson.model.Computer;
 import hudson.model.Node;
 import hudson.model.TaskListener;
@@ -49,7 +48,7 @@ import hudson.util.LogTaskListener;
 import hudson.util.StreamTaskListener;
 import jenkins.util.io.OnMaster;
 
-public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
+public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster, OciRuntimeHandler {
 
 	private static final Logger LOGGER = Logger.getLogger(LinuxNodeNamespaceContext.class.getName());
 
@@ -69,6 +68,8 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 	protected final FilePath firewallToolPath;
 	@NonNull
 	protected final FilePath mountToolPath;
+	@NonNull
+	protected final FilePath ociRuntimeToolPath;
 	@CheckForNull
 	protected TaskListener logListener;
 
@@ -83,6 +84,7 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		this.dataRootPath = this.rootPath.child("data");
 		this.firewallToolPath = this.rootPath.child("firewall-tool.py");
 		this.mountToolPath = this.rootPath.child("mount-tool.py");
+		this.ociRuntimeToolPath = this.rootPath.child("oci-runtime-tool.sh");
 	}
 
 	@Override
@@ -109,11 +111,13 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		// deploy file from resources -> path
 		final FilePath networkPath = this.rootPath.child("network-tool.py");
 		// jar:/scripts/network/elinux-python3.py
-		Scripts.NETWORK_ENTERPRISE_LINUX_PYTHON3.deployTo(networkPath);
+		Scripts.NETWORK__ENTERPRISE_LINUX_PYTHON3.deployTo(networkPath);
 		// jar:/scripts/firewall/nftables-python3.py
-		Scripts.FIREWALL_NFTABLES_PYTHON3.deployTo(this.firewallToolPath);
+		Scripts.FIREWALL__NFTABLES_PYTHON3.deployTo(this.firewallToolPath);
 		// jar:/scripts/data/linux-mount-python3.py
-		Scripts.DATA_LINUX_MOUNT_PYTHON3.deployTo(this.mountToolPath);
+		Scripts.DATA__LINUX_MOUNT_PYTHON3.deployTo(this.mountToolPath);
+		// jar:/scripts/runtime/linux-crun.sh
+		Scripts.RUNTIME__LINUX_CRUN_SHELL.deployTo(this.ociRuntimeToolPath);
 
 		final Launcher launcher = this.node.createLauncher(listener);
 		// network setup
@@ -131,6 +135,12 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		// mount isolation setup
 		launcher.launch()
 				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/python3", this.mountToolPath.absolutize()
+						.getRemote()).add(tasks))
+				.start()
+				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
+		// runtime setup
+		launcher.launch()
+				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/bash", this.ociRuntimeToolPath.absolutize()
 						.getRemote()).add(tasks))
 				.start()
 				.joinWithTimeout(30, TimeUnit.SECONDS, listener);
@@ -314,12 +324,11 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 
 		private static final long serialVersionUID = 1L;
 
-		protected final Map<String, String> exportedMounts = new LinkedHashMap<>();
 		protected final Set<String> bindMounts = new LinkedHashSet<>();
 
-		// /var/jenkins/iso/<job>/
+		// /var/jenkins/workspace/<job>@overlay/
 		protected final String basePath;
-		// /var/jenkins/iso/<job>/root
+		// /var/jenkins/workspace/<job>@overlay/rootfs
 		protected final String rootPath;
 		protected String relWorkspacePath = "";
 
@@ -328,7 +337,7 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 		protected OverlayMountData(final LnxNodeIsolationHandler handler, final FilePath overlayBasePath) {
 			this.handler = handler;
 			this.basePath = overlayBasePath.getRemote();
-			this.rootPath = overlayBasePath.child("root")
+			this.rootPath = overlayBasePath.child("rootfs")
 					.getRemote();
 		}
 
@@ -353,59 +362,79 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster {
 					.getRemote()
 					.substring(1);
 		}
+	}
 
-		public synchronized boolean export(String name, final FilePath exportPath)
-				throws IOException, InterruptedException {
-			Objects.requireNonNull(name = Util.fixEmptyAndTrim(name));
-			final String exportRemote = exportPath.absolutize()
-					.getRemote();
+	protected int ociRuntimeToolExec(final List<String> operations, final TaskListener listener)
+			throws IOException, InterruptedException {
+		final Launcher launcher = this.node.createLauncher(listener);
+		return launcher.launch()
+				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/bash", this.ociRuntimeToolPath.absolutize()
+						.getRemote()).add(operations))
+				.start()
+				.joinWithTimeout(60, TimeUnit.SECONDS, listener);
+	}
 
-			if (this.exportedMounts.containsKey(name))
-				return false;
+	@Override
+	public long ociRuntimeStart(final FilePath bundlePath, final String containerId, final TaskListener listener)
+			throws IOException, InterruptedException {
+		final TaskListener nodeLog = logTaskListener();
+		final FilePath pidFilePath = bundlePath.child("handle.pid")
+				.absolutize();
 
-			this.handler.mountToolExec(Arrays.asList("mount", "export", basePath().child("export-" + name)
-					.absolutize()
-					.getRemote(),
-					rootPath().child(
-							/* trim starting / to make it relative */
-							exportRemote.substring(1))
-							.absolutize()
+		ociRuntimeToolExec(Arrays.asList("run", containerId, bundlePath.absolutize()
+				.getRemote(), pidFilePath.getRemote()), nodeLog);
+
+		return Long.parseLong(pidFilePath.readToString());
+	}
+
+	@Override
+	public boolean ociRuntimeKill(final long processId, final String containerId, final TaskListener listener)
+			throws IOException, InterruptedException {
+		final TaskListener nodeLog = logTaskListener();
+		return ociRuntimeToolExec(Arrays.asList("kill", Long.toString(processId), containerId), nodeLog) == 0;
+	}
+
+	@Override
+	public boolean ociRuntimeMountsAdd(final long processId, final String containerId,
+			final Set<LinuxMountEntry> configs, final TaskListener listener) throws IOException, InterruptedException {
+		if (processId == -1 || configs.isEmpty())
+			return false;
+		final TaskListener nodeLog = logTaskListener();
+		final FilePath tmpFilePath = this.dataRootPath.createTempFile("ociMounts-", ".json");
+		try (OutputStream stream = tmpFilePath.write()) {
+			final String content = "[" + configs.stream()
+					.map(LinuxMountEntry::toOciJson)
+					.collect(Collectors.joining(",")) + "]";
+			stream.write(content.getBytes(StandardCharsets.UTF_8));
+			stream.flush();
+			return ociRuntimeToolExec(
+					Arrays.asList("mounts", "add", Long.toString(processId), containerId, tmpFilePath.absolutize()
 							.getRemote()),
-					this.handler.logTaskListener());
-			this.exportedMounts.put(name, exportRemote);
-			return true;
+					nodeLog) == 0;
+		} finally {
+			tmpFilePath.delete();
 		}
+	}
 
-		public synchronized boolean bind(final FilePath bindPath) throws IOException, InterruptedException {
-			final String bindRemote = bindPath.absolutize()
-					.getRemote();
-			final Path compPath = Path.of(bindPath.absolutize()
-					.getRemote());
-			if (!this.exportedMounts.values()
-					.stream()
-					.anyMatch(compPath::startsWith))
-				throw new IllegalArgumentException("No Parent path was exported of: " + bindRemote);
-
-			if (this.bindMounts.contains(bindRemote))
-				return false;
-
-			this.handler.mountToolExec(Arrays.asList("mount", "bind", bindRemote,
-					rootPath().child(bindRemote.substring(1))
-							.absolutize()
+	@Override
+	public boolean ociRuntimeMountsRemove(final long processId, final String containerId,
+			final Set<LinuxMountEntry> configs, final TaskListener listener) throws IOException, InterruptedException {
+		if (processId == -1 || configs.isEmpty())
+			return false;
+		final TaskListener nodeLog = logTaskListener();
+		final FilePath tmpFilePath = this.dataRootPath.createTempFile("ociMounts-", ".json");
+		try (OutputStream stream = tmpFilePath.write()) {
+			final String content = "[" + configs.stream()
+					.map(LinuxMountEntry::toOciJson)
+					.collect(Collectors.joining(",")) + "]";
+			stream.write(content.getBytes(StandardCharsets.UTF_8));
+			stream.flush();
+			return ociRuntimeToolExec(
+					Arrays.asList("mounts", "remove", Long.toString(processId), containerId, tmpFilePath.absolutize()
 							.getRemote()),
-					this.handler.logTaskListener());
-			this.bindMounts.add(bindRemote);
-			return true;
-		}
-
-		public boolean unbind(final FilePath bindPath) throws IOException, InterruptedException {
-			final String bindRemote = bindPath.absolutize()
-					.getRemote();
-			this.handler.mountToolExec(Arrays.asList("mount", "unbind", rootPath().child(bindRemote.substring(1))
-					.absolutize()
-					.getRemote()), this.handler.logTaskListener());
-			this.bindMounts.remove(bindRemote);
-			return true;
+					nodeLog) == 0;
+		} finally {
+			tmpFilePath.delete();
 		}
 	}
 }
