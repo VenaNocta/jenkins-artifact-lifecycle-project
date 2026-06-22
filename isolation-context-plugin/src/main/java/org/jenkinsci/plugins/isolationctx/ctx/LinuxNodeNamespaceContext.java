@@ -389,7 +389,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 			}
 
 			ociHandler.ociRuntimeKill(this.processId, this.containerId, this.listener);
-			// envCachePath().deleteRecursive();
+			envCachePath().deleteRecursive();
 
 			pipeLog.println(String.format(TEMPL_LINE, this.processId, "Stopped isolated environment"));
 			this.processId = -1;
