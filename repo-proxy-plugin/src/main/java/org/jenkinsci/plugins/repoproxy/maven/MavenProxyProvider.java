@@ -44,7 +44,7 @@ public class MavenProxyProvider implements ProxyProvider {
 		MvnProxyBootstrapper instance = flowNode.getAction(MvnProxyBootstrapper.class);
 		if (instance == null) {
 			flowNode.addAction(instance = new MvnProxyBootstrapper(availableIps, 8000));
-		} else if (instance.canSupport(refKey, availableIps, 8000))
+		} else if (!instance.canSupport(refKey, availableIps, 8000))
 			return null;
 
 		instance.addRepoInstance(refKey, (MvnProxyConfig) config);
