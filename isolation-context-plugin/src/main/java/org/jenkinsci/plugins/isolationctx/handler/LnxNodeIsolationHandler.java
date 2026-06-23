@@ -371,7 +371,7 @@ public class LnxNodeIsolationHandler implements NodeIsolationHandler, OnMaster, 
 				.cmds(new ArgumentListBuilder("/usr/bin/sudo", "/usr/bin/bash", this.ociRuntimeToolPath.absolutize()
 						.getRemote()).add(operations))
 				.start()
-				.joinWithTimeout(60, TimeUnit.SECONDS, listener);
+				.joinWithTimeout(20, TimeUnit.SECONDS, listener);
 	}
 
 	@Override

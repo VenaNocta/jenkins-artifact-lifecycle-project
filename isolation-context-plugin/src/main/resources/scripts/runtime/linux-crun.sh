@@ -16,10 +16,15 @@ shutdown() {
 # RUN
 # cnt_run <cntId> <bundlePath> <pidFilePath>
 cnt_run() {
+  local result
+  # make sure FDs are closed
+  exec 0</dev/null
+  exec 1>/dev/null
+  exec 2>/dev/null
 # crun run --bundle=/var/jenkins/workspace/job@overlay -d --pid-file=/var/jenkins/workspace/job@overlay/handle.pid jenkins_job
   crun run --bundle="${2}" -d --pid-file="${3}" "${1}"
   result=$?
-  chown "$uid:$gid" "${3}"
+  chown "$uid:$gid" "${3}" || true
   return $result
 }
 
@@ -71,7 +76,7 @@ elif [ "$1" = "mounts" ]; then
     shift 2
     cnt_mounts_add $@
     exit $?
-  elif [ "$1" = "remove" ]; then
+  elif [ "$2" = "remove" ]; then
     shift 2
     cnt_mounts_remove $@
     exit $?
