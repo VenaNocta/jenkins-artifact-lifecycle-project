@@ -24,6 +24,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -110,6 +111,7 @@ public class MvnProxyConfig extends ProxyConfig {
 		final Set<UUID> ids = new LinkedHashSet<>();
 		this.validatorCol.stream()
 				.map(ValidatorConfig::getRequiredSBoms)
+				.filter(Objects::nonNull)
 				.forEach(ids::addAll);
 		return ids;
 	}

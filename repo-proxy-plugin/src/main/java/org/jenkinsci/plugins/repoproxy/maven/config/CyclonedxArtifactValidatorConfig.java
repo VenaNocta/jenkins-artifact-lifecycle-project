@@ -120,7 +120,9 @@ public class CyclonedxArtifactValidatorConfig extends ACyclonedxValidatorConfig 
 				continue;
 			componentIndex.addBom(bom, filter);
 		}
-		return new CyclonedxValidator(getPublicKeyIndex(), componentIndex, pipelineKiller);
+		return new CyclonedxValidator(getPublicKeyIndex(), componentIndex, pipelineKiller)
+				.setSkipMissing(this.skipMissingArtifacts)
+				.setIgnorePom(this.skipMissingPomArtifacts);
 	}
 
 	@Extension

@@ -95,10 +95,7 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
 		final Map<UUID, Path> sbomCacheMap = resolveSBomCacheMap();
 		for (Entry<String, MvnProxyConfig> entry : this.instanceConfigs.entrySet()) {
-			// TODO configure with instanceConfigs
 			final MvnProxyConfig config = entry.getValue();
-
-			// TODO build validator + parse cyclonedx sbom from file
 
 			final DefaultRepositoryProxyInstance instance = new DefaultRepositoryProxyInstance(entry.getKey(),
 					DefaultCache::new);
