@@ -239,7 +239,9 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		return null;
 	}
 
-	public List<String> nsenterCmd(final boolean isolateNetwork) throws Throwable {
+	public List<String> nsenterCmd(final boolean isolateNetwork, FilePath workspace) throws Throwable {
+		if (workspace == null)
+			workspace = this.ws.getWorkspace();
 		final List<String> cmd = new ArrayList<>();
 
 		final LnxIdentity lnxIdentity = lnxIdentity();
@@ -254,8 +256,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		if (isolateNetwork)
 			cmd.add("--net");
 		cmd.add("--pid");
-		cmd.add("--wdns=" + this.ws.getWorkspace()
-				.absolutize()
+		cmd.add("--wdns=" + workspace.absolutize()
 				.getRemote());
 		cmd.add("--");
 		// setpriv --reuid=<uid> --regid=<gid> --groups=<groups> --inh-caps=-all
@@ -682,7 +683,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 					final List<String> cmd;
 					final String envFileName;
 					try {
-						cmd = DecoratorFactory.this.ctx.nsenterCmd(isNetworkIsolated());
+						cmd = DecoratorFactory.this.ctx.nsenterCmd(isNetworkIsolated(), starter.pwd());
 						final FilePath envCachePath = DecoratorFactory.this.ctx.envCachePath();
 						envFileName = envCachePath.act(
 								new WriteTempEnvFileCallable(inherit(envCachePath.getChannel(), starter.envs()), true));
