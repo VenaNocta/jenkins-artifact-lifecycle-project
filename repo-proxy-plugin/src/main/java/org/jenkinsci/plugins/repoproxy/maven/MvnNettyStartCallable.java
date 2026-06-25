@@ -26,6 +26,7 @@ import java.util.Map.Entry;
 import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
 import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry;
+import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry.ServerHandle;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStartCallable;
 import org.jenkinsci.plugins.repoproxy.steps.ArtifactValidationInterruption;
 import org.jenkinsci.plugins.repoproxy.steps.StopStepCallable;
@@ -36,6 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import io.netty.channel.ServerChannel;
 import io.netty.channel.group.ChannelGroup;
 import net.runeduniverse.lib.repo.maven.data.DefaultFileTypeIndex;
 import net.runeduniverse.lib.repo.maven.error.ArtifactException;
@@ -69,8 +71,8 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 		final Path cachePath = cacheFolder.toPath();
 
 		configure(server, cachePath, e -> {
-			killPipeline(AgentNettyRegistry.get(handleId)
-					.getJenkinsChannel(), e);
+			final ServerHandle handle = AgentNettyRegistry.get(handleId);
+			killPipeline(handle == null ? null : handle.getJenkinsChannel(), e);
 		});
 
 		for (InetAddress address : this.addressSet) {
@@ -82,8 +84,9 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 	public boolean killPipeline(final VirtualChannel channel, final ArtifactException ex) {
 		try {
-			channel.callAsync(
-					new StopStepCallable(this.flowNodeId, new ArtifactValidationInterruption(ex.getMessage())));
+			if (channel != null)
+				channel.callAsync(
+						new StopStepCallable(this.flowNodeId, new ArtifactValidationInterruption(ex.getMessage())));
 			return true;
 		} catch (IOException e) {
 			e.printStackTrace();
