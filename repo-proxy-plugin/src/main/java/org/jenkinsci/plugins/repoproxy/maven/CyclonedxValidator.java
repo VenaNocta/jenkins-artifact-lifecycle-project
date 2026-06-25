@@ -40,6 +40,7 @@ public class CyclonedxValidator extends net.runeduniverse.lib.repo.maven.validat
 		try {
 			return super.validate(provider, data);
 		} catch (SBomViolationException e) {
+			System.out.println(">>> Validation failed » " + data.getPURL());
 			this.pipelineKiller.accept(e);
 			throw e;
 		}
