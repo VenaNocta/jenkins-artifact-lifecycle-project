@@ -31,6 +31,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import com.google.common.collect.ImmutableSet;
 
 import hudson.Extension;
+import hudson.Util;
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -49,7 +50,7 @@ public class RepoProxyStep extends Step implements Serializable {
 			this.requestedRepos = reqRepos.entrySet()
 					.stream()
 					.filter(RepoProxyStep::entryFilter)
-					.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+					.collect(Collectors.toMap(Map.Entry::getKey, RepoProxyStep::getSanitizedValue));
 	}
 
 	public Map<String, String> getRequestedRepos() {
@@ -62,6 +63,15 @@ public class RepoProxyStep extends Step implements Serializable {
 		if (StringUtils.isBlank(entry.getKey()) || StringUtils.isBlank(entry.getValue()))
 			return false;
 		return true;
+	}
+
+	// sanitize value to be used in ENV variables
+	protected static String getSanitizedValue(final Map.Entry<String, String> entry) {
+		final String value = Util.fixEmptyAndTrim(entry.getValue());
+		if (value == null)
+			return null;
+		return value.replaceAll("[^A-Za-z0-9]+", "_")
+				.replaceAll("^_|_$", "");
 	}
 
 	@Override
