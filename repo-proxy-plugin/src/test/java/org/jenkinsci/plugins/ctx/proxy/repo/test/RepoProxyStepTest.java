@@ -19,7 +19,7 @@ import hudson.model.Label;
 import java.io.IOException;
 import java.nio.file.Path;
 
-import org.jenkinsci.plugins.isolationctx.config.IsolationProperty;
+import org.jenkinsci.plugins.isolationctx.config.JobIsolationProperty;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -45,7 +45,7 @@ public class RepoProxyStepTest {
 		String agentLabel = "my-agent";
 		jenkins.createOnlineSlave(Label.get(agentLabel));
 		WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-scripted-pipeline");
-		job.addProperty(new IsolationProperty(true));
+		job.addProperty(new JobIsolationProperty(true));
 
 		String pipelineScript = "node {\n" //
 				+ "repoProxy() {" //
