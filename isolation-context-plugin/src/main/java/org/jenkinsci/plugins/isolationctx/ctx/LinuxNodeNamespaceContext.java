@@ -256,8 +256,8 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		if (isolateNetwork)
 			cmd.add("--net");
 		cmd.add("--pid");
-		cmd.add("--wdns=" + workspace.absolutize()
-				.getRemote());
+		// --wdns is not yet available on EL9
+		// cmd.add("--wdns=" + workspace.absolutize().getRemote());
 		cmd.add("--");
 		// setpriv --reuid=<uid> --regid=<gid> --groups=<groups> --inh-caps=-all
 		// --reset-env
@@ -693,7 +693,21 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 						throw new RuntimeException(e);
 					}
 
-					cmd.addAll(Arrays.asList("sh", "-c", "(. " + envFileName + "; exec \"$@\")"));
+					// as nsenter from linux-utils on EL9 can not change the working dir yet,
+					// do it now!
+					String cdCmd = "";
+					{
+						FilePath workspace = starter.pwd();
+						if (workspace == null)
+							workspace = DecoratorFactory.this.ctx.ws.getWorkspace();
+						try {
+							cdCmd = "cd \"" + workspace.absolutize()
+									.getRemote() + "\"; ";
+						} catch (IOException | InterruptedException ignored) {
+							ignored.printStackTrace();
+						}
+					}
+					cmd.addAll(Arrays.asList("sh", "-c", "(" + cdCmd + ". \"" + envFileName + "\"; exec \"$@\")"));
 
 					// recalculate mask: based on nsenter cmd prefix
 					boolean[] oldMasks = starter.masks();
@@ -755,7 +769,9 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		}
 	}
 
-	public static class LnxIdentity {
+	public static class LnxIdentity implements Serializable {
+
+		private static final long serialVersionUID = 1L;
 
 		protected String user = "";
 		protected String group = "";

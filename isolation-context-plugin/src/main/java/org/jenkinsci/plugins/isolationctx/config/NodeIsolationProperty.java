@@ -26,7 +26,6 @@ public class NodeIsolationProperty extends NodeProperty<Node> {
 
 	private final boolean disabled;
 
-	@DataBoundConstructor
 	public NodeIsolationProperty() {
 		this(false);
 	}
