@@ -25,6 +25,7 @@ import java.io.IOException;
 import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.IsolationContextProvider;
+import org.jenkinsci.plugins.isolationctx.config.NodeIsolationProperty;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntimeAction;
 import org.jenkinsci.plugins.isolationctx.ctx.LinuxNodeNamespaceContext;
 import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler;
@@ -49,8 +50,6 @@ public class NodeIsolationCtxProvider implements IsolationContextProvider {
 	public IsolationContext buildIsolationContext(final StepContext context) throws IOException, InterruptedException {
 		final Run<?, ?> run = context.get(Run.class);
 		final FlowNode flowNode = context.get(FlowNode.class);
-		if (run == null || !IsolationContextRunListener.isIsolationForced(run))
-			return null;
 
 		final WorkspaceAction ws = flowNode.getAction(WorkspaceAction.class);
 		if (ws == null)
@@ -59,6 +58,10 @@ public class NodeIsolationCtxProvider implements IsolationContextProvider {
 		final Node node = StringUtils.trimToNull(ws.getNode()) == null ? Jenkins.get()
 				: Jenkins.get()
 						.getNode(ws.getNode());
+
+		// bypass context isolation if allowed
+		if (!IsolationContextRunListener.isIsolationForced(run) && NodeIsolationProperty.isDisabled(node))
+			return null;
 
 		return selectIsolationContext(flowNode, node, context, ws);
 	}

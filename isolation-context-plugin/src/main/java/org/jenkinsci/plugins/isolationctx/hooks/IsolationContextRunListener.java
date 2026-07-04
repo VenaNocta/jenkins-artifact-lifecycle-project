@@ -19,7 +19,7 @@ import java.io.IOException;
 
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.config.IsolationContextAction;
-import org.jenkinsci.plugins.isolationctx.config.IsolationProperty;
+import org.jenkinsci.plugins.isolationctx.config.JobIsolationProperty;
 import org.jenkinsci.plugins.isolationctx.ctx.UnsupportedContext;
 
 import hudson.Extension;
@@ -54,11 +54,11 @@ public class IsolationContextRunListener extends RunListener<Run<?, ?>> {
 	}
 
 	public static boolean isIsolationForced(final Run<?, ?> run) {
-		return isIsolationForced(run.getParent());
+		return run != null && isIsolationForced(run.getParent());
 	}
 
 	public static boolean isIsolationForced(final Job<?, ?> job) {
-		final IsolationProperty prop = job.getProperty(IsolationProperty.class);
+		final JobIsolationProperty prop = job.getProperty(JobIsolationProperty.class);
 		return prop != null && prop.isEnabled();
 	}
 }

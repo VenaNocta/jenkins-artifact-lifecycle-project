@@ -22,17 +22,17 @@ import hudson.model.Job;
 import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
 
-public class IsolationProperty extends JobProperty<Job<?, ?>> {
+public class JobIsolationProperty extends JobProperty<Job<?, ?>> {
 
 	private final boolean enabled;
 
 	@DataBoundConstructor
-	public IsolationProperty(boolean enabled) {
+	public JobIsolationProperty(boolean enabled) {
 		this.enabled = enabled;
 	}
 
 	public boolean isEnabled() {
-		return enabled;
+		return this.enabled;
 	}
 
 	@Extension
