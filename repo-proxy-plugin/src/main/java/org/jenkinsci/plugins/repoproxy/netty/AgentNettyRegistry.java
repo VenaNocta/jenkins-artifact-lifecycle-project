@@ -15,14 +15,18 @@
  */
 package org.jenkinsci.plugins.repoproxy.netty;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import hudson.remoting.VirtualChannel;
 import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.ChannelGroupFuture;
 
 public class AgentNettyRegistry {
 
@@ -44,15 +48,19 @@ public class AgentNettyRegistry {
 		return SERVERS.get(uuid);
 	}
 
-	public static void stopServers(final Collection<UUID> uuids) {
+	public static void stopServers(final Collection<UUID> uuids) throws InterruptedException {
+		final List<ChannelGroupFuture> futures = new ArrayList<>();
+		// signal all servers to shutdown
 		for (UUID uuid : uuids) {
 			final ServerHandle handle = SERVERS.remove(uuid);
 			if (handle == null)
 				continue;
-			handle.getChannelGroup()
-					.close();
-			// TODO consider await?
+			futures.add(handle.getChannelGroup()
+					.close());
 		}
+		// wait for them to do so
+		for (ChannelGroupFuture future : futures)
+			future.await(60, TimeUnit.MINUTES);
 	}
 
 	public static Stream<ServerHandle> stream() {

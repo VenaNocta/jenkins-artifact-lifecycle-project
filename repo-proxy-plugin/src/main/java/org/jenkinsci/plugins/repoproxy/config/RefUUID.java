@@ -15,6 +15,7 @@
  */
 package org.jenkinsci.plugins.repoproxy.config;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 import org.kohsuke.stapler.AncestorInPath;
@@ -29,7 +30,9 @@ import hudson.model.Item;
 import hudson.util.ListBoxModel;
 import hudson.util.ListBoxModel.Option;
 
-public class RefUUID implements Describable<RefUUID> {
+public class RefUUID implements Describable<RefUUID>, Serializable {
+
+	private static final long serialVersionUID = 1L;
 
 	protected UUID uuidValue = null;
 

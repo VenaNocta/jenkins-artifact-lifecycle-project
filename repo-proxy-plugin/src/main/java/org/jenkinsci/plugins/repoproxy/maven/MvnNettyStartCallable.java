@@ -37,8 +37,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-import io.netty.channel.ServerChannel;
+import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.unix.UnixChannelOption;
 import net.runeduniverse.lib.repo.maven.data.DefaultFileTypeIndex;
 import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.proxy.DefaultCache;
@@ -67,7 +68,16 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 	@Override
 	protected void attachServerChannel(final UUID handleId, final File cacheFolder, final ChannelGroup channelGroup)
 			throws IOException, InterruptedException {
-		final ProxyServer server = new ProxyServer(new DefaultFileTypeIndex(), HttpRepoServerInitializer::new);
+		final ProxyServer server = new ProxyServer(new DefaultFileTypeIndex(), HttpRepoServerInitializer::new) {
+			@Override
+			protected ServerBootstrap bootstrap() {
+				if (this.serverBootstrap != null)
+					return this.serverBootstrap;
+				return super.bootstrap()//
+						.option(UnixChannelOption.SO_REUSEADDR, true)
+						.option(UnixChannelOption.SO_REUSEPORT, true);
+			}
+		};
 		final Path cachePath = cacheFolder.toPath();
 
 		configure(server, cachePath, e -> {
@@ -80,6 +90,10 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 					.sync()
 					.channel());
 		}
+		channelGroup.newCloseFuture()
+				.addListener(v -> {
+					server.shutdownGracefully();
+				});
 	}
 
 	public boolean killPipeline(final VirtualChannel channel, final ArtifactException ex) {

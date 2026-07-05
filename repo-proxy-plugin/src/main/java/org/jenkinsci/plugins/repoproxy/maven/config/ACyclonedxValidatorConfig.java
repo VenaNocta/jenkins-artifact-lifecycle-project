@@ -208,6 +208,8 @@ public abstract class ACyclonedxValidatorConfig extends ValidatorConfig {
 
 	public static final class IdRef extends RefUUID {
 
+		private static final long serialVersionUID = 1L;
+
 		protected String filterPath = null;
 
 		@DataBoundConstructor

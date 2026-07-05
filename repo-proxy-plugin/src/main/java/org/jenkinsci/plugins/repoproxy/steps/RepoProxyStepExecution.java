@@ -104,6 +104,7 @@ public class RepoProxyStepExecution extends StepExecution {
 		try {
 			return getIsolationContext();
 		} catch (IOException | InterruptedException ignored) {
+			ignored.printStackTrace(System.err);
 		}
 		return null;
 	}
