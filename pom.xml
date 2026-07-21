@@ -40,8 +40,7 @@
 	<modules>
 		<module>sbom</module>
 		<module>pgpcredentials-plugin</module>
-		<module>artifact-bundle-api</module>
-		<module>artifact-bundle-steps</module>
+		<module>artifact-bundle-plugin</module>
 		<module>artifact-signing-plugin</module>
 		<module>artifact-deploy-plugin</module>
 		<module>isolation-context-plugin</module>

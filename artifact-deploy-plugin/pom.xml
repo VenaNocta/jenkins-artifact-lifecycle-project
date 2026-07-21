@@ -40,8 +40,7 @@
 		<hpi.bundledArtifacts>utils-logging</hpi.bundledArtifacts>
 		<!-- VERSIONS -->
 		<sources-version>0</sources-version>
-		<bundle-api-version>0</bundle-api-version>
-		<bundle-steps-version>0</bundle-steps-version>
+		<bundle-version>0</bundle-version>
 	</properties>
 
 	<licenses>
@@ -89,8 +88,8 @@
 	<dependencies>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
-			<artifactId>artifact-bundle-api</artifactId>
-			<version>${major-version}.${minor-version}.${bundle-api-version}</version>
+			<artifactId>artifact-bundle-plugin</artifactId>
+			<version>${major-version}.${minor-version}.${bundle-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
@@ -147,12 +146,6 @@
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.workflow</groupId>
 			<artifactId>workflow-basic-steps</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
-			<artifactId>artifact-bundle-steps</artifactId>
-			<version>${major-version}.${minor-version}.${bundle-steps-version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
