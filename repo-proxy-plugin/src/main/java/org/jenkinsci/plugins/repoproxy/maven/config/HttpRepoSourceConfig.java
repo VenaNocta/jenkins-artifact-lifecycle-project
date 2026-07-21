@@ -73,6 +73,8 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 
 	@Override
 	public Set<String> getCredentialIds() {
+		if (this.credentialsId == null)
+			return super.getCredentialIds();
 		return Set.of(getCredentialsId());
 	}
 
