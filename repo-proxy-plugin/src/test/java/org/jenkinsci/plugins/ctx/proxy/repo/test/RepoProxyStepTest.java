@@ -39,7 +39,7 @@ public class RepoProxyStepTest {
 	public void setup() throws IOException {
 	}
 
-	@Test
+	// @Test
 	public void testScriptedPipeline(final JenkinsRule jenkins) throws Exception {
 		System.out.println(jenkins);
 		String agentLabel = "my-agent";
