@@ -31,11 +31,12 @@ import org.jenkinsci.plugins.isolationctx.config.IpUtils;
 import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
 import org.jenkinsci.plugins.isolationctx.dto.TrafficMap.Protocol;
 import org.jenkinsci.plugins.repoproxy.AProxyBootstrapper;
-import org.jenkinsci.plugins.repoproxy.ProxyBootstrapper;
 import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
 import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
+
+import com.cloudbees.plugins.credentials.common.IdCredentials;
 
 import hudson.model.Action;
 import hudson.model.TaskListener;
@@ -44,7 +45,7 @@ import net.runeduniverse.lib.utils.net.api.Ip4Address;
 import net.runeduniverse.lib.utils.net.api.Ip6Address;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
 
-public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBootstrapper, Action {
+public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 
 	protected final Map<String, MvnProxyConfig> instConfigs;
 	protected final Set<IpAddress<?>> ipSet;
@@ -88,10 +89,20 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBoo
 	}
 
 	@Override
+	public Set<String> getRequiredCredentials() {
+		final Set<String> creds = new LinkedHashSet<>();
+		this.instConfigs.values()
+				.stream()
+				.map(MvnProxyConfig::getRequiredCredentials)
+				.forEach(creds::addAll);
+		return creds;
+	}
+
+	@Override
 	public ControllerToAgentFileCallable<UUID> serverStartCallable(final NetLink link, //
 			final StepContext context, final Map<String, String> proxyEnv,
-			final Map<UUID, SBomSourceCache> sbomCacheMap, final TaskListener listener)
-			throws IOException, InterruptedException {
+			final Map<UUID, SBomSourceCache> sbomCacheMap, final Map<String, IdCredentials> credentialMap,
+			final TaskListener listener) throws IOException, InterruptedException {
 
 		final Set<InetAddress> addressSet = this.ipSet.stream()
 				.map(ip -> ip.toInetAddress(null))
@@ -100,7 +111,7 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements ProxyBoo
 
 		final FlowNode node = context.get(FlowNode.class);
 		final MvnNettyStartCallable callable = new MvnNettyStartCallable(//
-				node.getId(), this.instConfigs, sbomCacheMap, addressSet, this.port);
+				node.getId(), this.instConfigs, sbomCacheMap, credentialMap, addressSet, this.port);
 
 		updateEnv(this.instConfigs.keySet(), this.ipSet, this.port, proxyEnv, "MVN");
 

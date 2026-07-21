@@ -19,7 +19,12 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.Set;
+
 import org.kohsuke.stapler.DataBoundSetter;
+
+import com.cloudbees.plugins.credentials.common.IdCredentials;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -47,6 +52,10 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 
 	public URI getUri() {
 		return this.uri;
+	}
+
+	public Set<String> getCredentialIds() {
+		return null;
 	}
 
 	public void setKey(@NonNull String key) {
@@ -83,7 +92,7 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 		setUri(builder);
 	}
 
-	public abstract RepositorySource buildSource(Path repoPath);
+	public abstract RepositorySource buildSource(Path repoPath, Map<String, IdCredentials> credentialMap);
 
 	@Override
 	public RepoSourceConfigDescriptor getDescriptor() {

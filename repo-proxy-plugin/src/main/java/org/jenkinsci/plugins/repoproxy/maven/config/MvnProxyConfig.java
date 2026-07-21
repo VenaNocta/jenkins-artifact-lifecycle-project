@@ -36,6 +36,8 @@ import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
+import com.cloudbees.plugins.credentials.common.IdCredentials;
+
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import net.runeduniverse.lib.repo.maven.api.ArtifactValidator;
@@ -110,14 +112,27 @@ public class MvnProxyConfig extends ProxyConfig {
 	public Set<UUID> getRequiredSBoms() {
 		final Set<UUID> ids = new LinkedHashSet<>();
 		this.validatorCol.stream()
+				.filter(Objects::nonNull)
 				.map(ValidatorConfig::getRequiredSBoms)
 				.filter(Objects::nonNull)
 				.forEach(ids::addAll);
 		return ids;
 	}
 
+	public Set<String> getRequiredCredentials() {
+		final Set<String> credIds = new LinkedHashSet<>();
+		this.sourceMap.values()
+				.stream()
+				.filter(Objects::nonNull)
+				.map(RepoSourceConfig::getCredentialIds)
+				.filter(Objects::nonNull)
+				.forEach(credIds::addAll);
+		return credIds;
+	}
+
 	public Map<String, RepositorySource> buildSourceMap(final Path repoPath, final Map<UUID, Path> sbomCacheMap,
-			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+			final Map<String, IdCredentials> credentialMap, final Consumer<ArtifactException> pipelineKiller)
+			throws IOException, InterruptedException {
 		final List<MetadataValidator> metadataValidators = new LinkedList<>();
 		final List<ArtifactValidator> artifactValidators = new LinkedList<>();
 		for (ValidatorConfig config : this.validatorCol) {
@@ -134,7 +149,7 @@ public class MvnProxyConfig extends ProxyConfig {
 		return this.sourceMap.values()
 				.stream()
 				.collect(Collectors.toMap(RepoSourceConfig::getKey, c -> {
-					final RepositorySource source = c.buildSource(repoPath);
+					final RepositorySource source = c.buildSource(repoPath, credentialMap);
 					metadataValidators.stream()
 							.forEachOrdered(source::addLastValidator);
 					artifactValidators.stream()

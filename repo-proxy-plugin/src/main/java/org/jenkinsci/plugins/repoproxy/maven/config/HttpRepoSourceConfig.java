@@ -18,15 +18,29 @@ package org.jenkinsci.plugins.repoproxy.maven.config;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
+import com.cloudbees.plugins.credentials.common.IdCredentials;
+import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.Extension;
+import hudson.Util;
+import hudson.model.Item;
+import hudson.security.ACL;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
+import jenkins.model.Jenkins;
 import net.runeduniverse.lib.repo.maven.client.http.HttpSource;
 import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
 
@@ -36,6 +50,8 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 
 	protected int maxRedirects;
 	protected int maxRetries;
+	@CheckForNull
+	protected String credentialsId;
 
 	@DataBoundConstructor
 	public HttpRepoSourceConfig(final String key) {
@@ -50,6 +66,16 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 		return this.maxRetries;
 	}
 
+	@CheckForNull
+	public String getCredentialsId() {
+		return this.credentialsId;
+	}
+
+	@Override
+	public Set<String> getCredentialIds() {
+		return Set.of(getCredentialsId());
+	}
+
 	@DataBoundSetter
 	public void setMaxRedirects(final int maxRedirects) {
 		this.maxRedirects = maxRedirects;
@@ -60,9 +86,20 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 		this.maxRetries = maxRetries;
 	}
 
+	@DataBoundSetter
+	public void setCredentialsId(final String credentialsId) {
+		this.credentialsId = Util.fixEmptyAndTrim(credentialsId);
+	}
+
 	@Override
-	public RepositorySource buildSource(final Path repoPath) {
-		return new HttpSource(this.key, this.uri, repoPath.resolve(this.key), this.maxRedirects, this.maxRetries);
+	public RepositorySource buildSource(final Path repoPath, final Map<String, IdCredentials> credentialMap) {
+		final HttpSource source = new HttpSource(this.key, this.uri, repoPath.resolve(this.key), this.maxRedirects,
+				this.maxRetries);
+		// set repo credentials
+		if (credentialMap.get(this.credentialsId) instanceof StandardUsernamePasswordCredentials cred) {
+			source.setRepoCredentials(new DefaultBasicRepoCredentials(cred));
+		}
+		return source;
 	}
 
 	@Extension
@@ -120,6 +157,15 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 			} catch (NumberFormatException e) {
 				return FormValidation.error("");
 			}
+		}
+
+		public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item item) {
+			if (item == null && !Jenkins.get()
+					.hasPermission(Jenkins.ADMINISTER) || item != null && !item.hasPermission(Item.EXTENDED_READ)) {
+				return new StandardListBoxModel();
+			}
+			return new StandardListBoxModel().includeEmptyValue()
+					.includeAs(ACL.SYSTEM2, item, StandardUsernamePasswordCredentials.class);
 		}
 	}
 }

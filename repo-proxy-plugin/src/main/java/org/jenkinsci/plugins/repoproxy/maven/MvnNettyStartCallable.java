@@ -31,16 +31,15 @@ import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStartCallable;
 import org.jenkinsci.plugins.repoproxy.steps.ArtifactValidationInterruption;
 import org.jenkinsci.plugins.repoproxy.steps.StopStepCallable;
 
+import com.cloudbees.plugins.credentials.common.IdCredentials;
+
 import hudson.remoting.VirtualChannel;
 
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.group.ChannelGroup;
-import io.netty.channel.socket.nio.NioChannelOption;
-import io.netty.channel.unix.UnixChannelOption;
 import net.runeduniverse.lib.repo.maven.data.DefaultFileTypeIndex;
 import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.proxy.DefaultCache;
@@ -54,14 +53,17 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 	protected final Map<String, MvnProxyConfig> instanceConfigs;
 	protected final Map<UUID, SBomSourceCache> sbomCacheMap;
+	protected final Map<String, IdCredentials> credentialMap;
 	protected final Set<InetAddress> addressSet;
 	protected final int port;
 
 	public MvnNettyStartCallable(final String flowNodeId, final Map<String, MvnProxyConfig> instanceConfigs,
-			final Map<UUID, SBomSourceCache> sbomCacheMap, final Set<InetAddress> addressSet, final int port) {
+			final Map<UUID, SBomSourceCache> sbomCacheMap, final Map<String, IdCredentials> credentialMap,
+			final Set<InetAddress> addressSet, final int port) {
 		super(flowNodeId);
 		this.instanceConfigs = instanceConfigs;
 		this.sbomCacheMap = sbomCacheMap;
+		this.credentialMap = credentialMap;
 		this.addressSet = addressSet;
 		this.port = port;
 	}
@@ -111,7 +113,7 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 			final Path repoPath = cachePath.resolve(entry.getKey());
 			instance.sources()
-					.putAll(config.buildSourceMap(repoPath, sbomCacheMap, pipelineKiller));
+					.putAll(config.buildSourceMap(repoPath, sbomCacheMap, this.credentialMap, pipelineKiller));
 
 			server.addInstance(instance);
 		}

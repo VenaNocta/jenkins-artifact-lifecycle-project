@@ -48,6 +48,9 @@ import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.common.IdCredentials;
+
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -179,6 +182,7 @@ public class RepoProxyStepExecution extends StepExecution {
 		final PrintStream log = listener.getLogger();
 
 		final Set<UUID> sbomIds = new LinkedHashSet<>();
+		final Set<String> credIds = new LinkedHashSet<>();
 
 		for (Entry<String, ProxyConfig> entry : configs.entrySet()) {
 			final String refKey = entry.getKey();
@@ -197,13 +201,25 @@ public class RepoProxyStepExecution extends StepExecution {
 
 			this.activeProxies.put(refKey, bootstrapper);
 			sbomIds.addAll(bootstrapper.getRequiredSBoms());
+			credIds.addAll(bootstrapper.getRequiredCredentials());
 		}
 
-		final Launcher nodeBasedLauncher = this.cacheSBomFolder.createLauncher(listener);
+		// preload data
 		final Map<UUID, SBomSourceCache> sbomCacheMap = new LinkedHashMap<>();
-		for (UUID uuid : sbomIds) {
-			sbomCacheMap.put(uuid, SBomSourceProvider.findSourceById(run, uuid)
-					.buildCache(run, nodeBasedLauncher, this.cacheSBomFolder.child(uuid.toString()), listener));
+		final Map<String, IdCredentials> credMap = new LinkedHashMap<>();
+		{
+			final Launcher nodeBasedLauncher = this.cacheSBomFolder.createLauncher(listener);
+			for (UUID uuid : sbomIds) {
+				sbomCacheMap.put(uuid, SBomSourceProvider.findSourceById(run, uuid)
+						.buildCache(run, nodeBasedLauncher, this.cacheSBomFolder.child(uuid.toString()), listener));
+			}
+			for (String credId : credIds) {
+				final IdCredentials cred = CredentialsProvider.findCredentialById(credId, IdCredentials.class, run);
+				if (cred == null)
+					continue;
+				CredentialsProvider.track(run, cred);
+				credMap.put(credId, cred);
+			}
 		}
 
 		for (ProxyBootstrapper bootstrap : new HashSet<>(this.activeProxies.values())) {
@@ -214,7 +230,7 @@ public class RepoProxyStepExecution extends StepExecution {
 			} while (this.activeNettyHandleCacheRefMap.containsValue(cacheRef));
 			// create new cachePath for bootstrap in context and call it
 			final ControllerToAgentFileCallable<UUID> callable = //
-					bootstrap.serverStartCallable(link, context, proxyEnv, sbomCacheMap, listener);
+					bootstrap.serverStartCallable(link, context, proxyEnv, sbomCacheMap, credMap, listener);
 			final FilePath dir = this.cacheFolder.child(cacheRef.toString());
 			dir.mkdirs();
 			this.activeNettyHandleCacheRefMap.put(dir.act(callable), cacheRef);
