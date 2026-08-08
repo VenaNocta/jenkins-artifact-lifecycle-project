@@ -45,6 +45,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyExecution;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
+import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
@@ -57,6 +58,7 @@ import hudson.Launcher;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import jenkins.agents.ControllerToAgentFileCallable;
+import jenkins.model.CauseOfInterruption;
 import net.runeduniverse.lib.utils.net.api.IpAddress;
 
 public class RepoProxyStepExecution extends StepExecution {
@@ -247,6 +249,19 @@ public class RepoProxyStepExecution extends StepExecution {
 
 	@Override
 	public void stop(final Throwable cause) throws Exception {
+		final TaskListener listener = getContext().get(TaskListener.class);
+		if (listener != null && cause instanceof FlowInterruptedException flowEx) {
+			for (CauseOfInterruption exCause : flowEx.getCauses()) {
+				if (exCause instanceof ArtifactValidationInterruption error) {
+					final String purl = error.getPURL();
+					String msg = "[ RepoProxy ] ERROR: Invalid Artifact : " + error.getMessage();
+					if (purl != null)
+						msg = msg + "\n[ RepoProxy ] ERROR:   purl: " + purl;
+					listener.getLogger()
+							.println(msg);
+				}
+			}
+		}
 		shutdown();
 		if (this.bodyExec != null)
 			this.bodyExec.cancel(cause);

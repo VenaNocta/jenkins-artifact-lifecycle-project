@@ -93,8 +93,8 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 	public boolean killPipeline(final VirtualChannel channel, final ArtifactException ex) {
 		try {
 			if (channel != null)
-				channel.callAsync(
-						new StopStepCallable(this.flowNodeId, new ArtifactValidationInterruption(ex.getMessage())));
+				channel.callAsync(new StopStepCallable(this.flowNodeId,
+						new ArtifactValidationInterruption(ex.getMessage()).setPURL(ex.getPURL())));
 			return true;
 		} catch (IOException e) {
 			e.printStackTrace();
