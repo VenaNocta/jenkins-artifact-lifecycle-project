@@ -62,7 +62,7 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 	protected Bundle getSelectedBundle() throws IOException, InterruptedException {
 		final String artifacts = getArtifactPaths();
 		final BundleContext context = getBundleContext();
-		Bundle bundle = context.getBundle(this.step.getBundle());
+		Bundle bundle = context == null ? null : context.getBundle(this.step.getBundle());
 
 		if (artifacts != null) {
 			if (bundle == null)
@@ -75,7 +75,7 @@ public abstract class DeployArtifactsStepExecution<T extends ArtifactDeploymentR
 			Bundles.indexArtifacts(bundle, artifactManager, artifacts, null, true, this.step.getMetadata());
 		}
 		// if nothing special is selected, return "default" Bundle
-		return bundle == null ? context.getBundle() : bundle;
+		return bundle == null ? (context == null ? new Bundle(null) : context.getBundle()) : bundle;
 	}
 
 	protected <C extends IdCredentials> void useCreds(final Class<C> type, final String id,
