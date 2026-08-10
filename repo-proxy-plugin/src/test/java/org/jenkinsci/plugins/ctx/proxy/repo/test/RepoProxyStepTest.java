@@ -45,7 +45,7 @@ public class RepoProxyStepTest {
 		String agentLabel = "my-agent";
 		jenkins.createOnlineSlave(Label.get(agentLabel));
 		WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-scripted-pipeline");
-		job.addProperty(new JobIsolationProperty(true));
+		job.addProperty(new JobIsolationProperty(true, false));
 
 		String pipelineScript = "node {\n" //
 				+ "repoProxy() {" //
