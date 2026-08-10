@@ -25,14 +25,20 @@ import hudson.model.JobPropertyDescriptor;
 public class JobIsolationProperty extends JobProperty<Job<?, ?>> {
 
 	private final boolean enabled;
+	private final boolean unsafeCheckoutEnabled;
 
 	@DataBoundConstructor
-	public JobIsolationProperty(boolean enabled) {
+	public JobIsolationProperty(final boolean enabled, final boolean unsafeCheckoutEnabled) {
 		this.enabled = enabled;
+		this.unsafeCheckoutEnabled = unsafeCheckoutEnabled;
 	}
 
 	public boolean isEnabled() {
 		return this.enabled;
+	}
+
+	public boolean isUnsafeCheckoutEnabled() {
+		return this.unsafeCheckoutEnabled;
 	}
 
 	@Extension

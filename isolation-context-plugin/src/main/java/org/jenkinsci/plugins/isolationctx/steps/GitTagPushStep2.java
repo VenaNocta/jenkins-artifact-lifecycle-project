@@ -122,7 +122,7 @@ public class GitTagPushStep2 extends Step {
 
 			// create/update tag
 			final String tag = this.step.getTag();
-			git.tag(tag, this.step.comment);
+			git.tag(tag, this.step.getComment());
 
 			// push tag
 			git.push()

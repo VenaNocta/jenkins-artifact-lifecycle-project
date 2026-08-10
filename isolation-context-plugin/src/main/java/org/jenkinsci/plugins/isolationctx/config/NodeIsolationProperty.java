@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.isolationctx.config;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 import hudson.Extension;
+import hudson.Util;
 import hudson.model.Node;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.NodePropertyDescriptor;
@@ -25,18 +26,24 @@ import hudson.slaves.NodePropertyDescriptor;
 public class NodeIsolationProperty extends NodeProperty<Node> {
 
 	private final boolean disabled;
+	private final String adminGroup;
 
 	public NodeIsolationProperty() {
-		this(false);
+		this(false, null);
 	}
 
 	@DataBoundConstructor
-	public NodeIsolationProperty(final boolean disabled) {
+	public NodeIsolationProperty(final boolean disabled, final String adminGroup) {
 		this.disabled = disabled;
+		this.adminGroup = Util.fixEmptyAndTrim(adminGroup);
 	}
 
 	public boolean isDisabled() {
 		return this.disabled;
+	}
+
+	public String getAdminGroup() {
+		return this.adminGroup;
 	}
 
 	public static boolean isDisabled(final Node node) {
@@ -47,6 +54,13 @@ public class NodeIsolationProperty extends NodeProperty<Node> {
 		if (prop == null)
 			return false;
 		return prop.isDisabled();
+	}
+
+	public static String getAdminGroup(final Node node) {
+		final NodeIsolationProperty prop = node.getNodeProperty(NodeIsolationProperty.class);
+		if (prop == null)
+			return null;
+		return prop.getAdminGroup();
 	}
 
 	@Extension

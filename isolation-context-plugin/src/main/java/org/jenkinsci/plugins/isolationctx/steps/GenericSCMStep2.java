@@ -20,6 +20,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.jenkinsci.plugins.isolationctx.config.JobIsolationProperty;
 import org.jenkinsci.plugins.isolationctx.ctx.DecoratedIsolationLauncher;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
@@ -76,6 +77,10 @@ public class GenericSCMStep2 extends SCMStep {
 		protected Map<String, String> run() throws Exception {
 			final StepContext ctx = getContext();
 			final Run<?, ?> run = ctx.get(Run.class);
+			final TaskListener listener = ctx.get(TaskListener.class);
+			if (!DescriptorImpl.isCeckout2Enabled(run.getParent()))
+				throw new StepDisabledException("Unsafe Checkout (step: checkout2) is disabled!");
+
 			final Launcher launcher = ctx.get(Launcher.class);
 			final Iterator<DecoratedIsolationLauncher> iterator = DecoratedIsolationLauncher.find(launcher)
 					.iterator();
@@ -84,7 +89,7 @@ public class GenericSCMStep2 extends SCMStep {
 						.enableNetworkIsolation(false);
 			}
 
-			step.checkout(run, ctx.get(FilePath.class), ctx.get(TaskListener.class), launcher);
+			step.checkout(run, ctx.get(FilePath.class), listener, launcher);
 			Map<String, String> envVars = new TreeMap<>();
 			step.createSCM()
 					.buildEnvironment(run, envVars);
@@ -109,6 +114,11 @@ public class GenericSCMStep2 extends SCMStep {
 
 		public Collection<? extends SCMDescriptor<?>> getApplicableDescriptors() {
 			return SCM._for(StaplerReferer.findItemFromRequest(Job.class));
+		}
+
+		public static boolean isCeckout2Enabled(final Job<?, ?> job) {
+			final JobIsolationProperty prop = job.getProperty(JobIsolationProperty.class);
+			return prop != null && prop.isUnsafeCheckoutEnabled();
 		}
 	}
 }

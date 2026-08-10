@@ -42,12 +42,15 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
+import org.jenkinsci.plugins.isolationctx.config.NodeIsolationProperty;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntime;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationRuntimeAction;
 import org.jenkinsci.plugins.isolationctx.ctx.net.LnxNetLink;
 import org.jenkinsci.plugins.isolationctx.dto.LinuxMountEntry;
+import org.jenkinsci.plugins.isolationctx.dto.LinuxIdentity;
 import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler;
 import org.jenkinsci.plugins.isolationctx.handler.LnxNodeIsolationHandler.OverlayMountData;
+import org.jenkinsci.plugins.isolationctx.util.WorkspaceLauncherUtil;
 import org.jenkinsci.plugins.isolationctx.handler.OciRuntimeHandler;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
@@ -62,7 +65,6 @@ import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.FilePath.FileCallable;
-import hudson.Launcher.ProcStarter;
 import hudson.Launcher;
 import hudson.LauncherDecorator;
 import hudson.Proc;
@@ -99,13 +101,15 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 	protected transient final Object linkLock = new Object();
 
+	protected transient final WorkspaceLauncherUtil launchUtil = //
+			new WorkspaceLauncherUtil(this::getWorkspace, this::logListener);;
 	protected transient Run<?, ?> run;
 	protected transient Node node;
 	protected transient WorkspaceAction ws;
 	protected transient TaskListener listener;
 
 	protected transient final SortedMap<Integer, LnxNetLink> _activeLinks = new TreeMap<>();
-	protected transient CompletableFuture<LnxIdentity> _lnxIdentityFuture = null;
+	protected transient CompletableFuture<LinuxIdentity> _lnxIdentityFuture = null;
 	protected transient TaskListener _logListener = null;
 
 	public LinuxNodeNamespaceContext(final Run<?, ?> run, final Node node, final WorkspaceAction ws,
@@ -168,29 +172,17 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 				.withSuffix("@env_cache");
 	}
 
-	public synchronized CompletableFuture<LnxIdentity> lnxIdentityFuture() {
+	public synchronized CompletableFuture<LinuxIdentity> lnxIdentityFuture() {
 		if (this._lnxIdentityFuture != null)
 			return this._lnxIdentityFuture;
-
-		this._lnxIdentityFuture = new CompletableFuture<>();
-		final LnxIdentity id = new LnxIdentity();
-
-		try {
-			// get user
-			id.setUser(outputToString(wsExecAndJoinCmd(Arrays.asList("id", "-r", "--user"), true)));
-			// get group
-			id.setGroup(outputToString(wsExecAndJoinCmd(Arrays.asList("id", "-r", "--group"), true)));
-			// get groups
-			id.setGroups(outputToString(wsExecAndJoinCmd(Arrays.asList("id", "-r", "--groups"), true)).split(" "));
-
-			this._lnxIdentityFuture.complete(id);
-		} catch (IOException | InterruptedException e) {
-			this._lnxIdentityFuture.completeExceptionally(e);
-		}
-		return this._lnxIdentityFuture;
+		return this._lnxIdentityFuture = //
+				CompletableFuture.supplyAsync(() -> LinuxIdentity.identify(this.launchUtil))
+						.thenApply(id -> id.removeGroupIds(//
+								LinuxIdentity.groupIdByName(this.launchUtil,
+										NodeIsolationProperty.getAdminGroup(this.node))));
 	}
 
-	public LnxIdentity lnxIdentity() throws IOException, InterruptedException {
+	public LinuxIdentity lnxIdentity() throws IOException, InterruptedException {
 		try {
 			return lnxIdentityFuture().get();
 		} catch (ExecutionException e) {
@@ -244,7 +236,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 			workspace = this.ws.getWorkspace();
 		final List<String> cmd = new ArrayList<>();
 
-		final LnxIdentity lnxIdentity = lnxIdentity();
+		final LinuxIdentity lnxIdentity = lnxIdentity();
 
 		// sudo nsenter --target=75008 --mount --uts --ipc --net --pid --
 		cmd.add("sudo");
@@ -263,9 +255,9 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		// --reset-env
 		// --
 		cmd.add("setpriv");
-		cmd.add("--reuid=" + lnxIdentity.getUser());
-		cmd.add("--regid=" + lnxIdentity.getGroup());
-		cmd.add("--groups=" + String.join(",", lnxIdentity.getGroups()));
+		cmd.add("--reuid=" + lnxIdentity.getUserId());
+		cmd.add("--regid=" + lnxIdentity.getGroupId());
+		cmd.add("--groups=" + lnxIdentity.joinGroupIds(","));
 		cmd.add("--inh-caps=-all");
 		cmd.add("--reset-env");
 		cmd.add("--");
@@ -605,42 +597,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 	protected Proc wsExecAndJoinCmd(final List<String> cmd, final boolean readStderr)
 			throws IOException, InterruptedException {
-		return wsExecAndJoinCmd(cmd, readStderr, 0);
-	}
-
-	protected Proc wsExecAndJoinCmd(final List<String> cmd, final boolean readStderr, final int expectedExitCode)
-			throws IOException, InterruptedException {
-		final ProcStarter procStarter = this.ws.getWorkspace()
-				.createLauncher(logListener())
-				.launch()
-				.cmds(cmd)
-				.readStdout();
-		if (readStderr)
-			procStarter.readStderr();
-
-		final Proc proc = procStarter.start();
-		if (readStderr)
-			joinAndLogProcessException(proc, expectedExitCode);
-		else
-			proc.join();
-		return proc;
-	}
-
-	protected void joinAndLogProcessException(final Proc process, final int expectedExitCode)
-			throws IOException, InterruptedException {
-		final PrintStream nodeLog = logListener().getLogger();
-		final int exitCode = process.join();
-		if (exitCode == expectedExitCode)
-			return;
-		nodeLog.println("exitCode=" + exitCode);
-		try {
-			final InputStream errStream = process.getStderr();
-			if (errStream == null)
-				return;
-			errStream.transferTo(nodeLog);
-		} catch (IOException e) {
-			e.printStackTrace(nodeLog);
-		}
+		return this.launchUtil.wsExecAndJoinCmd(cmd, readStderr);
 	}
 
 	protected static String outputToString(final Proc proc) {
@@ -769,39 +726,6 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		}
 	}
 
-	public static class LnxIdentity implements Serializable {
-
-		private static final long serialVersionUID = 1L;
-
-		protected String user = "";
-		protected String group = "";
-		protected String[] groups = new String[0];
-
-		public String getUser() {
-			return this.user;
-		}
-
-		public String getGroup() {
-			return this.group;
-		}
-
-		public String[] getGroups() {
-			return this.groups;
-		}
-
-		public void setUser(final String user) {
-			this.user = user;
-		}
-
-		public void setGroup(final String group) {
-			this.group = group;
-		}
-
-		public void setGroups(final String[] groups) {
-			this.groups = groups;
-		}
-	}
-
 	public static class IOTriplet2 extends Launcher.IOTriplet {
 		@CheckForNull
 		public InputStream stdout, stderr;
@@ -889,12 +813,12 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 
 		protected final List<LinuxMountEntry> mounts = new LinkedList<>();
 
-		protected final LnxIdentity identity;
+		protected final LinuxIdentity identity;
 		protected final String hostname;
 
 		protected String rootfs = "/";
 
-		public OciConfigFileCallable(final LnxIdentity identity, final String hostname) {
+		public OciConfigFileCallable(final LinuxIdentity identity, final String hostname) {
 			this.identity = identity;
 			this.hostname = hostname;
 		}
@@ -930,7 +854,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 		public String toJson() {
 			return "{\"ociVersion\":\"" + OCI_VERSION + "\"," //
 					+ "\"process\":{\"terminal\": false," //
-					+ "\"user\":{\"uid\":" + this.identity.getUser() + ",\"gid\":" + this.identity.getGroup() + "}," //
+					+ "\"user\":{\"uid\":" + this.identity.getUserId() + ",\"gid\":" + this.identity.getGroupId() + "}," //
 					+ "\"args\":[\"/usr/bin/tail\",\"-f\",\"/dev/null\"],\"env\":[],\"cwd\":\"/\"}," //
 					+ "\"root\":{\"path\":\"" + this.rootfs + "\",\"readonly\":false}," //
 					+ "\"mounts\":[" //
