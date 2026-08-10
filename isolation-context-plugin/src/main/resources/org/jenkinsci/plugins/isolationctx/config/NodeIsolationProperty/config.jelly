@@ -4,7 +4,7 @@
 		field="disabled">
 		<f:checkbox />
 	</f:entry>
-	<f:entry title="Jenkins User's Admin Group Name (for use with sudo)"
+	<f:entry title="Jenkins User's aux. Admin Group Name (for use with sudo)"
 		field="adminGroup">
 		<f:textbox />
 	</f:entry>

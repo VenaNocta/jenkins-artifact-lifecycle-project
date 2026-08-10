@@ -59,32 +59,30 @@ public class LinuxIdentity implements Serializable {
 	public LinuxIdentity setUserId(final long user) {
 		synchronized (this) {
 			this.userId = user;
+			return this;
 		}
-		return this;
 	}
 
 	public LinuxIdentity setGroupId(final long group) {
 		synchronized (this) {
 			this.groupId = group;
+			return this;
 		}
-		return this;
 	}
 
 	public LinuxIdentity setGroupIds(final Collection<Long> groups) {
 		synchronized (this) {
 			this.groupIds.clear();
-			addGroupIds(groups);
+			return addGroupIds(groups);
 		}
-		return this;
 	}
 
 	public LinuxIdentity addGroupIds(final Long... groups) {
 		synchronized (this) {
 			if (groups == null || groups.length == 0)
 				return this;
-			addGroupIds(Arrays.asList(groups));
+			return addGroupIds(Arrays.asList(groups));
 		}
-		return this;
 	}
 
 	public LinuxIdentity addGroupIds(final Collection<Long> groups) {
@@ -92,19 +90,18 @@ public class LinuxIdentity implements Serializable {
 			if (groups == null || groups.isEmpty())
 				return this;
 			groups.stream()
-					.filter(Objects::nonNull)
+					.filter(g -> g != null && -1 < g)
 					.forEach(this.groupIds::add);
+			return this;
 		}
-		return this;
 	}
 
 	public LinuxIdentity removeGroupIds(final Long... groups) {
 		synchronized (this) {
 			if (groups == null || groups.length == 0)
 				return this;
-			addGroupIds(Arrays.asList(groups));
+			return removeGroupIds(Arrays.asList(groups));
 		}
-		return this;
 	}
 
 	public LinuxIdentity removeGroupIds(final Collection<Long> groups) {
@@ -114,8 +111,8 @@ public class LinuxIdentity implements Serializable {
 			groups.stream()
 					.filter(Objects::nonNull)
 					.forEach(this.groupIds::remove);
+			return this;
 		}
-		return this;
 	}
 
 	public String joinGroupIds(final CharSequence delimiter) {
