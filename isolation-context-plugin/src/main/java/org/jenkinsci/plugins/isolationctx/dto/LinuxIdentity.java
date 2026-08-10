@@ -170,7 +170,7 @@ public class LinuxIdentity implements Serializable {
 					launcherUtil.wsExecAndJoinCmd(Arrays.asList("getent", "group", groupName), true));
 			// $ getent group users
 			// users:x:100:<user>
-			final String[] data = line.split(" ", 4);
+			final String[] data = line.split(":", 4);
 			return toLong(data[2], 10);
 		} catch (IndexOutOfBoundsException | IOException | InterruptedException e) {
 			throw new CompletionException(e);
