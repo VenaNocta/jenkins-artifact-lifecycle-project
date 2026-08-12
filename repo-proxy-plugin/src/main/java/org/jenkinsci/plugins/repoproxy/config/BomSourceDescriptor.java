@@ -24,11 +24,11 @@ import org.kohsuke.stapler.verb.POST;
 import hudson.model.Descriptor;
 import hudson.util.FormValidation;
 
-public abstract class SBomSourceDescriptor extends Descriptor<SBomSource> {
+public abstract class BomSourceDescriptor extends Descriptor<BomSource> {
 
 	@Restricted(NoExternalUse.class)
 	@POST
-	public FormValidation doCheckName(@QueryParameter String value, @QueryParameter String currentId) {
+	public FormValidation doCheckName(@QueryParameter String value, @QueryParameter String currentUuid) {
 		value = StringUtils.trimToNull(value);
 		// name is optional anyway
 		if (value == null)

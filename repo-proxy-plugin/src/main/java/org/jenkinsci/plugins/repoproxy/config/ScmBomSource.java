@@ -23,6 +23,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+
+import org.jenkinsci.Symbol;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -43,22 +45,22 @@ import jenkins.scm.api.SCMRevision;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceDescriptor;
 
-public class ScmSBomSource extends SBomSource {
+public class ScmBomSource extends BomSource {
 
 	private static final long serialVersionUID = 1L;
 
 	protected final String version;
 	protected final SCMSource scm;
 
-	public ScmSBomSource(final UUID id, final String name, final String version, final SCMSource scm) {
-		super(id, name);
+	public ScmBomSource(final UUID uuid, final String name, final String version, final SCMSource scm) {
+		super(uuid, name);
 		this.version = Util.fixEmptyAndTrim(version);
 		this.scm = scm;
 	}
 
 	@DataBoundConstructor
-	public ScmSBomSource(final String id, final String name, final String version, final SCMSource scm) {
-		super(UUID.fromString(id), name);
+	public ScmBomSource(final String uuid, final String name, final String version, final SCMSource scm) {
+		super(UUID.fromString(uuid), name);
 		this.version = Util.fixEmptyAndTrim(version);
 		this.scm = scm;
 	}
@@ -72,12 +74,12 @@ public class ScmSBomSource extends SBomSource {
 	}
 
 	@Override
-	public SBomSourceCache buildCache(final Run<?, ?> run, final Launcher nodeBasedLauncher, final FilePath cachePath,
+	public BomSourceCache buildCache(final Run<?, ?> run, final Launcher nodeBasedLauncher, final FilePath cachePath,
 			final TaskListener listener) throws IOException, InterruptedException {
 		cachePath.mkdirs();
 		retrieve(run, nodeBasedLauncher, cachePath, new StreamTaskListener(cachePath.withSuffix(".log")
 				.write(), StandardCharsets.UTF_8));
-		return new ScmSBomSourceCache(this.id, this.version, cachePath);
+		return new ScmBomSourceCache(this.uuid, this.version, cachePath);
 	}
 
 	public void retrieve(final Run<?, ?> run, final Launcher nodeBasedLauncher, final FilePath target,
@@ -85,7 +87,7 @@ public class ScmSBomSource extends SBomSource {
 		final SCMRevision revision = retrySCMOperation(listener,
 				() -> this.scm.fetch(this.version, listener, run.getParent()));
 		if (revision == null) {
-			throw new AbortException("No version " + this.version + " found for SBom-Repo " + this.name);
+			throw new AbortException("No version " + this.version + " found for Bom-Repo " + this.name);
 		}
 		final SCM scm = this.scm.build(revision.getHead(), revision);
 		retrySCMOperation(listener, () -> {
@@ -124,11 +126,12 @@ public class ScmSBomSource extends SBomSource {
 	}
 
 	@Extension
-	public static class Descriptor extends SBomSourceDescriptor {
+	@Symbol("scmSource")
+	public static class Descriptor extends BomSourceDescriptor {
 
 		@Override
 		public String getDisplayName() {
-			return "SCM SBom Repository";
+			return "SCM Bom Repository";
 		}
 
 		/**

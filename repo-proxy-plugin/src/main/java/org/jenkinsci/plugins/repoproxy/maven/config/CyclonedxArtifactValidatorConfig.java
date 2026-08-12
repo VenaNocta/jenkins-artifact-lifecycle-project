@@ -24,6 +24,7 @@ import java.util.function.Predicate;
 
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
+import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.repoproxy.maven.CyclonedxValidator;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -107,7 +108,7 @@ public class CyclonedxArtifactValidatorConfig extends ACyclonedxValidatorConfig 
 	}
 
 	@Override
-	public ArtifactValidator buildArtifactValidator(final Map<UUID, Path> sbomPaths,
+	public ArtifactValidator buildArtifactValidator(final Map<UUID, Path> bomPaths,
 			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
 		Predicate<Component> filter = buildFilter();
 
@@ -115,7 +116,7 @@ public class CyclonedxArtifactValidatorConfig extends ACyclonedxValidatorConfig 
 			filter = c -> true;
 
 		final ComponentIndex componentIndex = new ComponentIndex();
-		for (Bom bom : getSBomList(sbomPaths)) {
+		for (Bom bom : getBomList(bomPaths)) {
 			if (bom == null)
 				continue;
 			componentIndex.addBom(bom, filter);
@@ -126,6 +127,7 @@ public class CyclonedxArtifactValidatorConfig extends ACyclonedxValidatorConfig 
 	}
 
 	@Extension
+	@Symbol("cyclonedxArtifactValidator")
 	public static class Descriptor extends ValidatorConfigDescriptor {
 
 		@Override

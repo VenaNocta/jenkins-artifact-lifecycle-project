@@ -23,6 +23,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import hudson.Extension;
 import net.runeduniverse.lib.repo.maven.api.MetadataValidator;
@@ -41,14 +42,14 @@ public class CyclonedxMetadataFilterConfig extends ACyclonedxValidatorConfig {
 	}
 
 	@Override
-	public MetadataValidator buildMetadataValidator(final Map<UUID, Path> sbomPaths,
+	public MetadataValidator buildMetadataValidator(final Map<UUID, Path> bomPaths,
 			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
 		Predicate<Component> filter = buildFilter();
 		if (filter == null)
 			filter = c -> true;
 
 		final ComponentIndex componentIndex = new ComponentIndex();
-		for (Bom bom : getSBomList(sbomPaths)) {
+		for (Bom bom : getBomList(bomPaths)) {
 			if (bom == null)
 				continue;
 			componentIndex.addBom(bom, filter);
@@ -58,6 +59,7 @@ public class CyclonedxMetadataFilterConfig extends ACyclonedxValidatorConfig {
 	}
 
 	@Extension
+	@Symbol("cyclonedxMetadataFilter")
 	public static class Descriptor extends ValidatorConfigDescriptor {
 
 		@Override

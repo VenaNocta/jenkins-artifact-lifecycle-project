@@ -64,12 +64,13 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 				.orElse(null);
 	}
 
-	// used by jelly
+	// used by jelly & JCasC
 	public List<ProxyConfig> getConfigs() {
 		return new ArrayList<ProxyConfig>(this.proxyMap.values());
 	}
 
 	@DataBoundSetter
+	// used by JCasC
 	public void setConfigs(@NonNull final Collection<ProxyConfig> lst) {
 		setConfigMap(lst.stream()
 				.collect(Collectors.toMap(ProxyConfig::getId, Function.identity())));

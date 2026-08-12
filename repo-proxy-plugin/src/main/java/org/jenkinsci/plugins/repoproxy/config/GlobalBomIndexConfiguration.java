@@ -16,14 +16,18 @@
 package org.jenkinsci.plugins.repoproxy.config;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.UUID;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest2;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -37,20 +41,20 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 @Extension
-@Symbol("globalSBomConfig")
-public class SBomConfiguration extends GlobalConfiguration {
+@Symbol("globalBomIndex")
+public class GlobalBomIndexConfiguration extends GlobalConfiguration {
 
-	protected final Map<UUID, SBomSource> sources = new LinkedHashMap<>();
+	protected final Map<UUID, BomSource> sources = new LinkedHashMap<>();
 
-	public SBomConfiguration() {
+	public GlobalBomIndexConfiguration() {
 		load();
 	}
 
-	public SBomSource getSourceById(final UUID id) {
-		return this.sources.get(id);
+	public BomSource getSourceById(final UUID uuid) {
+		return this.sources.get(uuid);
 	}
 
-	public SBomSource getSourceByName(final String name) {
+	public BomSource getSourceByName(final String name) {
 		if (name == null)
 			return null;
 		return this.sources.values()
@@ -60,19 +64,26 @@ public class SBomConfiguration extends GlobalConfiguration {
 				.orElse(null);
 	}
 
-	// used by jelly
-	public List<SBomSource> getSources() {
-		return new ArrayList<SBomSource>(this.sources.values());
+	// used by jelly & JCasC
+	public List<BomSource> getSources() {
+		return new ArrayList<BomSource>(this.sources.values());
 	}
 
-	public void setSourcesMap(final Map<UUID, SBomSource> sources) {
+	@DataBoundSetter
+	// used by JCasC
+	public void setSources(@NonNull final Collection<BomSource> lst) {
+		setSourcesMap(lst.stream()
+				.collect(Collectors.toMap(BomSource::getUuid, Function.identity())));
+	}
+
+	public void setSourcesMap(final Map<UUID, BomSource> sources) {
 		// TODO consider using a read-write-lock
 		// retain & update old "known" entries
-		for (Iterator<Entry<UUID, SBomSource>> i = this.sources.entrySet()
+		for (Iterator<Entry<UUID, BomSource>> i = this.sources.entrySet()
 				.iterator(); i.hasNext();) {
-			final Entry<UUID, SBomSource> entry = i.next();
+			final Entry<UUID, BomSource> entry = i.next();
 			final UUID id = entry.getKey();
-			final SBomSource newSource = sources.remove(id);
+			final BomSource newSource = sources.remove(id);
 			if (newSource == null) {
 				// value got deleted
 				i.remove();
@@ -93,37 +104,37 @@ public class SBomConfiguration extends GlobalConfiguration {
 				sourcesArray.add(jsonObj);
 		}
 
-		final Map<UUID, SBomSource> newSourceMap = new LinkedHashMap<>();
+		final Map<UUID, BomSource> newSourceMap = new LinkedHashMap<>();
 
 		if (sourcesArray != null) {
 			for (int i = 0; i < sourcesArray.size(); i++) {
 				final JSONObject sourceObj = sourcesArray.getJSONObject(i);
-				final String parsedId = Util.fixEmpty(sourceObj.optString(SBomSource.JSON_ID_FIELD_NAME));
-				UUID id = null;
+				final String parsedId = Util.fixEmpty(sourceObj.optString(BomSource.JSON_ID_FIELD_NAME));
+				UUID uuid = null;
 				if (parsedId != null) {
 					// try parse, invalid equals null value
 					try {
-						id = UUID.fromString(parsedId);
+						uuid = UUID.fromString(parsedId);
 					} catch (IllegalArgumentException ignored) {
 					}
 				}
-				if (id == null) {
+				if (uuid == null) {
 					// generate unique entry.id in context
 					do {
-						id = UUID.randomUUID();
-					} while (this.sources.containsKey(id) || newSourceMap.containsKey(id));
-					sourceObj.element(SBomSource.JSON_ID_FIELD_NAME, id.toString());
+						uuid = UUID.randomUUID();
+					} while (this.sources.containsKey(uuid) || newSourceMap.containsKey(uuid));
+					sourceObj.element(BomSource.JSON_ID_FIELD_NAME, uuid.toString());
 				} else {
 					// check for duplicate ids
-					if (newSourceMap.containsKey(id))
+					if (newSourceMap.containsKey(uuid))
 						continue;
 				}
 
-				final SBomSource source = req.bindJSON(SBomSource.class, sourceObj);
-				if (!id.equals(source.id)) {
+				final BomSource source = req.bindJSON(BomSource.class, sourceObj);
+				if (!uuid.equals(source.uuid)) {
 					throw new FormException("UUID mismatch after binding", "sources");
 				}
-				newSourceMap.put(source.id, source);
+				newSourceMap.put(source.uuid, source);
 			}
 		}
 		this.setSourcesMap(newSourceMap);
@@ -132,34 +143,36 @@ public class SBomConfiguration extends GlobalConfiguration {
 	}
 
 	@NonNull
-	public static SBomConfiguration get() {
+	public static GlobalBomIndexConfiguration get() {
 		return GlobalConfiguration.all()
-				.getInstance(SBomConfiguration.class);
+				.getInstance(GlobalBomIndexConfiguration.class);
 	}
 
 	@Extension(ordinal = -10000)
-	public static final class GlobalSBomSourceProvider implements SBomSourceProvider {
+	public static final class GlobalBomSourceProvider implements BomSourceProvider {
 
 		@Override
-		public SBomSource getSourceById(final Run<?, ?> run, final UUID id) {
-			return SBomConfiguration.get()
-					.getSourceById(id);
+		public BomSource getSourceById(final Run<?, ?> run, final UUID uuid) {
+			return GlobalBomIndexConfiguration.get()
+					.getSourceById(uuid);
 		}
 
 		@Override
-		public SBomSource getSourceByName(final Run<?, ?> run, final String name) {
-			return SBomConfiguration.get()
+		public BomSource getSourceByName(final Run<?, ?> run, final String name) {
+			return GlobalBomIndexConfiguration.get()
 					.getSourceByName(name);
 		}
 
 		@Override
-		public List<SBomSource> getSources(final Item item) {
-			return SBomConfiguration.get()
+		public List<BomSource> getSources(final Item item) {
+			return GlobalBomIndexConfiguration.get()
 					.getSources();
 		}
 	}
 
 	public static final class IdRef extends RefUUID {
+
+		private static final long serialVersionUID = 1L;
 
 		@DataBoundConstructor
 		public IdRef() {
@@ -171,7 +184,7 @@ public class SBomConfiguration extends GlobalConfiguration {
 
 			@Override
 			public ListBoxModel allValuesAsListBox(final Item item) {
-				return SBomSourceProvider.allSourcesAsListBox(item);
+				return BomSourceProvider.allSourcesAsListBox(item);
 			}
 		}
 	}

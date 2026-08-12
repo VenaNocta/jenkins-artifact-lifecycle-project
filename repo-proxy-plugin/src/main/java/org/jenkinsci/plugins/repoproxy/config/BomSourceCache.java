@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.UUID;
 
-public interface SBomSourceCache {
+public interface BomSourceCache {
 
 	public UUID sourceId();
 

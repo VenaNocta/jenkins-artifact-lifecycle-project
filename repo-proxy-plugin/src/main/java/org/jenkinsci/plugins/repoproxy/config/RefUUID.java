@@ -40,21 +40,16 @@ public class RefUUID implements Describable<RefUUID>, Serializable {
 	public RefUUID() {
 	}
 
-	public UUID getUuidValue() {
+	public UUID getUuid() {
 		return this.uuidValue;
 	}
 
-	public String getUuidStrValue() {
-		return this.uuidValue.toString();
-	}
-
-	@DataBoundSetter
 	public void setUuidValue(final UUID value) {
 		this.uuidValue = value;
 	}
 
 	@DataBoundSetter
-	public void setUuidStrValue(String value) {
+	public void setUuid(String value) {
 		try {
 			value = Util.fixEmptyAndTrim(value);
 			this.uuidValue = value == null ? null : UUID.fromString(value);
@@ -86,22 +81,21 @@ public class RefUUID implements Describable<RefUUID>, Serializable {
 
 		public abstract ListBoxModel allValuesAsListBox(final Item item);
 
-		public ListBoxModel doFillUuidStrValueItems(@AncestorInPath final Item item,
-				@QueryParameter final String uuidStrValue) {
+		public ListBoxModel doFillUuidItems(@AncestorInPath final Item item, @QueryParameter final String uuid) {
 			final ListBoxModel model = allValuesAsListBox(item);
 
 			boolean hasValue = false;
 			for (Option option : model) {
-				if (uuidStrValue != null && uuidStrValue.equals(option.value))
+				if (uuid != null && uuid.equals(option.value))
 					hasValue = true;
 				final String name = Util.fixEmptyAndTrim(option.name);
 				option.name = String.format("%s » %s", option.value, name == null ? "???" : name);
 			}
 			if (!hasValue) {
-				if (Util.fixEmptyAndTrim(uuidStrValue) == null || "---".equals(uuidStrValue))
-					model.add(0, new Option("- none -", uuidStrValue));
+				if (Util.fixEmptyAndTrim(uuid) == null || "---".equals(uuid))
+					model.add(0, new Option("- none -", uuid));
 				else
-					model.add(0, new Option(String.format("%s » ???", uuidStrValue), uuidStrValue));
+					model.add(0, new Option(String.format("%s » ???", uuid), uuid));
 			}
 			return model;
 		}

@@ -1,7 +1,7 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
 	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
-	<st:include page="id-and-base-values"
+	<st:include page="uuid-and-base-values"
 		class="${descriptor.clazz}" />
 	<f:entry title="${%Version}" field="version">
 		<f:textbox />

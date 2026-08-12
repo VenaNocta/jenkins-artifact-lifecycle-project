@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 import hudson.Extension;
@@ -47,18 +48,18 @@ public class DefaultPomArtifactValidatorConfig extends ValidatorConfig {
 	}
 
 	@Override
-	public Set<UUID> getRequiredSBoms() {
+	public Set<UUID> getRequiredBoms() {
 		return null;
 	}
 
 	@Override
-	public MetadataValidator buildMetadataValidator(Map<UUID, Path> sbomPaths,
+	public MetadataValidator buildMetadataValidator(Map<UUID, Path> bomPaths,
 			Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
 		return null;
 	}
 
 	@Override
-	public ArtifactValidator buildArtifactValidator(Map<UUID, Path> sbomPaths,
+	public ArtifactValidator buildArtifactValidator(Map<UUID, Path> bomPaths,
 			Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
 		return new ArtifactValidator() {
 			@Override
@@ -70,6 +71,7 @@ public class DefaultPomArtifactValidatorConfig extends ValidatorConfig {
 	}
 
 	@Extension
+	@Symbol("acceptAllPomArtifacts")
 	public static class Descriptor extends ValidatorConfigDescriptor {
 
 		@Override

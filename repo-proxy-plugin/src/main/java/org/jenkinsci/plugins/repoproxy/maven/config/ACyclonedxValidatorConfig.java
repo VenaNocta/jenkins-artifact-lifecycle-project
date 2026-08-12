@@ -45,7 +45,7 @@ import org.cyclonedx.model.Component;
 import org.cyclonedx.parsers.BomParserFactory;
 import org.cyclonedx.parsers.Parser;
 import org.jenkinsci.plugins.repoproxy.config.RefUUID;
-import org.jenkinsci.plugins.repoproxy.config.SBomSourceProvider;
+import org.jenkinsci.plugins.repoproxy.config.BomSourceProvider;
 import org.jenkinsci.plugins.repoproxy.config.SimpleFileVisitor;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
@@ -116,9 +116,9 @@ public abstract class ACyclonedxValidatorConfig extends ValidatorConfig {
 	}
 
 	@Override
-	public Set<UUID> getRequiredSBoms() {
+	public Set<UUID> getRequiredBoms() {
 		return this.sourceIds.stream()
-				.map(RefUUID::getUuidValue)
+				.map(RefUUID::getUuid)
 				.collect(Collectors.toUnmodifiableSet());
 	}
 
@@ -127,10 +127,10 @@ public abstract class ACyclonedxValidatorConfig extends ValidatorConfig {
 		return !this.sourceIds.isEmpty();
 	}
 
-	public List<Bom> getSBomList(final Map<UUID, Path> sbomPaths) throws IOException, InterruptedException {
+	public List<Bom> getBomList(final Map<UUID, Path> bomPaths) throws IOException, InterruptedException {
 		final List<Bom> col = new LinkedList<>();
 		for (IdRef ref : this.sourceIds) {
-			col.addAll(parseBoms(ref, sbomPaths.get(ref.getUuidValue())));
+			col.addAll(parseBoms(ref, bomPaths.get(ref.getUuid())));
 		}
 		return col;
 	}
@@ -149,28 +149,28 @@ public abstract class ACyclonedxValidatorConfig extends ValidatorConfig {
 	}
 
 	@Override
-	public MetadataValidator buildMetadataValidator(final Map<UUID, Path> sbomPaths,
+	public MetadataValidator buildMetadataValidator(final Map<UUID, Path> bomPaths,
 			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
 		return null;
 	}
 
 	@Override
-	public ArtifactValidator buildArtifactValidator(final Map<UUID, Path> sbomPaths,
+	public ArtifactValidator buildArtifactValidator(final Map<UUID, Path> bomPaths,
 			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
 		return null;
 	}
 
 	// NOTE: Bom instances have to be handled on node as they are not serializable!
-	protected List<Bom> parseBoms(final IdRef ref, Path sbomPath) throws IOException, InterruptedException {
+	protected List<Bom> parseBoms(final IdRef ref, Path bomPath) throws IOException, InterruptedException {
 		final List<Bom> col = new LinkedList<>();
-		if (ref == null || sbomPath == null || !isValid())
+		if (ref == null || bomPath == null || !isValid())
 			return col;
 		if (ref.filterPath != null)
-			sbomPath = sbomPath.resolve(ref.filterPath);
-		if (!Files.exists(sbomPath, LinkOption.NOFOLLOW_LINKS))
+			bomPath = bomPath.resolve(ref.filterPath);
+		if (!Files.exists(bomPath, LinkOption.NOFOLLOW_LINKS))
 			return col;
 
-		Files.walkFileTree(sbomPath, new SimpleFileVisitor(new LogTaskListener(LOGGER, Level.WARNING)) {
+		Files.walkFileTree(bomPath, new SimpleFileVisitor(new LogTaskListener(LOGGER, Level.WARNING)) {
 
 			@Override
 			protected Throwable unwrap(final IOException exc) {
@@ -190,10 +190,12 @@ public abstract class ACyclonedxValidatorConfig extends ValidatorConfig {
 					final byte[] bytes = IOUtils.toByteArray(stream, 1);
 					parser = BomParserFactory.createParser(bytes);
 				} catch (ParseException e) {
+					if (!(file.endsWith(".xml") || file.endsWith(".json")))
+						return FileVisitResult.CONTINUE;
 					throw new IOException(e);
 				}
 
-				// parse sbom
+				// parse bom
 				try (final InputStream stream = Files.newInputStream(file)) {
 					col.add(parser.parse(stream));
 				} catch (ParseException e) {
@@ -253,7 +255,7 @@ public abstract class ACyclonedxValidatorConfig extends ValidatorConfig {
 
 			@Override
 			public ListBoxModel allValuesAsListBox(final Item item) {
-				return SBomSourceProvider.allSourcesAsListBox(item);
+				return BomSourceProvider.allSourcesAsListBox(item);
 			}
 
 			@Restricted(NoExternalUse.class)

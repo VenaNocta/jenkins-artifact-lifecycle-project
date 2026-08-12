@@ -37,8 +37,8 @@ import org.jenkinsci.plugins.repoproxy.ProxyProvider;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.repoproxy.config.RepoProxyConfigurationProvider;
-import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
-import org.jenkinsci.plugins.repoproxy.config.SBomSourceProvider;
+import org.jenkinsci.plugins.repoproxy.config.BomSourceCache;
+import org.jenkinsci.plugins.repoproxy.config.BomSourceProvider;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStopCallable;
 import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
@@ -70,7 +70,7 @@ public class RepoProxyStepExecution extends StepExecution {
 
 	protected final RepoProxyStep step;
 	protected final FilePath cacheFolder;
-	protected final FilePath cacheSBomFolder;
+	protected final FilePath cacheBomFolder;
 
 	protected transient NetLink link;
 
@@ -83,7 +83,7 @@ public class RepoProxyStepExecution extends StepExecution {
 		super(context);
 		this.step = step;
 		this.cacheFolder = getWorkspace().withSuffix("@proxy_cache");
-		this.cacheSBomFolder = getWorkspace().withSuffix("@proxy_sbom_cache");
+		this.cacheBomFolder = getWorkspace().withSuffix("@proxy_bom_cache");
 	}
 
 	protected synchronized WorkspaceAction getWorkspaceAction() throws IOException, InterruptedException {
@@ -183,7 +183,7 @@ public class RepoProxyStepExecution extends StepExecution {
 		final TaskListener listener = context.get(TaskListener.class);
 		final PrintStream log = listener.getLogger();
 
-		final Set<UUID> sbomIds = new LinkedHashSet<>();
+		final Set<UUID> bomIds = new LinkedHashSet<>();
 		final Set<String> credIds = new LinkedHashSet<>();
 
 		for (Entry<String, ProxyConfig> entry : configs.entrySet()) {
@@ -202,18 +202,18 @@ public class RepoProxyStepExecution extends StepExecution {
 			}
 
 			this.activeProxies.put(refKey, bootstrapper);
-			sbomIds.addAll(bootstrapper.getRequiredSBoms());
+			bomIds.addAll(bootstrapper.getRequiredBoms());
 			credIds.addAll(bootstrapper.getRequiredCredentials());
 		}
 
 		// preload data
-		final Map<UUID, SBomSourceCache> sbomCacheMap = new LinkedHashMap<>();
+		final Map<UUID, BomSourceCache> bomCacheMap = new LinkedHashMap<>();
 		final Map<String, IdCredentials> credMap = new LinkedHashMap<>();
 		{
-			final Launcher nodeBasedLauncher = this.cacheSBomFolder.createLauncher(listener);
-			for (UUID uuid : sbomIds) {
-				sbomCacheMap.put(uuid, SBomSourceProvider.findSourceById(run, uuid)
-						.buildCache(run, nodeBasedLauncher, this.cacheSBomFolder.child(uuid.toString()), listener));
+			final Launcher nodeBasedLauncher = this.cacheBomFolder.createLauncher(listener);
+			for (UUID uuid : bomIds) {
+				bomCacheMap.put(uuid, BomSourceProvider.findSourceById(run, uuid)
+						.buildCache(run, nodeBasedLauncher, this.cacheBomFolder.child(uuid.toString()), listener));
 			}
 			for (String credId : credIds) {
 				final IdCredentials cred = CredentialsProvider.findCredentialById(credId, IdCredentials.class, run);
@@ -232,7 +232,7 @@ public class RepoProxyStepExecution extends StepExecution {
 			} while (this.activeNettyHandleCacheRefMap.containsValue(cacheRef));
 			// create new cachePath for bootstrap in context and call it
 			final ControllerToAgentFileCallable<UUID> callable = //
-					bootstrap.serverStartCallable(link, context, proxyEnv, sbomCacheMap, credMap, listener);
+					bootstrap.serverStartCallable(link, context, proxyEnv, bomCacheMap, credMap, listener);
 			final FilePath dir = this.cacheFolder.child(cacheRef.toString());
 			dir.mkdirs();
 			this.activeNettyHandleCacheRefMap.put(dir.act(callable), cacheRef);
@@ -274,7 +274,7 @@ public class RepoProxyStepExecution extends StepExecution {
 			isoContext.actInContext(new AgentNettyStopCallable(this.activeNettyHandleCacheRefMap.keySet()));
 		}
 		this.cacheFolder.deleteRecursive();
-		this.cacheSBomFolder.deleteRecursive();
+		this.cacheBomFolder.deleteRecursive();
 	}
 
 	private static class BlockCallback extends BodyExecutionCallback {

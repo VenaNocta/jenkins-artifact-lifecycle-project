@@ -38,7 +38,7 @@ public abstract class ValidatorConfig implements Describable<ValidatorConfig>, S
 
 	public abstract boolean isValid();
 
-	public abstract Set<UUID> getRequiredSBoms();
+	public abstract Set<UUID> getRequiredBoms();
 
 	@Override
 	public ValidatorConfigDescriptor getDescriptor() {
@@ -49,10 +49,10 @@ public abstract class ValidatorConfig implements Describable<ValidatorConfig>, S
 		return config != null && config.isValid();
 	}
 
-	public abstract MetadataValidator buildMetadataValidator(Map<UUID, Path> sbomPaths,
+	public abstract MetadataValidator buildMetadataValidator(Map<UUID, Path> bomPaths,
 			Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException;
 
-	public abstract ArtifactValidator buildArtifactValidator(Map<UUID, Path> sbomPaths,
+	public abstract ArtifactValidator buildArtifactValidator(Map<UUID, Path> bomPaths,
 			Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException;
 
 }

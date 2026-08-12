@@ -24,7 +24,7 @@ import org.jenkinsci.remoting.SerializableOnlyOverRemoting;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.FilePath;
 
-public class ScmSBomSourceCache implements SBomSourceCache, SerializableOnlyOverRemoting {
+public class ScmBomSourceCache implements BomSourceCache, SerializableOnlyOverRemoting {
 
 	private static final long serialVersionUID = 1L;
 
@@ -35,8 +35,7 @@ public class ScmSBomSourceCache implements SBomSourceCache, SerializableOnlyOver
 	@NonNull
 	protected final FilePath cachePath;
 
-	public ScmSBomSourceCache(@NonNull final UUID id, @NonNull final String version,
-			@NonNull final FilePath cachePath) {
+	public ScmBomSourceCache(@NonNull final UUID id, @NonNull final String version, @NonNull final FilePath cachePath) {
 		this.id = id;
 		this.version = version;
 		this.cachePath = cachePath;

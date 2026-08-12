@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
-import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
+import org.jenkinsci.plugins.repoproxy.config.BomSourceCache;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import com.cloudbees.plugins.credentials.common.IdCredentials;
@@ -31,13 +31,13 @@ import jenkins.agents.ControllerToAgentFileCallable;
 
 public interface ProxyBootstrapper {
 
-	public Set<UUID> getRequiredSBoms();
+	public Set<UUID> getRequiredBoms();
 
 	public Set<String> getRequiredCredentials();
 
 	public ControllerToAgentFileCallable<UUID> serverStartCallable(NetLink link, //
 			StepContext context, Map<String, String> proxyEnv, //
-			Map<UUID, SBomSourceCache> sbomCacheMap, Map<String, IdCredentials> credentialMap, //
+			Map<UUID, BomSourceCache> bomCacheMap, Map<String, IdCredentials> credentialMap, //
 			TaskListener listener) throws IOException, InterruptedException;
 
 }

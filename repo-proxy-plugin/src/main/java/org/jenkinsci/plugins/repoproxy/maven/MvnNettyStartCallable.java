@@ -23,7 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
+import org.jenkinsci.plugins.repoproxy.config.BomSourceCache;
 import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry.ServerHandle;
@@ -52,17 +52,17 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 	private static final long serialVersionUID = 1L;
 
 	protected final Map<String, MvnProxyConfig> instanceConfigs;
-	protected final Map<UUID, SBomSourceCache> sbomCacheMap;
+	protected final Map<UUID, BomSourceCache> bomCacheMap;
 	protected final Map<String, IdCredentials> credentialMap;
 	protected final Set<InetAddress> addressSet;
 	protected final int port;
 
 	public MvnNettyStartCallable(final String flowNodeId, final Map<String, MvnProxyConfig> instanceConfigs,
-			final Map<UUID, SBomSourceCache> sbomCacheMap, final Map<String, IdCredentials> credentialMap,
+			final Map<UUID, BomSourceCache> bomCacheMap, final Map<String, IdCredentials> credentialMap,
 			final Set<InetAddress> addressSet, final int port) {
 		super(flowNodeId);
 		this.instanceConfigs = instanceConfigs;
-		this.sbomCacheMap = sbomCacheMap;
+		this.bomCacheMap = bomCacheMap;
 		this.credentialMap = credentialMap;
 		this.addressSet = addressSet;
 		this.port = port;
@@ -104,7 +104,7 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 	protected void configure(final ProxyServer server, final Path cachePath,
 			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
-		final Map<UUID, Path> sbomCacheMap = resolveSBomCacheMap();
+		final Map<UUID, Path> bomCacheMap = resolveBomCacheMap();
 		for (Entry<String, MvnProxyConfig> entry : this.instanceConfigs.entrySet()) {
 			final MvnProxyConfig config = entry.getValue();
 
@@ -113,17 +113,17 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 			final Path repoPath = cachePath.resolve(entry.getKey());
 			instance.sources()
-					.putAll(config.buildSourceMap(repoPath, sbomCacheMap, this.credentialMap, pipelineKiller));
+					.putAll(config.buildSourceMap(repoPath, bomCacheMap, this.credentialMap, pipelineKiller));
 
 			server.addInstance(instance);
 		}
 	}
 
-	protected Map<UUID, Path> resolveSBomCacheMap() throws IOException, InterruptedException {
+	protected Map<UUID, Path> resolveBomCacheMap() throws IOException, InterruptedException {
 		final Map<UUID, Path> map = new LinkedHashMap<>();
-		for (Entry<UUID, SBomSourceCache> entry : this.sbomCacheMap.entrySet()) {
+		for (Entry<UUID, BomSourceCache> entry : this.bomCacheMap.entrySet()) {
 			final UUID uuid = entry.getKey();
-			final SBomSourceCache cache = entry.getValue();
+			final BomSourceCache cache = entry.getValue();
 			if (uuid == null || cache == null)
 				continue;
 			map.put(uuid, cache.toPath());

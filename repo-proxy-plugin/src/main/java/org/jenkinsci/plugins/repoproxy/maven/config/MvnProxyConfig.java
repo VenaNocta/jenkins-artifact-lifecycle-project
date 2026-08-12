@@ -51,7 +51,7 @@ public class MvnProxyConfig extends ProxyConfig {
 	private static final long serialVersionUID = 1L;
 
 	protected Map<String, RepoSourceConfig> sourceMap = new LinkedHashMap<>();
-	protected Set<ValidatorConfig> validatorCol = new LinkedHashSet<>();
+	protected Set<ValidatorConfig> validators = new LinkedHashSet<>();
 
 	public MvnProxyConfig(final UUID id, final String name) {
 		super(id, name);
@@ -68,10 +68,10 @@ public class MvnProxyConfig extends ProxyConfig {
 		return new ArrayList<>(this.sourceMap.values());
 	}
 
-	public List<ValidatorConfig> getValidatorCol() {
-		if (this.validatorCol == null)
+	public List<ValidatorConfig> getValidators() {
+		if (this.validators == null)
 			return new ArrayList<>();
-		return new ArrayList<>(this.validatorCol);
+		return new ArrayList<>(this.validators);
 	}
 
 	@DataBoundSetter
@@ -100,22 +100,22 @@ public class MvnProxyConfig extends ProxyConfig {
 	}
 
 	@DataBoundSetter
-	public void setValidatorCol(final Collection<ValidatorConfig> collection) {
+	public void setValidators(final Collection<ValidatorConfig> collection) {
 		if (collection == null || collection.isEmpty())
-			this.validatorCol = new LinkedHashSet<>();
+			this.validators = new LinkedHashSet<>();
 		else {
-			this.validatorCol = new LinkedHashSet<>();
+			this.validators = new LinkedHashSet<>();
 			collection.stream()
 					.filter(ValidatorConfig::checkValid)
-					.forEachOrdered(this.validatorCol::add);
+					.forEachOrdered(this.validators::add);
 		}
 	}
 
-	public Set<UUID> getRequiredSBoms() {
+	public Set<UUID> getRequiredBoms() {
 		final Set<UUID> ids = new LinkedHashSet<>();
-		this.validatorCol.stream()
+		this.validators.stream()
 				.filter(Objects::nonNull)
-				.map(ValidatorConfig::getRequiredSBoms)
+				.map(ValidatorConfig::getRequiredBoms)
 				.filter(Objects::nonNull)
 				.forEach(ids::addAll);
 		return ids;
@@ -132,16 +132,16 @@ public class MvnProxyConfig extends ProxyConfig {
 		return credIds;
 	}
 
-	public Map<String, RepositorySource> buildSourceMap(final Path repoPath, final Map<UUID, Path> sbomCacheMap,
+	public Map<String, RepositorySource> buildSourceMap(final Path repoPath, final Map<UUID, Path> bomCacheMap,
 			final Map<String, IdCredentials> credentialMap, final Consumer<ArtifactException> pipelineKiller)
 			throws IOException, InterruptedException {
 		final List<MetadataValidator> metadataValidators = new LinkedList<>();
 		final List<ArtifactValidator> artifactValidators = new LinkedList<>();
-		for (ValidatorConfig config : this.validatorCol) {
+		for (ValidatorConfig config : this.validators) {
 			if (!ValidatorConfig.checkValid(config))
 				continue;
-			final MetadataValidator metadataValidator = config.buildMetadataValidator(sbomCacheMap, pipelineKiller);
-			final ArtifactValidator artifactValidator = config.buildArtifactValidator(sbomCacheMap, pipelineKiller);
+			final MetadataValidator metadataValidator = config.buildMetadataValidator(bomCacheMap, pipelineKiller);
+			final ArtifactValidator artifactValidator = config.buildArtifactValidator(bomCacheMap, pipelineKiller);
 
 			if (metadataValidator != null)
 				metadataValidators.add(metadataValidator);

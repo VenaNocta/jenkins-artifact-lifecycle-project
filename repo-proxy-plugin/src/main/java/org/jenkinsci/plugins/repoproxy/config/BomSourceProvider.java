@@ -30,7 +30,7 @@ import hudson.model.Item;
 import hudson.model.Run;
 import hudson.util.ListBoxModel;
 
-public interface SBomSourceProvider extends ExtensionPoint {
+public interface BomSourceProvider extends ExtensionPoint {
 
 	/**
 	 * Asks the provider to return the config
@@ -41,7 +41,7 @@ public interface SBomSourceProvider extends ExtensionPoint {
 	 *         given id; otherwise {@code null}
 	 */
 	@CheckForNull
-	public SBomSource getSourceById(@Nullable Run<?, ?> run, @NonNull UUID id);
+	public BomSource getSourceById(@Nullable Run<?, ?> run, @NonNull UUID id);
 
 	/**
 	 * Asks the provider to return the config
@@ -52,18 +52,18 @@ public interface SBomSourceProvider extends ExtensionPoint {
 	 *         given id; otherwise {@code null}
 	 */
 	@CheckForNull
-	public SBomSource getSourceByName(@Nullable Run<?, ?> run, @NonNull String name);
+	public BomSource getSourceByName(@Nullable Run<?, ?> run, @NonNull String name);
 
-	public List<SBomSource> getSources(Item item);
+	public List<BomSource> getSources(Item item);
 
-	public static ExtensionList<SBomSourceProvider> all() {
-		return ExtensionList.lookup(SBomSourceProvider.class);
+	public static ExtensionList<BomSourceProvider> all() {
+		return ExtensionList.lookup(BomSourceProvider.class);
 	}
 
 	@CheckForNull
-	public static SBomSource findSourceById(@Nullable final Run<?, ?> run, @NonNull final UUID id) {
-		SBomSource cnf = null;
-		for (SBomSourceProvider provider : all()) {
+	public static BomSource findSourceById(@Nullable final Run<?, ?> run, @NonNull final UUID id) {
+		BomSource cnf = null;
+		for (BomSourceProvider provider : all()) {
 			cnf = provider.getSourceById(run, id);
 			if (cnf != null)
 				break;
@@ -72,9 +72,9 @@ public interface SBomSourceProvider extends ExtensionPoint {
 	}
 
 	@CheckForNull
-	public static SBomSource findSourceByName(@Nullable final Run<?, ?> run, @NonNull final String name) {
-		SBomSource cnf = null;
-		for (SBomSourceProvider provider : all()) {
+	public static BomSource findSourceByName(@Nullable final Run<?, ?> run, @NonNull final String name) {
+		BomSource cnf = null;
+		for (BomSourceProvider provider : all()) {
 			cnf = provider.getSourceByName(run, name);
 			if (cnf != null)
 				break;
@@ -82,10 +82,10 @@ public interface SBomSourceProvider extends ExtensionPoint {
 		return cnf;
 	}
 
-	public static List<SBomSource> allSources(final Item item) {
-		final List<SBomSource> sources = new LinkedList<>();
-		for (SBomSourceProvider provider : all()) {
-			final List<SBomSource> lst = provider.getSources(item);
+	public static List<BomSource> allSources(final Item item) {
+		final List<BomSource> sources = new LinkedList<>();
+		for (BomSourceProvider provider : all()) {
+			final List<BomSource> lst = provider.getSources(item);
 			if (lst == null)
 				continue;
 			lst.stream()
@@ -97,8 +97,8 @@ public interface SBomSourceProvider extends ExtensionPoint {
 
 	public static ListBoxModel allSourcesAsListBox(final Item item) {
 		final ListBoxModel model = new ListBoxModel();
-		for (SBomSource source : allSources(item)) {
-			final UUID id = source.getId();
+		for (BomSource source : allSources(item)) {
+			final UUID id = source.getUuid();
 			if (id == null)
 				continue;
 			model.add(Util.fixEmptyAndTrim(source.getName()), id.toString());

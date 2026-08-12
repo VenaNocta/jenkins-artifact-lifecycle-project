@@ -29,30 +29,30 @@ import hudson.model.Describable;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 
-public abstract class SBomSource implements Describable<SBomSource>, Serializable {
+public abstract class BomSource implements Describable<BomSource>, Serializable {
 
 	private static final long serialVersionUID = 1L;
 
-	public static final String JSON_ID_FIELD_NAME = "id";
+	public static final String JSON_ID_FIELD_NAME = "uuid";
 
 	@NonNull
-	protected final UUID id;
+	protected final UUID uuid;
 
 	protected String name;
 	protected String description;
 
-	public SBomSource(final UUID id, final String name) {
-		this(id, name, null);
+	public BomSource(final UUID uuid, final String name) {
+		this(uuid, name, null);
 	}
 
-	public SBomSource(final UUID id, final String name, final String description) {
-		this.id = id == null ? UUID.randomUUID() : id;
+	public BomSource(final UUID uuid, final String name, final String description) {
+		this.uuid = uuid == null ? UUID.randomUUID() : uuid;
 		this.name = Util.fixEmptyAndTrim(name);
 		this.description = Util.fixEmptyAndTrim(description);
 	}
 
-	public UUID getId() {
-		return this.id;
+	public UUID getUuid() {
+		return this.uuid;
 	}
 
 	public String getName() {
@@ -73,11 +73,11 @@ public abstract class SBomSource implements Describable<SBomSource>, Serializabl
 		this.description = Util.fixEmptyAndTrim(description);
 	}
 
-	public abstract SBomSourceCache buildCache(final Run<?, ?> run, final Launcher nodeBasedLauncher,
+	public abstract BomSourceCache buildCache(final Run<?, ?> run, final Launcher nodeBasedLauncher,
 			final FilePath cachePath, final TaskListener listener) throws IOException, InterruptedException;
 
 	@Override
-	public SBomSourceDescriptor getDescriptor() {
-		return (SBomSourceDescriptor) Describable.super.getDescriptor();
+	public BomSourceDescriptor getDescriptor() {
+		return (BomSourceDescriptor) Describable.super.getDescriptor();
 	}
 }

@@ -31,7 +31,7 @@ import org.jenkinsci.plugins.isolationctx.config.IpUtils;
 import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
 import org.jenkinsci.plugins.isolationctx.dto.TrafficMap.Protocol;
 import org.jenkinsci.plugins.repoproxy.AProxyBootstrapper;
-import org.jenkinsci.plugins.repoproxy.config.SBomSourceCache;
+import org.jenkinsci.plugins.repoproxy.config.BomSourceCache;
 import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -79,11 +79,11 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 	}
 
 	@Override
-	public Set<UUID> getRequiredSBoms() {
+	public Set<UUID> getRequiredBoms() {
 		final Set<UUID> ids = new LinkedHashSet<>();
 		this.instConfigs.values()
 				.stream()
-				.map(MvnProxyConfig::getRequiredSBoms)
+				.map(MvnProxyConfig::getRequiredBoms)
 				.forEach(ids::addAll);
 		return ids;
 	}
@@ -100,9 +100,9 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 
 	@Override
 	public ControllerToAgentFileCallable<UUID> serverStartCallable(final NetLink link, //
-			final StepContext context, final Map<String, String> proxyEnv,
-			final Map<UUID, SBomSourceCache> sbomCacheMap, final Map<String, IdCredentials> credentialMap,
-			final TaskListener listener) throws IOException, InterruptedException {
+			final StepContext context, final Map<String, String> proxyEnv, final Map<UUID, BomSourceCache> bomCacheMap,
+			final Map<String, IdCredentials> credentialMap, final TaskListener listener)
+			throws IOException, InterruptedException {
 
 		final Set<InetAddress> addressSet = this.ipSet.stream()
 				.map(ip -> ip.toInetAddress(null))
@@ -111,7 +111,7 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 
 		final FlowNode node = context.get(FlowNode.class);
 		final MvnNettyStartCallable callable = new MvnNettyStartCallable(//
-				node.getId(), this.instConfigs, sbomCacheMap, credentialMap, addressSet, this.port);
+				node.getId(), this.instConfigs, bomCacheMap, credentialMap, addressSet, this.port);
 
 		updateEnv(this.instConfigs.keySet(), this.ipSet, this.port, proxyEnv, "MVN");
 

@@ -9,6 +9,6 @@
 	</f:entry>
 	<f:entry title="${%Validator}">
 		<f:repeatableHeteroProperty
-			field="validatorCol" hasHeader="true" />
+			field="validators" hasHeader="true" />
 	</f:entry>
 </j:jelly>

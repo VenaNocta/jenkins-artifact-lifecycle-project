@@ -2,7 +2,7 @@
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
 	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
 
-	<f:section title="SBOM Selection">
+	<f:section title="BOM Selection">
 		<f:entry title="skip Excluded Components"
 			field="ignoreExcludedComponents">
 			<f:checkbox />
