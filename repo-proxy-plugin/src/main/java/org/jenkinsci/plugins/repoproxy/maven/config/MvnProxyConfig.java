@@ -31,6 +31,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
+import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -75,13 +76,14 @@ public class MvnProxyConfig extends ProxyConfig {
 
 	@DataBoundSetter
 	public void setSources(@NonNull final List<RepoSourceConfig> sources) {
+		final List<RepoSourceConfig> newSources = new ArrayList<>(sources);
 		// ignore unchanged
 		this.sourceMap.values()
-				.retainAll(sources);
-		sources.removeAll(this.sourceMap.values());
+				.retainAll(newSources);
+		newSources.removeAll(this.sourceMap.values());
 
 		// process additions
-		for (RepoSourceConfig source : sources) {
+		for (RepoSourceConfig source : newSources) {
 			if (source == null)
 				continue;
 			// check repo id for null or duplicates
@@ -159,6 +161,7 @@ public class MvnProxyConfig extends ProxyConfig {
 	}
 
 	@Extension
+	@Symbol("embeddedMavenProxy")
 	public static class Descriptor extends ProxyConfigDescriptor {
 
 		@Override

@@ -50,7 +50,11 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 		return this.key;
 	}
 
-	public URI getUri() {
+	public String getUri() {
+		return this.uri == null ? null : this.uri.toString();
+	}
+
+	public URI getUri2() {
 		return this.uri;
 	}
 

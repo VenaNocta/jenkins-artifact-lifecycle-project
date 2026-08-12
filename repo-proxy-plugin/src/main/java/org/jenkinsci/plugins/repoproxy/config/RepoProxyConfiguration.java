@@ -16,14 +16,18 @@
 package org.jenkinsci.plugins.repoproxy.config;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.Map.Entry;
 
 import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest2;
 
 import com.google.inject.Inject;
@@ -63,6 +67,12 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 	// used by jelly
 	public List<ProxyConfig> getConfigs() {
 		return new ArrayList<ProxyConfig>(this.proxyMap.values());
+	}
+
+	@DataBoundSetter
+	public void setConfigs(@NonNull final Collection<ProxyConfig> lst) {
+		setConfigMap(lst.stream()
+				.collect(Collectors.toMap(ProxyConfig::getId, Function.identity())));
 	}
 
 	public void setConfigMap(final Map<UUID, ProxyConfig> repos) {
