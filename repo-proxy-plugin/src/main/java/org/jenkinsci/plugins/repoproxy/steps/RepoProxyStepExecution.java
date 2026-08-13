@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.WorkflowUtils;
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
-import org.jenkinsci.plugins.isolationctx.config.IsolationContextAction;
+import org.jenkinsci.plugins.isolationctx.dto.IsolationContextAction;
 import org.jenkinsci.plugins.repoproxy.ProxyBootstrapper;
 import org.jenkinsci.plugins.repoproxy.ProxyProvider;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
@@ -53,6 +53,7 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.AbortException;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.Run;
@@ -134,7 +135,7 @@ public class RepoProxyStepExecution extends StepExecution {
 
 		final NetLink link = this.link = isoContext.connectNetLink();
 		if (link == null)
-			throw new RuntimeException("Failed to connect the Proxy to the IsolationContext!");
+			throw new AbortException("Failed to connect the Proxy to the IsolationContext!");
 
 		final Map<String, String> proxyEnv = new LinkedHashMap<>();
 		final Set<IpAddress<?>> proxyIps = Arrays.asList(link.getHostAddressV4(), link.getHostAddressV6())
