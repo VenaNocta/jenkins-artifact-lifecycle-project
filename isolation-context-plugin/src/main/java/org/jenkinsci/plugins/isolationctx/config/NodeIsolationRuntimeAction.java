@@ -284,7 +284,8 @@ public class NodeIsolationRuntimeAction extends InvisibleAction
 		return action;
 	}
 
-	public static NodeIsolationRuntimeAction get(final Node node) throws IOException, InterruptedException {
+	public synchronized static NodeIsolationRuntimeAction get(final Node node)
+			throws IOException, InterruptedException {
 		if (node == null)
 			return null;
 		final Computer computer = node.toComputer();

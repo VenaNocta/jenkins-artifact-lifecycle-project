@@ -47,44 +47,59 @@ public class NodeIsolationCtxProvider implements IsolationContextProvider {
 	}
 
 	@Override
-	public IsolationContext buildIsolationContext(final StepContext context) throws IOException, InterruptedException {
-		final Run<?, ?> run = context.get(Run.class);
-		final FlowNode flowNode = context.get(FlowNode.class);
-
-		final WorkspaceAction ws = flowNode.getAction(WorkspaceAction.class);
-		if (ws == null)
-			return null;
-
-		final Node node = StringUtils.trimToNull(ws.getNode()) == null ? Jenkins.get()
-				: Jenkins.get()
-						.getNode(ws.getNode());
-
-		// bypass context isolation if allowed
-		if (!IsolationContextRunListener.isIsolationForced(run) && NodeIsolationProperty.isDisabled(node))
-			return null;
-
-		return selectIsolationContext(flowNode, node, context, ws);
+	public IsolationContextBuilder createBuilder(final StepContext context) throws IOException, InterruptedException {
+		return new Builder(context);
 	}
 
-	protected IsolationContext selectIsolationContext(final FlowNode flowNode, final Node node,
-			final StepContext context, final WorkspaceAction ws) throws IOException, InterruptedException {
-		final NodeIsolationHandler isolationHandler;
-		{
-			final NodeIsolationRuntimeAction isolationRuntime = NodeIsolationRuntimeAction.get(node);
-			isolationHandler = isolationRuntime == null ? null : isolationRuntime.isolationHandler();
+	public static final class Builder implements IsolationContextBuilder {
+
+		private static final long serialVersionUID = 1L;
+
+		protected final transient StepContext _context;
+
+		public Builder(final StepContext context) {
+			this._context = context;
 		}
 
-		final Run<?, ?> run = context.get(Run.class);
-		final TaskListener listener = context.get(TaskListener.class);
+		@Override
+		public IsolationContext build(final FlowNode flowNode) throws IOException, InterruptedException {
+			final WorkspaceAction ws = flowNode.getAction(WorkspaceAction.class);
+			if (ws == null)
+				return null;
 
-		if (isolationHandler.isActive() == false) {
-			listener.error("Context Isolation currently not available on this Node!");
+			final Node node = StringUtils.trimToNull(ws.getNode()) == null ? Jenkins.get()
+					: Jenkins.get()
+							.getNode(ws.getNode());
+
+			final Run<?, ?> run = (this._context == null ? //
+					IsolationContextBuilder.findContext(flowNode) : this._context).get(Run.class);
+			// bypass context isolation if allowed
+			if (!IsolationContextRunListener.isIsolationForced(run) && NodeIsolationProperty.isDisabled(node))
+				return null;
+
+			return selectIsolationContext(flowNode, node, this._context, ws);
+		}
+
+		protected IsolationContext selectIsolationContext(final FlowNode flowNode, final Node node,
+				final StepContext context, final WorkspaceAction ws) throws IOException, InterruptedException {
+			final NodeIsolationHandler isolationHandler;
+			{
+				final NodeIsolationRuntimeAction isolationRuntime = NodeIsolationRuntimeAction.get(node);
+				isolationHandler = isolationRuntime == null ? null : isolationRuntime.isolationHandler();
+			}
+
+			final Run<?, ?> run = context.get(Run.class);
+			final TaskListener listener = context.get(TaskListener.class);
+
+			if (isolationHandler.isActive() == false) {
+				listener.error("Context Isolation currently not available on this Node!");
+				return null;
+			}
+
+			if (isolationHandler instanceof LnxNodeIsolationHandler) {
+				return new LinuxNodeNamespaceContext(run, node, ws, listener);
+			}
 			return null;
 		}
-
-		if (isolationHandler instanceof LnxNodeIsolationHandler) {
-			return new LinuxNodeNamespaceContext(run, node, ws, listener);
-		}
-		return null;
 	}
 }

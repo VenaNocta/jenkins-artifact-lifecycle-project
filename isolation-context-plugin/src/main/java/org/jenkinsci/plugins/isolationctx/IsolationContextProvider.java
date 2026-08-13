@@ -16,8 +16,14 @@
 package org.jenkinsci.plugins.isolationctx;
 
 import java.io.IOException;
+import java.io.Serializable;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
+import org.jenkinsci.plugins.workflow.steps.StepExecution;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import hudson.ExtensionList;
@@ -27,9 +33,39 @@ public interface IsolationContextProvider extends ExtensionPoint {
 
 	public boolean isApplicable(StepDescriptor descriptor);
 
-	public IsolationContext buildIsolationContext(StepContext context) throws IOException, InterruptedException;
+	public IsolationContextBuilder createBuilder(StepContext context) throws IOException, InterruptedException;
 
 	public static ExtensionList<IsolationContextProvider> all() {
 		return ExtensionList.lookup(IsolationContextProvider.class);
+	}
+
+	public static interface IsolationContextBuilder extends Serializable {
+		public IsolationContext build(FlowNode flowNode) throws IOException, InterruptedException;
+
+		public static StepContext findContext(final FlowNode flowNode)
+				throws InterruptedException, CompletionException {
+			final String flowNodeId = flowNode.getId();
+			final AtomicReference<StepContext> ref = new AtomicReference<>(null);
+
+			try {
+				StepExecution.acceptAll(exec -> {
+					if (ref.get() == null)
+						return;
+					try {
+						final StepContext stepContext = exec.getContext();
+						final String id = stepContext.get(FlowNode.class)
+								.getId();
+
+						if (flowNodeId.equals(id))
+							ref.set(stepContext);
+					} catch (Exception ignore) {
+					}
+				})
+						.get();
+			} catch (ExecutionException e) {
+				throw new CompletionException(e.getCause());
+			}
+			return ref.get();
+		}
 	}
 }

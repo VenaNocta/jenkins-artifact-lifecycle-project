@@ -18,8 +18,8 @@ package org.jenkinsci.plugins.isolationctx;
 import java.io.IOException;
 import java.io.Serializable;
 
-import org.jenkinsci.plugins.isolationctx.config.IsolationContextAction;
 import org.jenkinsci.plugins.isolationctx.config.NodeIsolationProperty;
+import org.jenkinsci.plugins.isolationctx.dto.IsolationContextAction;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
 import org.jenkinsci.plugins.workflow.steps.DynamicContext;
