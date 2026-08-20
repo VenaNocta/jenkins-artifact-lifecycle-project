@@ -168,7 +168,7 @@ public class LinuxNodeNamespaceContext implements IsolationContext {
 	}
 
 	protected FilePath envCachePath() {
-		return ws.getWorkspace()
+		return this.ws.getWorkspace()
 				.withSuffix("@env_cache");
 	}
 
