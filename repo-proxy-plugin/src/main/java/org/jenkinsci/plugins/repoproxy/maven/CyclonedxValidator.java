@@ -21,7 +21,7 @@ import net.runeduniverse.lib.repo.maven.api.ArtifactData;
 import net.runeduniverse.lib.repo.maven.api.ArtifactProvider;
 import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.error.InvalidArtifactException;
-import net.runeduniverse.lib.repo.maven.error.SBomViolationException;
+import net.runeduniverse.lib.repo.maven.error.BomViolationException;
 import net.runeduniverse.lib.repo.maven.validation.cyclonedx.ComponentIndex;
 import net.runeduniverse.lib.repo.maven.validation.pgp.PublicKeyIndex;
 
@@ -39,7 +39,7 @@ public class CyclonedxValidator extends net.runeduniverse.lib.repo.maven.validat
 	public boolean validate(final ArtifactProvider provider, final ArtifactData data) throws InvalidArtifactException {
 		try {
 			return super.validate(provider, data);
-		} catch (SBomViolationException e) {
+		} catch (BomViolationException e) {
 			if (e.getPURL() == null)
 				e.setPURL(data.getPURL());
 			System.out.println(">>> Validation failed » " + data.getPURL());
