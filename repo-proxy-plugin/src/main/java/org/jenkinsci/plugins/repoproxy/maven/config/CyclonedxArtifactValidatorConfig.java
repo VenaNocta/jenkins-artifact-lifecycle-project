@@ -16,6 +16,7 @@
 package org.jenkinsci.plugins.repoproxy.maven.config;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
@@ -31,7 +32,6 @@ import org.kohsuke.stapler.DataBoundSetter;
 
 import hudson.Extension;
 import net.runeduniverse.lib.repo.maven.api.ArtifactValidator;
-import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.validation.cyclonedx.ComponentIndex;
 import net.runeduniverse.lib.repo.maven.validation.pgp.PublicKeyIndex;
 
@@ -109,7 +109,7 @@ public class CyclonedxArtifactValidatorConfig extends ACyclonedxValidatorConfig 
 
 	@Override
 	public ArtifactValidator buildArtifactValidator(final Map<UUID, Path> bomPaths,
-			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+			final Consumer<Serializable> callback) throws IOException, InterruptedException {
 		Predicate<Component> filter = buildFilter();
 
 		if (filter == null)
@@ -121,7 +121,7 @@ public class CyclonedxArtifactValidatorConfig extends ACyclonedxValidatorConfig 
 				continue;
 			componentIndex.addBom(bom, filter);
 		}
-		return new CyclonedxValidator(getPublicKeyIndex(), componentIndex, pipelineKiller)
+		return new CyclonedxValidator(getPublicKeyIndex(), componentIndex, callback)
 				.setSkipMissing(this.skipMissingArtifacts)
 				.setIgnorePom(this.skipMissingPomArtifacts);
 	}

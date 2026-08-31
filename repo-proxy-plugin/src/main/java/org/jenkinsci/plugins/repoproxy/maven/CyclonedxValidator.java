@@ -15,11 +15,11 @@
  */
 package org.jenkinsci.plugins.repoproxy.maven;
 
+import java.io.Serializable;
 import java.util.function.Consumer;
 
 import net.runeduniverse.lib.repo.maven.api.ArtifactData;
 import net.runeduniverse.lib.repo.maven.api.ArtifactProvider;
-import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.error.InvalidArtifactException;
 import net.runeduniverse.lib.repo.maven.error.BomViolationException;
 import net.runeduniverse.lib.repo.maven.validation.cyclonedx.ComponentIndex;
@@ -27,12 +27,12 @@ import net.runeduniverse.lib.repo.maven.validation.pgp.PublicKeyIndex;
 
 public class CyclonedxValidator extends net.runeduniverse.lib.repo.maven.validation.cyclonedx.CyclonedxValidator {
 
-	protected final Consumer<ArtifactException> pipelineKiller;
+	protected final Consumer<Serializable> stepCallback;
 
 	public CyclonedxValidator(final PublicKeyIndex keyIndex, final ComponentIndex componentIndex,
-			final Consumer<ArtifactException> pipelineKiller) {
+			final Consumer<Serializable> stepCallback) {
 		super(keyIndex, componentIndex);
-		this.pipelineKiller = pipelineKiller;
+		this.stepCallback = stepCallback;
 	}
 
 	@Override
@@ -43,7 +43,7 @@ public class CyclonedxValidator extends net.runeduniverse.lib.repo.maven.validat
 			if (e.getPURL() == null)
 				e.setPURL(data.getPURL());
 			System.out.println(">>> Validation failed » " + data.getPURL());
-			this.pipelineKiller.accept(e);
+			this.stepCallback.accept(e);
 			throw e;
 		}
 	}

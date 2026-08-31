@@ -17,6 +17,7 @@ package org.jenkinsci.plugins.repoproxy.steps;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -246,6 +247,12 @@ public class RepoProxyStepExecution extends StepExecution {
 				return provider;
 		}
 		return null;
+	}
+
+	public void receiveCallback(final String refKey, final Serializable data) {
+		final ProxyBootstrapper bootstrapper = this.activeProxies.get(refKey);
+		if (bootstrapper != null)
+			bootstrapper.receiveCallback(refKey, data);
 	}
 
 	@Override

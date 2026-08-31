@@ -16,6 +16,7 @@
 package org.jenkinsci.plugins.repoproxy.maven.config;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
@@ -27,7 +28,6 @@ import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import hudson.Extension;
 import net.runeduniverse.lib.repo.maven.api.MetadataValidator;
-import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.validation.cyclonedx.ComponentIndex;
 import net.runeduniverse.lib.repo.maven.validation.cyclonedx.CyclonedxMetadataFilter;
 
@@ -43,7 +43,7 @@ public class CyclonedxMetadataFilterConfig extends ACyclonedxValidatorConfig {
 
 	@Override
 	public MetadataValidator buildMetadataValidator(final Map<UUID, Path> bomPaths,
-			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+			final Consumer<Serializable> callback) throws IOException, InterruptedException {
 		Predicate<Component> filter = buildFilter();
 		if (filter == null)
 			filter = c -> true;

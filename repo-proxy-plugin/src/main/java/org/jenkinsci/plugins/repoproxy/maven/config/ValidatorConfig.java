@@ -27,7 +27,6 @@ import hudson.ExtensionPoint;
 import hudson.model.Describable;
 import net.runeduniverse.lib.repo.maven.api.ArtifactValidator;
 import net.runeduniverse.lib.repo.maven.api.MetadataValidator;
-import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 
 public abstract class ValidatorConfig implements Describable<ValidatorConfig>, Serializable, ExtensionPoint {
 
@@ -49,10 +48,10 @@ public abstract class ValidatorConfig implements Describable<ValidatorConfig>, S
 		return config != null && config.isValid();
 	}
 
-	public abstract MetadataValidator buildMetadataValidator(Map<UUID, Path> bomPaths,
-			Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException;
+	public abstract MetadataValidator buildMetadataValidator(Map<UUID, Path> bomPaths, Consumer<Serializable> callback)
+			throws IOException, InterruptedException;
 
-	public abstract ArtifactValidator buildArtifactValidator(Map<UUID, Path> bomPaths,
-			Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException;
+	public abstract ArtifactValidator buildArtifactValidator(Map<UUID, Path> bomPaths, Consumer<Serializable> callback)
+			throws IOException, InterruptedException;
 
 }

@@ -16,6 +16,7 @@
 package org.jenkinsci.plugins.repoproxy.maven;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -126,6 +127,12 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 		}
 
 		return callable;
+	}
+
+	@Override
+	public void receiveCallback(String refKey, Serializable data) {
+		// TODO Auto-generated method stub
+
 	}
 
 	@Override

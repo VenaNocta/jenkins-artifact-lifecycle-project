@@ -16,6 +16,7 @@
 package org.jenkinsci.plugins.repoproxy.maven.config;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,7 +44,6 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import net.runeduniverse.lib.repo.maven.api.ArtifactValidator;
 import net.runeduniverse.lib.repo.maven.api.MetadataValidator;
-import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
 
 public class MvnProxyConfig extends ProxyConfig {
@@ -133,15 +133,15 @@ public class MvnProxyConfig extends ProxyConfig {
 	}
 
 	public Map<String, RepositorySource> buildSourceMap(final Path repoPath, final Map<UUID, Path> bomCacheMap,
-			final Map<String, IdCredentials> credentialMap, final Consumer<ArtifactException> pipelineKiller)
+			final Map<String, IdCredentials> credentialMap, final Consumer<Serializable> callback)
 			throws IOException, InterruptedException {
 		final List<MetadataValidator> metadataValidators = new LinkedList<>();
 		final List<ArtifactValidator> artifactValidators = new LinkedList<>();
 		for (ValidatorConfig config : this.validators) {
 			if (!ValidatorConfig.checkValid(config))
 				continue;
-			final MetadataValidator metadataValidator = config.buildMetadataValidator(bomCacheMap, pipelineKiller);
-			final ArtifactValidator artifactValidator = config.buildArtifactValidator(bomCacheMap, pipelineKiller);
+			final MetadataValidator metadataValidator = config.buildMetadataValidator(bomCacheMap, callback);
+			final ArtifactValidator artifactValidator = config.buildArtifactValidator(bomCacheMap, callback);
 
 			if (metadataValidator != null)
 				metadataValidators.add(metadataValidator);

@@ -16,6 +16,7 @@
 package org.jenkinsci.plugins.repoproxy.maven.config;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
@@ -30,7 +31,6 @@ import net.runeduniverse.lib.repo.maven.api.ArtifactData;
 import net.runeduniverse.lib.repo.maven.api.ArtifactProvider;
 import net.runeduniverse.lib.repo.maven.api.ArtifactValidator;
 import net.runeduniverse.lib.repo.maven.api.MetadataValidator;
-import net.runeduniverse.lib.repo.maven.error.ArtifactException;
 import net.runeduniverse.lib.repo.maven.error.InvalidArtifactException;
 
 public class DefaultPomArtifactValidatorConfig extends ValidatorConfig {
@@ -53,14 +53,14 @@ public class DefaultPomArtifactValidatorConfig extends ValidatorConfig {
 	}
 
 	@Override
-	public MetadataValidator buildMetadataValidator(Map<UUID, Path> bomPaths,
-			Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+	public MetadataValidator buildMetadataValidator(final Map<UUID, Path> bomPaths,
+			final Consumer<Serializable> callback) throws IOException, InterruptedException {
 		return null;
 	}
 
 	@Override
-	public ArtifactValidator buildArtifactValidator(Map<UUID, Path> bomPaths,
-			Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+	public ArtifactValidator buildArtifactValidator(final Map<UUID, Path> bomPaths,
+			final Consumer<Serializable> stepCallback) throws IOException, InterruptedException {
 		return new ArtifactValidator() {
 			@Override
 			public boolean validate(final ArtifactProvider provider, final ArtifactData data)

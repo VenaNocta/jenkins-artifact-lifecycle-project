@@ -17,6 +17,7 @@ package org.jenkinsci.plugins.repoproxy.maven;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -29,6 +30,8 @@ import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry.ServerHandle;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStartCallable;
 import org.jenkinsci.plugins.repoproxy.steps.ArtifactValidationInterruption;
+import org.jenkinsci.plugins.repoproxy.steps.ProxyCallbackCallable;
+import org.jenkinsci.plugins.repoproxy.steps.ProxyCallbackData;
 import org.jenkinsci.plugins.repoproxy.steps.StopStepCallable;
 
 import com.cloudbees.plugins.credentials.common.IdCredentials;
@@ -74,9 +77,20 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 		final ProxyServer server = new ProxyServer(new DefaultFileTypeIndex(), HttpRepoServerInitializer::new);
 		final Path cachePath = cacheFolder.toPath();
 
-		configure(server, cachePath, e -> {
+		configure(server, cachePath, data -> {
 			final ServerHandle handle = AgentNettyRegistry.get(handleId);
-			killPipeline(handle == null ? null : handle.getJenkinsChannel(), e);
+			final VirtualChannel channel = handle == null ? null : handle.getJenkinsChannel();
+			String refId = null;
+
+			if (data instanceof ProxyCallbackData pData) {
+				refId = pData.getRefKey();
+				data = pData.getData();
+			}
+
+			sendCallback(channel, refId, data);
+			if (data instanceof ArtifactException ex) {
+				killPipeline(channel, ex);
+			}
 		});
 
 		for (InetAddress address : this.addressSet) {
@@ -88,6 +102,17 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 				.addListener(v -> {
 					server.shutdownGracefully();
 				});
+	}
+
+	public boolean sendCallback(final VirtualChannel channel, final String refId, final Serializable data) {
+		try {
+			if (channel != null)
+				channel.callAsync(new ProxyCallbackCallable(this.flowNodeId, refId, data));
+			return true;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		}
 	}
 
 	public boolean killPipeline(final VirtualChannel channel, final ArtifactException ex) {
@@ -102,10 +127,11 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 		}
 	}
 
-	protected void configure(final ProxyServer server, final Path cachePath,
-			final Consumer<ArtifactException> pipelineKiller) throws IOException, InterruptedException {
+	protected void configure(final ProxyServer server, final Path cachePath, final Consumer<Serializable> callback)
+			throws IOException, InterruptedException {
 		final Map<UUID, Path> bomCacheMap = resolveBomCacheMap();
 		for (Entry<String, MvnProxyConfig> entry : this.instanceConfigs.entrySet()) {
+			final String refId = entry.getKey();
 			final MvnProxyConfig config = entry.getValue();
 
 			final DefaultRepositoryProxyInstance instance = new DefaultRepositoryProxyInstance(entry.getKey(),
@@ -113,7 +139,12 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 			final Path repoPath = cachePath.resolve(entry.getKey());
 			instance.sources()
-					.putAll(config.buildSourceMap(repoPath, bomCacheMap, this.credentialMap, pipelineKiller));
+					.putAll(config.buildSourceMap(repoPath, bomCacheMap, this.credentialMap, data -> {
+						if (data instanceof ProxyCallbackData)
+							callback.accept(data);
+						else
+							callback.accept(new ProxyCallbackData(refId, data));
+					}));
 
 			server.addInstance(instance);
 		}

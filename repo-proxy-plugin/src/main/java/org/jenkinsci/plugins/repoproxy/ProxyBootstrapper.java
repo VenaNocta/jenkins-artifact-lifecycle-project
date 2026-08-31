@@ -16,6 +16,7 @@
 package org.jenkinsci.plugins.repoproxy;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -39,5 +40,7 @@ public interface ProxyBootstrapper {
 			StepContext context, Map<String, String> proxyEnv, //
 			Map<UUID, BomSourceCache> bomCacheMap, Map<String, IdCredentials> credentialMap, //
 			TaskListener listener) throws IOException, InterruptedException;
+
+	public void receiveCallback(String refKey, Serializable data);
 
 }
