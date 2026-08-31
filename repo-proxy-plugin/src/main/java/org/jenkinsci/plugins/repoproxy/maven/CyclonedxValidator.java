@@ -27,12 +27,12 @@ import net.runeduniverse.lib.repo.maven.validation.pgp.PublicKeyIndex;
 
 public class CyclonedxValidator extends net.runeduniverse.lib.repo.maven.validation.cyclonedx.CyclonedxValidator {
 
-	protected final Consumer<Serializable> stepCallback;
+	protected final Consumer<Serializable> callback;
 
 	public CyclonedxValidator(final PublicKeyIndex keyIndex, final ComponentIndex componentIndex,
-			final Consumer<Serializable> stepCallback) {
+			final Consumer<Serializable> callback) {
 		super(keyIndex, componentIndex);
-		this.stepCallback = stepCallback;
+		this.callback = callback;
 	}
 
 	@Override
@@ -43,7 +43,7 @@ public class CyclonedxValidator extends net.runeduniverse.lib.repo.maven.validat
 			if (e.getPURL() == null)
 				e.setPURL(data.getPURL());
 			System.out.println(">>> Validation failed » " + data.getPURL());
-			this.stepCallback.accept(e);
+			this.callback.accept(e);
 			throw e;
 		}
 	}

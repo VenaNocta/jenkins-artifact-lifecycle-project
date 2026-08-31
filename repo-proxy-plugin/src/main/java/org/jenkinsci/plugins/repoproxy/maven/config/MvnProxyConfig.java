@@ -35,6 +35,7 @@ import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
+import org.jenkinsci.plugins.repoproxy.maven.ArtifactRequestTracker;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -136,7 +137,8 @@ public class MvnProxyConfig extends ProxyConfig {
 			final Map<String, IdCredentials> credentialMap, final Consumer<Serializable> callback)
 			throws IOException, InterruptedException {
 		final List<MetadataValidator> metadataValidators = new LinkedList<>();
-		final List<ArtifactValidator> artifactValidators = new LinkedList<>();
+		final LinkedList<ArtifactValidator> artifactValidators = new LinkedList<>();
+		// aggregate validators
 		for (ValidatorConfig config : this.validators) {
 			if (!ValidatorConfig.checkValid(config))
 				continue;
@@ -148,6 +150,9 @@ public class MvnProxyConfig extends ProxyConfig {
 			if (artifactValidator != null)
 				artifactValidators.add(artifactValidator);
 		}
+		// attach tacker
+		artifactValidators.addFirst(new ArtifactRequestTracker(callback, artifactValidators.isEmpty()));
+		// init sources
 		return this.sourceMap.values()
 				.stream()
 				.collect(Collectors.toMap(RepoSourceConfig::getKey, c -> {

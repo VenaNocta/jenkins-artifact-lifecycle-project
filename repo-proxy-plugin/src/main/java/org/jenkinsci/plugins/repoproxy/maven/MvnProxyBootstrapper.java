@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.repoproxy.maven;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -25,6 +26,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
@@ -34,6 +37,7 @@ import org.jenkinsci.plugins.isolationctx.dto.TrafficMap.Protocol;
 import org.jenkinsci.plugins.repoproxy.AProxyBootstrapper;
 import org.jenkinsci.plugins.repoproxy.config.BomSourceCache;
 import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
+import org.jenkinsci.plugins.repoproxy.steps.TrackedArtifactsAction;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
@@ -51,6 +55,8 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 	protected final Map<String, MvnProxyConfig> instConfigs;
 	protected final Set<IpAddress<?>> ipSet;
 	protected final int port;
+	// tracking data
+	protected final Map<String, Set<String>> _purls = new ConcurrentHashMap<>();
 
 	public MvnProxyBootstrapper(final Set<IpAddress<?>> ipSet, final int port) {
 		this.instConfigs = new LinkedHashMap<>();
@@ -129,10 +135,30 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 		return callable;
 	}
 
-	@Override
-	public void receiveCallback(String refKey, Serializable data) {
-		// TODO Auto-generated method stub
+	protected void trackArtifact(final String refKey, final String purl) {
+		this._purls.computeIfAbsent(refKey, k -> new ConcurrentSkipListSet<>())
+				.add(purl);
+	}
 
+	protected void trackArtifacts(final String refKey, final Collection<String> purls) {
+		this._purls.computeIfAbsent(refKey, k -> new ConcurrentSkipListSet<>())
+				.addAll(purls);
+	}
+
+	@Override
+	public void receiveCallback(final String refKey, final Serializable data) {
+		if (data instanceof ArtifactRequestTracker.Data artifact) {
+			trackArtifact(refKey, artifact.getPurl());
+		}
+	}
+
+	@Override
+	public Set<Action> results() {
+		final Set<Action> set = new LinkedHashSet<>();
+		final TrackedArtifactsAction tracker = new TrackedArtifactsAction();
+		this._purls.forEach(tracker::addArtifacts);
+		set.add(tracker);
+		return set;
 	}
 
 	@Override
@@ -161,6 +187,8 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 		protected final Set<String> ip4Set;
 		protected final Set<String> ip6Set;
 		protected final int port;
+		// tracking data
+		protected final Map<String, Set<String>> _purls = new LinkedHashMap<>();
 
 		protected Snapshot(final Map<String, MvnProxyConfig> instConfigs, final Set<String> ip4Set,
 				final Set<String> ip6Set, final int port) {
@@ -177,7 +205,13 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 			ips.add((IpAddress<?>) IpUtils.unmarshalCol(HashSet::new, this.ip4Set, IpUtils.IP6_PARSER));
 
 			final MvnProxyBootstrapper inst = new MvnProxyBootstrapper(this.instConfigs, ips, this.port);
+			this._purls.forEach(inst::trackArtifacts);
 			return inst;
+		}
+
+		protected void marshalTrackedArtifacts(final String refKey, final Collection<String> purls) {
+			this._purls.computeIfAbsent(refKey, k -> new LinkedHashSet<>())
+					.addAll(purls);
 		}
 
 		public static Snapshot marshal(final MvnProxyBootstrapper instance) {
@@ -189,7 +223,9 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 				else if (ip instanceof Ip6Address)
 					ip6Set.add(ip.toCidrNotation());
 			}
-			return new Snapshot(instance.instConfigs, ip4Set, ip6Set, instance.port);
+			final Snapshot snapshot = new Snapshot(instance.instConfigs, ip4Set, ip6Set, instance.port);
+			instance._purls.forEach(snapshot::marshalTrackedArtifacts);
+			return snapshot;
 		}
 	}
 }

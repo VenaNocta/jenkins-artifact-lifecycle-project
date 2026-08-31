@@ -27,6 +27,7 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 
+import hudson.model.Action;
 import hudson.model.TaskListener;
 import jenkins.agents.ControllerToAgentFileCallable;
 
@@ -42,5 +43,7 @@ public interface ProxyBootstrapper {
 			TaskListener listener) throws IOException, InterruptedException;
 
 	public void receiveCallback(String refKey, Serializable data);
+
+	public Set<Action> results();
 
 }

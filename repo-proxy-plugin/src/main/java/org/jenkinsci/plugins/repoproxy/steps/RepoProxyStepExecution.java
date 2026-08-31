@@ -57,6 +57,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.model.Action;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import jenkins.agents.ControllerToAgentFileCallable;
@@ -276,11 +277,25 @@ public class RepoProxyStepExecution extends StepExecution {
 		super.stop(cause);
 	}
 
-	public void shutdown() throws IOException, InterruptedException {
+	public synchronized void shutdown() throws IOException, InterruptedException {
+		// stop server
 		final IsolationContext isoContext = getIsolationContext();
 		if (isoContext != null) {
 			isoContext.actInContext(new AgentNettyStopCallable(this.activeNettyHandleCacheRefMap.keySet()));
 		}
+		// results
+		final Run<?, ?> run = getContext().get(Run.class);
+		TrackedArtifactsAction tracker = null;
+		for (ProxyBootstrapper bootstrapper : this.activeProxies.values()) {
+			for (Action action : bootstrapper.results()) {
+				if (action instanceof TrackedArtifactsAction tAction) {
+					tracker = TrackedArtifactsAction.merge(tracker, tAction);
+				} else
+					run.addAction(action);
+			}
+		}
+		run.addOrReplaceAction(tracker);
+		// cleanup
 		this.cacheFolder.deleteRecursive();
 		this.cacheBomFolder.deleteRecursive();
 	}
