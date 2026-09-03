@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
+
 import org.jenkinsci.plugins.workflow.actions.PersistentAction;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
@@ -88,7 +90,7 @@ public class TrackedArtifactsAction implements PersistentAction {
 			final Set<String> data = entry.getValue();
 			summuary.append("\n-----------\n");
 			summuary.append(sourceReport(repoKey, data));
-			listing.append(sourceListing(repoKey, data));
+			listing.append(sourceListing(repoKey, new TreeSet<>(data)));
 		}
 		return HttpResponses.text(summuary.append(listing)
 				.toString());
