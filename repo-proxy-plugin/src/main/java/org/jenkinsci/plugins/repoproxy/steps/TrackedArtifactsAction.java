@@ -63,19 +63,35 @@ public class TrackedArtifactsAction implements PersistentAction {
 	}
 
 	protected StringBuilder sourceReport(final String source, final Set<String> data) {
-		final StringBuilder text = new StringBuilder("Source: " + source);
-		text.append("\n  total: " + data.size() + '\n');
-		return text;
+		return new StringBuilder("Source: ") //
+				.append(source)
+				.append("\n  total: ")
+				.append(data.size())
+				.append('\n');
+	}
+
+	protected StringBuilder sourceListing(final String source, final Set<String> data) {
+		final StringBuilder text = new StringBuilder("Repository: ").append(source);
+		for (String purl : data) {
+			text.append("\n  ")
+					.append(purl);
+		}
+		return text.append("\n\n");
 	}
 
 	public HttpResponse doDynamic() throws IOException {
-		final StringBuilder text = new StringBuilder("Artifact Tracker\n");
-		text.append("total: " + getTotalCnt());
+		final StringBuilder summuary = new StringBuilder("Artifact Tracker\n");
+		final StringBuilder listing = new StringBuilder("\n\n--- Artifacts per Repository ---\n");
+		summuary.append("total: " + getTotalCnt());
 		for (Entry<String, Set<String>> entry : this.artifactsBySource.entrySet()) {
-			text.append("\n-----------\n");
-			text.append(sourceReport(entry.getKey(), entry.getValue()));
+			final String repoKey = entry.getKey();
+			final Set<String> data = entry.getValue();
+			summuary.append("\n-----------\n");
+			summuary.append(sourceReport(repoKey, data));
+			listing.append(sourceListing(repoKey, data));
 		}
-		return HttpResponses.text(text.toString());
+		return HttpResponses.text(summuary.append(listing)
+				.toString());
 	}
 
 	public void merge(final TrackedArtifactsAction other) {
