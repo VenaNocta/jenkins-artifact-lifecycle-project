@@ -28,7 +28,7 @@
 
 	<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
 	<artifactId>artifact-signing-parent</artifactId>
-	<version>0.0.0</version>
+	<version>1.0.0</version>
 	<packaging>pom</packaging>
 
 	<name>Jenkins Artifact Signing Plugin - Parent</name>

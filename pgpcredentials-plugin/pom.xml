@@ -23,12 +23,12 @@
 	<parent>
 		<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
 		<artifactId>artifact-signing-parent</artifactId>
-		<version>0.0.0</version>
+		<version>1.0.0</version>
 	</parent>
 
 	<groupId>org.jenkins-ci.plugins.pgpcredentials</groupId>
 	<artifactId>pgpcredentials-plugin</artifactId>
-	<version>0.0.2</version>
+	<version>1.0.0</version>
 	<packaging>hpi</packaging>
 
 	<name>Jenkins PGP-Credentials Plugin</name>
