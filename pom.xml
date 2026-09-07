@@ -224,22 +224,6 @@
 				<defaultGoal>junit-jupiter/test</defaultGoal>
 			</build>
 		</profile>
-		<profile>
-			<id>deploy</id>
-			<build>
-				<defaultGoal>
-					deploy/deploy
-				</defaultGoal>
-			</build>
-		</profile>
-		<profile>
-			<id>deploy-signed</id>
-			<build>
-				<defaultGoal>
-					deploy-signed/deploy
-				</defaultGoal>
-			</build>
-		</profile>
 		<!-- REPOSITORIES -->
 		<profile>
 			<id>repo-releases</id>
@@ -273,24 +257,6 @@
 					</url>
 				</repository>
 			</repositories>
-		</profile>
-		<!-- DISTRIBUTION REPOSITORIES -->
-		<profile>
-			<id>dist-repo-releases</id>
-		</profile>
-		<profile>
-			<id>dist-repo-development</id>
-			<distributionManagement>
-				<repository>
-					<id>runeduniverse-development</id>
-					<url>
-						https://nexus.runeduniverse.net/repository/maven-development/
-					</url>
-				</repository>
-			</distributionManagement>
-		</profile>
-		<profile>
-			<id>dist-repo-maven-central</id>
 		</profile>
 		<!-- LICENSES -->
 		<profile>
