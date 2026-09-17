@@ -77,7 +77,6 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 
 	// used by jelly & JCasC
 	public List<ArtifactRepository> getRepos() {
-		System.out.println("DATA CNT: " + repoMap.size());
 		return new ArrayList<>(this.repoMap.values());
 	}
 
@@ -97,7 +96,6 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 	@Override
 	@Restricted(NoExternalUse.class)
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
-		System.out.println(json.toString());
 		setReposMap(IdentifierUtils.bindIdentifiedEntries(req, json, ArtifactRepository.class, this::containsRepoId,
 				"repos", ArtifactRepository.JSON_ID_FIELD_NAME, null));
 		save();

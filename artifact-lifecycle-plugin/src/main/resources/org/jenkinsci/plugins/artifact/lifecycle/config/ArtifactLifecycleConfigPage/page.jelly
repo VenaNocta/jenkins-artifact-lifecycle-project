@@ -3,5 +3,5 @@
 <j:jelly xmlns:j="jelly:core">
 	<h1>${it.displayName}</h1>
 	<p>Welcome to the ${it.displayName} Page</p>
-	<p>Select an item from the left navigation.XXX</p>
+	<p>Select an item from the left navigation.</p>
 </j:jelly>

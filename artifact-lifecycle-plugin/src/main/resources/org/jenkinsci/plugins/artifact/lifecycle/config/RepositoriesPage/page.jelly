@@ -5,9 +5,11 @@
 	<h2>${it.displayName}</h2>
 	<f:form method="post" action="configure" name="config">
 		<j:set var="descriptor" value="${it.configDescriptor}" />
+		<j:set var="instance" value="${descriptor}" />
 		<f:rowSet name="${descriptor.jsonSafeClassName}">
 			<st:include from="${descriptor}"
-				page="${descriptor.globalConfigPage}" />
+				page="${descriptor.globalConfigPage}" 
+				/>
 		</f:rowSet>
 		<f:saveApplyBar />
 	</f:form>

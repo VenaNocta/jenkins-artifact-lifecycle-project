@@ -15,6 +15,7 @@
  */
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
+import java.util.List;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.ExtensionPoint;
@@ -31,6 +32,25 @@ public abstract class ArtifactLifecycleConfigPage implements ExtensionPoint, Act
 	@Override
 	public String getIconFileName() {
 		return null;
+	}
+
+	/**
+	 * Used to generate the list of links on the sidepanel.
+	 */
+	@NonNull
+	public List<ArtifactLifecycleConfigLink> getNavLinks() {
+		return ArtifactLifecycleConfigLink.all();
+	}
+
+	// delegate sub-URLs to registered subpages
+	public Object getDynamic(final String token) {
+		if (token == null)
+			return null;
+		return ArtifactLifecycleConfigPage.all()
+				.stream()
+				.filter(page -> token.equals(page.getUrlName()))
+				.findFirst()
+				.orElse(null);
 	}
 
 	/**

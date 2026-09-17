@@ -16,10 +16,8 @@
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.HttpResponse;
@@ -124,5 +122,4 @@ public class RepositoriesPage extends ArtifactLifecycleConfigPage implements Des
 			return Messages.ArtifactLifecycleCnfLink_ReposLink_DisplayName();
 		}
 	}
-
 }
