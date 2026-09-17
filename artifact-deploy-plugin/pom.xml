@@ -40,6 +40,7 @@
 		<hpi.bundledArtifacts>utils-logging</hpi.bundledArtifacts>
 		<!-- VERSIONS -->
 		<sources-version>0</sources-version>
+		<lifecycle-version>0</lifecycle-version>
 		<bundle-version>0</bundle-version>
 	</properties>
 
@@ -86,6 +87,11 @@
 	</issueManagement>
 
 	<dependencies>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
+			<artifactId>artifact-lifecycle-plugin</artifactId>
+			<version>${major-version}.${minor-version}.${lifecycle-version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
 			<artifactId>artifact-bundle-plugin</artifactId>

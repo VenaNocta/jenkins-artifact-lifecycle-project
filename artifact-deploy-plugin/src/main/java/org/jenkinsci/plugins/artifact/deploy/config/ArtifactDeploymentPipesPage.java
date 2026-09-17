@@ -26,7 +26,7 @@ public class ArtifactDeploymentPipesPage extends ArtifactLifecycleConfigPage {
 
 	@Override
 	public String getUrlName() {
-		return "deploy-pipes";
+		return "deploy-pipe";
 	}
 
 	@Override
@@ -40,7 +40,7 @@ public class ArtifactDeploymentPipesPage extends ArtifactLifecycleConfigPage {
 		@Override
 		@NonNull
 		public String getUrl() {
-			return ACTION_URL + "/deploy-pipes";
+			return ACTION_URL + "/deploy-pipe";
 		}
 
 		@Override

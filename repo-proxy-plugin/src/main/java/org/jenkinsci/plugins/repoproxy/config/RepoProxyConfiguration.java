@@ -17,16 +17,14 @@ package org.jenkinsci.plugins.repoproxy.config;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.Map.Entry;
-
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest2;
 
@@ -34,7 +32,6 @@ import com.google.inject.Inject;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
-import hudson.Util;
 import hudson.model.Run;
 import jenkins.model.GlobalConfiguration;
 import net.sf.json.JSONArray;
@@ -73,73 +70,28 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 	// used by JCasC
 	public void setConfigs(@NonNull final Collection<ProxyConfig> lst) {
 		setConfigMap(lst.stream()
-				.collect(Collectors.toMap(ProxyConfig::getId, Function.identity())));
+				.collect(Collectors.toMap(ProxyConfig::getUuid, Function.identity())));
 	}
 
 	public void setConfigMap(final Map<UUID, ProxyConfig> repos) {
 		// TODO consider using a read-write-lock
-		// retain & update old "known" entries
-		for (Iterator<Entry<UUID, ProxyConfig>> i = this.proxyMap.entrySet()
-				.iterator(); i.hasNext();) {
-			final Entry<UUID, ProxyConfig> entry = i.next();
-			final UUID id = entry.getKey();
-			final ProxyConfig newProxyConfig = repos.remove(id);
-			if (newProxyConfig == null) {
-				// value got deleted
-				i.remove();
-				continue;
-			}
-			entry.setValue(newProxyConfig);
-		}
+		IdentifierUtils.updateMapEntries(this.proxyMap, repos);
 		this.proxyMap.putAll(repos);
 	}
 
 	@Override
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
-		JSONArray configArray = json.optJSONArray("configs");
-		if (configArray == null) {
-			configArray = new JSONArray();
-			JSONObject jsonObj = json.optJSONObject("configs");
-			if (jsonObj != null)
-				configArray.add(jsonObj);
-		}
-
-		final Map<UUID, ProxyConfig> newProxyMap = new LinkedHashMap<>();
-
-		if (configArray != null) {
-			for (int i = 0; i < configArray.size(); i++) {
-				final JSONObject configObj = configArray.getJSONObject(i);
-				final String parsedId = Util.fixEmpty(configObj.optString(ProxyConfig.JSON_ID_FIELD_NAME));
-				UUID id = null;
-				if (parsedId != null) {
-					// try parse, invalid equals null value
-					try {
-						id = UUID.fromString(parsedId);
-					} catch (IllegalArgumentException ignored) {
-					}
-				}
-				if (id == null) {
-					// generate unique entry.id in context
-					do {
-						id = UUID.randomUUID();
-					} while (this.proxyMap.containsKey(id) || newProxyMap.containsKey(id));
-					configObj.element(ProxyConfig.JSON_ID_FIELD_NAME, id.toString());
-				} else {
-					// check for duplicate ids
-					if (newProxyMap.containsKey(id))
-						continue;
-				}
-
-				final ProxyConfig config = req.bindJSON(ProxyConfig.class, configObj);
-				if (!id.equals(config.id)) {
-					throw new FormException("UUID mismatch after binding", "configs");
-				}
-				newProxyMap.put(config.id, config);
-			}
-		}
-		this.setConfigMap(newProxyMap);
+		final JSONArray configArray = IdentifierUtils.getOptJsonAsArray(json, "configs");
+		this.setConfigMap(IdentifierUtils.bindIdentifiedEntries(req, configArray, ProxyConfig.class,
+				this.proxyMap::containsKey, this::verifyPostBind, ProxyConfig.JSON_ID_FIELD_NAME));
 		save();
 		return true;
+	}
+
+	protected FormException verifyPostBind(final UUID uuid, final ProxyConfig config) {
+		if (!uuid.equals(config.uuid))
+			return new FormException("UUID mismatch after binding", "configs");
+		return null;
 	}
 
 	@NonNull

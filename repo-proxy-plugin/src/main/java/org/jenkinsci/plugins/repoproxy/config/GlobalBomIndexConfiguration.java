@@ -17,22 +17,21 @@ package org.jenkinsci.plugins.repoproxy.config;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.UUID;
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
+import org.jenkinsci.plugins.artifact.lifecycle.config.RefUUID;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest2;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
-import hudson.Util;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.util.ListBoxModel;
@@ -78,68 +77,22 @@ public class GlobalBomIndexConfiguration extends GlobalConfiguration {
 
 	public void setSourcesMap(final Map<UUID, BomSource> sources) {
 		// TODO consider using a read-write-lock
-		// retain & update old "known" entries
-		for (Iterator<Entry<UUID, BomSource>> i = this.sources.entrySet()
-				.iterator(); i.hasNext();) {
-			final Entry<UUID, BomSource> entry = i.next();
-			final UUID id = entry.getKey();
-			final BomSource newSource = sources.remove(id);
-			if (newSource == null) {
-				// value got deleted
-				i.remove();
-				continue;
-			}
-			entry.setValue(newSource);
-		}
-		this.sources.putAll(sources);
+		IdentifierUtils.updateMapEntries(this.sources, sources);
 	}
 
 	@Override
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
-		JSONArray sourcesArray = json.optJSONArray("sources");
-		if (sourcesArray == null) {
-			sourcesArray = new JSONArray();
-			JSONObject jsonObj = json.optJSONObject("sources");
-			if (jsonObj != null)
-				sourcesArray.add(jsonObj);
-		}
-
-		final Map<UUID, BomSource> newSourceMap = new LinkedHashMap<>();
-
-		if (sourcesArray != null) {
-			for (int i = 0; i < sourcesArray.size(); i++) {
-				final JSONObject sourceObj = sourcesArray.getJSONObject(i);
-				final String parsedId = Util.fixEmpty(sourceObj.optString(BomSource.JSON_ID_FIELD_NAME));
-				UUID uuid = null;
-				if (parsedId != null) {
-					// try parse, invalid equals null value
-					try {
-						uuid = UUID.fromString(parsedId);
-					} catch (IllegalArgumentException ignored) {
-					}
-				}
-				if (uuid == null) {
-					// generate unique entry.id in context
-					do {
-						uuid = UUID.randomUUID();
-					} while (this.sources.containsKey(uuid) || newSourceMap.containsKey(uuid));
-					sourceObj.element(BomSource.JSON_ID_FIELD_NAME, uuid.toString());
-				} else {
-					// check for duplicate ids
-					if (newSourceMap.containsKey(uuid))
-						continue;
-				}
-
-				final BomSource source = req.bindJSON(BomSource.class, sourceObj);
-				if (!uuid.equals(source.uuid)) {
-					throw new FormException("UUID mismatch after binding", "sources");
-				}
-				newSourceMap.put(source.uuid, source);
-			}
-		}
-		this.setSourcesMap(newSourceMap);
+		final JSONArray sourcesArray = IdentifierUtils.getOptJsonAsArray(json, "sources");
+		this.setSourcesMap(IdentifierUtils.bindIdentifiedEntries(req, sourcesArray, BomSource.class,
+				this.sources::containsKey, this::verifyPostBind, BomSource.JSON_ID_FIELD_NAME));
 		save();
 		return true;
+	}
+
+	protected FormException verifyPostBind(final UUID uuid, final BomSource source) {
+		if (!uuid.equals(source.uuid))
+			return new FormException("UUID mismatch after binding", "sources");
+		return null;
 	}
 
 	@NonNull

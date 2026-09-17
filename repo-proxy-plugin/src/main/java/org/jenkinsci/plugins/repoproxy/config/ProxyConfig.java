@@ -18,6 +18,8 @@ package org.jenkinsci.plugins.repoproxy.config;
 import java.io.Serializable;
 import java.util.UUID;
 
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifiedByUUID;
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -25,30 +27,29 @@ import hudson.ExtensionPoint;
 import hudson.Util;
 import hudson.model.Describable;
 
-public abstract class ProxyConfig implements Describable<ProxyConfig>, Serializable, ExtensionPoint {
+public abstract class ProxyConfig implements Describable<ProxyConfig>, IdentifiedByUUID, Serializable, ExtensionPoint {
 
 	private static final long serialVersionUID = 1L;
 
-	public static final String JSON_ID_FIELD_NAME = "id";
-
 	@NonNull
-	protected final UUID id;
+	protected final UUID uuid;
 
 	protected String name;
 	protected String description;
 
-	public ProxyConfig(final UUID id, final String name) {
-		this(id, name, null);
+	public ProxyConfig(final UUID uuid, final String name) {
+		this(uuid, name, null);
 	}
 
-	public ProxyConfig(final UUID id, final String name, final String description) {
-		this.id = id == null ? UUID.randomUUID() : id;
+	public ProxyConfig(final UUID uuid, final String name, final String description) {
+		this.uuid = IdentifierUtils.fixNull(uuid);
 		this.name = Util.fixEmptyAndTrim(name);
 		this.description = Util.fixEmptyAndTrim(description);
 	}
 
-	public UUID getId() {
-		return this.id;
+	@Override
+	public UUID getUuid() {
+		return this.uuid;
 	}
 
 	public String getName() {

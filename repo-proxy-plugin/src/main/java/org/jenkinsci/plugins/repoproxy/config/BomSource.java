@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.UUID;
 
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifiedByUUID;
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -29,11 +31,9 @@ import hudson.model.Describable;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 
-public abstract class BomSource implements Describable<BomSource>, Serializable {
+public abstract class BomSource implements Describable<BomSource>, IdentifiedByUUID, Serializable {
 
 	private static final long serialVersionUID = 1L;
-
-	public static final String JSON_ID_FIELD_NAME = "uuid";
 
 	@NonNull
 	protected final UUID uuid;
@@ -46,11 +46,12 @@ public abstract class BomSource implements Describable<BomSource>, Serializable 
 	}
 
 	public BomSource(final UUID uuid, final String name, final String description) {
-		this.uuid = uuid == null ? UUID.randomUUID() : uuid;
+		this.uuid = IdentifierUtils.fixNull(uuid);
 		this.name = Util.fixEmptyAndTrim(name);
 		this.description = Util.fixEmptyAndTrim(description);
 	}
 
+	@Override
 	public UUID getUuid() {
 		return this.uuid;
 	}

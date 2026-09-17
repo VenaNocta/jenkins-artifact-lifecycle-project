@@ -194,13 +194,13 @@ public class RepoProxyStepExecution extends StepExecution {
 			final ProxyConfig config = entry.getValue();
 			final ProxyProvider provider = findProvider(config.getDescriptor());
 			if (provider == null) {
-				log.println("[ RepoProxy ] Proxy unsupported! ID: " + config.getId());
+				log.println("[ RepoProxy ] Proxy unsupported! ID: " + config.getUuid());
 				continue;
 			}
 
 			final ProxyBootstrapper bootstrapper = provider.createBootstrapper(flowNode, refKey, config, ips);
 			if (bootstrapper == null) {
-				log.println("[ RepoProxy ] Proxy Configuration failed! ID: " + config.getId());
+				log.println("[ RepoProxy ] Proxy Configuration failed! ID: " + config.getUuid());
 				continue;
 			}
 

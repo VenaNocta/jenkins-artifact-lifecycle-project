@@ -54,13 +54,13 @@ public class MvnProxyConfig extends ProxyConfig {
 	protected Map<String, RepoSourceConfig> sourceMap = new LinkedHashMap<>();
 	protected Set<ValidatorConfig> validators = new LinkedHashSet<>();
 
-	public MvnProxyConfig(final UUID id, final String name) {
-		super(id, name);
+	public MvnProxyConfig(final UUID uuid, final String name) {
+		super(uuid, name);
 	}
 
 	@DataBoundConstructor
-	public MvnProxyConfig(final String id, final String name) {
-		super(UUID.fromString(id), name);
+	public MvnProxyConfig(final String uuid, final String name) {
+		super(UUID.fromString(uuid), name);
 	}
 
 	public List<RepoSourceConfig> getSources() {

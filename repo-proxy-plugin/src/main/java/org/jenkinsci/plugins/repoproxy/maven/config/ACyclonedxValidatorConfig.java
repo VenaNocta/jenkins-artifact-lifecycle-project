@@ -45,7 +45,7 @@ import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.parsers.BomParserFactory;
 import org.cyclonedx.parsers.Parser;
-import org.jenkinsci.plugins.repoproxy.config.RefUUID;
+import org.jenkinsci.plugins.artifact.lifecycle.config.RefUUID;
 import org.jenkinsci.plugins.repoproxy.config.BomSourceProvider;
 import org.jenkinsci.plugins.repoproxy.config.SimpleFileVisitor;
 import org.kohsuke.accmod.Restricted;
