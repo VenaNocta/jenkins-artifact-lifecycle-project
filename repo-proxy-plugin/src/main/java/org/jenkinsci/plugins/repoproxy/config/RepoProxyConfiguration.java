@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.repoproxy.config;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -34,17 +35,26 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Run;
 import jenkins.model.GlobalConfiguration;
-import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 @Extension
 @Symbol("globalRepoProxyConfig")
 public class RepoProxyConfiguration extends GlobalConfiguration {
 
-	protected Map<UUID, ProxyConfig> proxyMap = new LinkedHashMap<>();
+	protected transient final Map<UUID, ProxyConfig> proxyMap = new LinkedHashMap<>();
+
+	private Collection<ProxyConfig> configs = new LinkedList<>();
 
 	public RepoProxyConfiguration() {
 		load();
+	}
+
+	@Override
+	public synchronized void load() {
+		super.load();
+		this.proxyMap.clear();
+		this.configs.stream()
+				.forEachOrdered(t -> this.proxyMap.put(t.getUuid(), t));
 	}
 
 	public ProxyConfig getConfigById(final UUID id) {
@@ -85,6 +95,12 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 				this.proxyMap::containsKey, "configs", ProxyConfig.JSON_ID_FIELD_NAME, null));
 		save();
 		return true;
+	}
+
+	@Override
+	public synchronized void save() {
+		this.configs = getConfigs();
+		super.save();
 	}
 
 	protected FormException verifyPostBind(final UUID uuid, final ProxyConfig config) {

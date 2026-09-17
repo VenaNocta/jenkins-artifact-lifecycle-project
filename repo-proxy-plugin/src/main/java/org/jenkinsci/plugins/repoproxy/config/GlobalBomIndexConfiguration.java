@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.repoproxy.config;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -26,6 +27,7 @@ import java.util.UUID;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.jenkinsci.plugins.artifact.lifecycle.config.RefUUID;
+import org.jenkinsci.plugins.artifact.lifecycle.config.GlobalArtifactLifecycleConfigLink.ArtifactLifecycleCategory;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest2;
@@ -36,55 +38,81 @@ import hudson.model.Item;
 import hudson.model.Run;
 import hudson.util.ListBoxModel;
 import jenkins.model.GlobalConfiguration;
+import jenkins.model.GlobalConfigurationCategory;
 import net.sf.json.JSONObject;
 
 @Extension
 @Symbol("globalBomIndex")
 public class GlobalBomIndexConfiguration extends GlobalConfiguration {
 
-	protected final Map<UUID, BomSource> sources = new LinkedHashMap<>();
+	protected transient final Map<UUID, BomSource> sourceMap = new LinkedHashMap<>();
+
+	private Collection<BomSource> sources = new LinkedList<>();
 
 	public GlobalBomIndexConfiguration() {
 		load();
 	}
 
+	@Override
+	public synchronized void load() {
+		super.load();
+		this.sourceMap.clear();
+		this.sources.stream()
+				.forEachOrdered(t -> this.sourceMap.put(t.getUuid(), t));
+	}
+
 	public BomSource getSourceById(final UUID uuid) {
-		return this.sources.get(uuid);
+		return this.sourceMap.get(uuid);
 	}
 
 	public BomSource getSourceByName(final String name) {
 		if (name == null)
 			return null;
-		return this.sources.values()
+		return this.sourceMap.values()
 				.stream()
 				.filter(s -> name.equals(s.getName()))
 				.findFirst()
 				.orElse(null);
 	}
 
+	public boolean containsSourceId(final UUID uuid) {
+		return this.sourceMap.containsKey(uuid);
+	}
+
 	// used by jelly & JCasC
 	public List<BomSource> getSources() {
-		return new ArrayList<BomSource>(this.sources.values());
+		return new ArrayList<BomSource>(this.sourceMap.values());
 	}
 
 	@DataBoundSetter
 	// used by JCasC
-	public void setSources(@NonNull final Collection<BomSource> lst) {
-		setSourcesMap(lst.stream()
+	public void setSources(@NonNull final Collection<BomSource> col) {
+		setSourcesMap(col.stream()
 				.collect(Collectors.toMap(BomSource::getUuid, Function.identity())));
 	}
 
 	public void setSourcesMap(final Map<UUID, BomSource> sources) {
 		// TODO consider using a read-write-lock
-		IdentifierUtils.updateMapEntries(this.sources, sources);
+		IdentifierUtils.updateMapEntries(this.sourceMap, sources);
 	}
 
 	@Override
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
-		this.setSourcesMap(IdentifierUtils.bindIdentifiedEntries(req, json, BomSource.class, this.sources::containsKey,
-				"sources", BomSource.JSON_ID_FIELD_NAME, null));
+		this.setSourcesMap(IdentifierUtils.bindIdentifiedEntries(req, json, BomSource.class,
+				this.sourceMap::containsKey, "sources", BomSource.JSON_ID_FIELD_NAME, null));
 		save();
 		return true;
+	}
+
+	@Override
+	public synchronized void save() {
+		this.sources = getSources();
+		super.save();
+	}
+
+	@Override
+	public GlobalConfigurationCategory getCategory() {
+		return GlobalConfigurationCategory.get(ArtifactLifecycleCategory.class);
 	}
 
 	@NonNull

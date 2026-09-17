@@ -16,7 +16,12 @@
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.io.Serializable;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -27,6 +32,8 @@ import hudson.model.Describable;
 public abstract class ArtifactRepository implements Describable<ArtifactRepository>, IdentifiedByUUID, Serializable {
 
 	private static final long serialVersionUID = 1L;
+
+	protected final Set<ArtifactRepositoryTag> tags = new TreeSet<>();
 
 	@NonNull
 	protected final UUID uuid;
@@ -57,6 +64,17 @@ public abstract class ArtifactRepository implements Describable<ArtifactReposito
 		return this.description;
 	}
 
+	public Set<ArtifactRepositoryTag> getTags() {
+		return new HashSet<>(this.tags);
+	}
+
+	public boolean matchTags(final Predicate<ArtifactRepositoryTag> check) {
+		if (check == null)
+			return false;
+		return this.tags.parallelStream()
+				.anyMatch(check);
+	}
+
 	@DataBoundSetter
 	public void setName(@NonNull final String name) {
 		this.name = Util.fixEmptyAndTrim(name);
@@ -65,6 +83,12 @@ public abstract class ArtifactRepository implements Describable<ArtifactReposito
 	@DataBoundSetter
 	public void setDescription(@NonNull final String description) {
 		this.description = Util.fixEmptyAndTrim(description);
+	}
+
+	@DataBoundSetter
+	public void setTags(@NonNull final Collection<ArtifactRepositoryTag> tags) {
+		this.tags.clear();
+		this.tags.addAll(tags);
 	}
 
 	@Override

@@ -8,8 +8,7 @@
 		<j:set var="instance" value="${descriptor}" />
 		<f:rowSet name="${descriptor.jsonSafeClassName}">
 			<st:include from="${descriptor}"
-				page="${descriptor.globalConfigPage}" 
-				/>
+				page="${descriptor.globalConfigPage}" />
 		</f:rowSet>
 		<f:saveApplyBar />
 	</f:form>

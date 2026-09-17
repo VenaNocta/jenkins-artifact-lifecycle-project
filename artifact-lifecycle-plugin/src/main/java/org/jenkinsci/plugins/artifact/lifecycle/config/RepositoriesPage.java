@@ -15,31 +15,24 @@
  */
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
-import java.io.IOException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.kohsuke.accmod.Restricted;
-import org.kohsuke.accmod.restrictions.NoExternalUse;
-import org.kohsuke.stapler.HttpResponse;
-import org.kohsuke.stapler.StaplerRequest2;
-import org.kohsuke.stapler.interceptor.RequirePOST;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
-import hudson.model.Describable;
 import hudson.model.Descriptor;
-import hudson.model.Descriptor.FormException;
-import hudson.util.FormApply;
-import jakarta.servlet.ServletException;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
-import net.sf.json.JSONObject;
 
 @Extension
-public class RepositoriesPage extends ArtifactLifecycleConfigPage implements Describable<RepositoriesPage> {
+public class RepositoriesPage extends ArtifactLifecycleGlobalConfigPage<RepositoriesPage> {
 
 	public static final String PAGE_KEY = "repo";
 
-	private static final Logger LOGGER = Logger.getLogger(ArtifactLifecycleConfigPage.class.getName());
+	private static final Logger LOGGER = Logger.getLogger(RepositoriesPage.class.getName());
+
+	@Override
+	protected Logger getLogger() {
+		return LOGGER;
+	}
 
 	@Override
 	public String getUrlName() {
@@ -55,36 +48,6 @@ public class RepositoriesPage extends ArtifactLifecycleConfigPage implements Des
 	public Descriptor<GlobalConfiguration> getConfigDescriptor() {
 		return Jenkins.get()
 				.getDescriptorOrDie(GlobalRepositoryIndex.class);
-	}
-
-	@RequirePOST
-	@NonNull
-	@Restricted(NoExternalUse.class)
-	// used by jelly
-	public synchronized HttpResponse doConfigure(@NonNull final StaplerRequest2 req)
-			throws IOException, ServletException, FormException {
-		boolean result = configure(req, req.getSubmittedForm());
-		LOGGER.log(Level.FINE, "RepositoriesPage saved: " + result);
-		return FormApply.success(req.getContextPath() + "/manage/" + ACTION_URL + '/' + getUrlName());
-	}
-
-	// used by jelly
-	protected boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
-		final Descriptor<GlobalConfiguration> desc = getConfigDescriptor();
-		final String sectionName = desc.getJsonSafeClassName();
-		if (json.has(sectionName)) {
-			desc.configure(req, json.getJSONObject(sectionName));
-		}
-		return true;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public Descriptor<RepositoriesPage> getDescriptor() {
-		return Jenkins.get()
-				.getDescriptorOrDie(getClass());
 	}
 
 	/**

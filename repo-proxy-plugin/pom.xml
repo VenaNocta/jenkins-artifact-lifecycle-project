@@ -41,11 +41,11 @@
 		<root-dir>..</root-dir>
 		<!-- VERSIONS -->
 		<sbom>0</sbom>
-		<pgpcredentials-version>0.0.2</pgpcredentials-version>
-		<isolation-context-version>0.0.0</isolation-context-version>
+		<pgpcredentials-version>1.0.0</pgpcredentials-version>
+		<isolation-context-version>1.0.0</isolation-context-version>
 		<maven-repo-bom-version>0.1.0</maven-repo-bom-version>
 		<netty-version>4.2.10.Final</netty-version>
-		<lifecycle-version>0</lifecycle-version>
+		<lifecycle-version>1.0.0</lifecycle-version>
 		<!-- JENKINS -->
 		<hpi.bundledArtifacts>bcprov-jdk18on,commons-codec,commons-collections4,commons-io,cyclonedx-core-java,itu,json-schema-validator,maven-repo-client-core,maven-repo-client-http,maven-repo-core,maven-repo-project-api,maven-repo-proxy-core,maven-repo-server-core,maven-repo-server-http,maven-repo-validation-cyclonedx,maven-repo-validation-pgp,netty-buffer,netty-codec-base,netty-codec-compression,netty-codec-http,netty-codec-http2,netty-common,netty-handler,netty-resolver,netty-transport,netty-transport-native-unix-common,packageurl-java,utils-common,utils-common-api</hpi.bundledArtifacts>
 	</properties>
@@ -109,7 +109,7 @@
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
 			<artifactId>artifact-lifecycle-plugin</artifactId>
-			<version>${major-version}.${minor-version}.${lifecycle-version}</version>
+			<version>${lifecycle-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
