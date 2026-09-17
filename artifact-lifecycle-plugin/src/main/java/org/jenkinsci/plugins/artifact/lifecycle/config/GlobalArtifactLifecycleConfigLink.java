@@ -91,6 +91,8 @@ public class GlobalArtifactLifecycleConfigLink extends ManagementLink
 	// delegate sub-URLs to registered subpages
 	public Object getDynamic(String token) {
 		token = getCurrentRequestToken();
+		System.out.println("METHOD: " + Stapler.getCurrentRequest2()
+				.getMethod() + " | TOKEN: " + token);
 		final Map<String, ArtifactLifecycleConfigPage> map = ArtifactLifecycleConfigPage.all()
 				.stream()
 				.collect(Collectors.toMap(ArtifactLifecycleConfigPage::getUrlName, Function.identity()));

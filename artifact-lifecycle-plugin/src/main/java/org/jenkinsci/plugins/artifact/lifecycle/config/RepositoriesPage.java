@@ -53,11 +53,6 @@ public class RepositoriesPage extends ArtifactLifecycleConfigPage implements Des
 		return Messages.RepositoriesPage_DisplayName();
 	}
 
-	public List<ArtifactRepository> getRepos() {
-		return GlobalRepositoryIndex.get()
-				.getRepos();
-	}
-
 	// used by jelly
 	public Descriptor<GlobalConfiguration> getConfigDescriptor() {
 		return Jenkins.get()

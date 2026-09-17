@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.artifact.lifecycle.config;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -34,27 +35,36 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
-import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 @Extension
 @Symbol("globalArtifactRepositoryIndex")
 public class GlobalRepositoryIndex extends GlobalConfiguration {
 
-	protected final Map<UUID, ArtifactRepository> repos = new LinkedHashMap<>();
+	protected transient final Map<UUID, ArtifactRepository> repoMap = new LinkedHashMap<>();
+
+	private Collection<ArtifactRepository> repos = new LinkedList<>();
 
 	public GlobalRepositoryIndex() {
 		load();
 	}
 
+	@Override
+	public synchronized void load() {
+		super.load();
+		this.repoMap.clear();
+		this.repos.stream()
+				.forEachOrdered(t -> this.repoMap.put(t.getUuid(), t));
+	}
+
 	public ArtifactRepository getRepoById(final UUID uuid) {
-		return this.repos.get(uuid);
+		return this.repoMap.get(uuid);
 	}
 
 	public ArtifactRepository getRepoByName(final String name) {
 		if (name == null)
 			return null;
-		return this.repos.values()
+		return this.repoMap.values()
 				.stream()
 				.filter(s -> name.equals(s.getName()))
 				.findFirst()
@@ -62,12 +72,13 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 	}
 
 	public boolean containsRepoId(final UUID uuid) {
-		return this.repos.containsKey(uuid);
+		return this.repoMap.containsKey(uuid);
 	}
 
 	// used by jelly & JCasC
 	public List<ArtifactRepository> getRepos() {
-		return new ArrayList<ArtifactRepository>(this.repos.values());
+		System.out.println("DATA CNT: " + repoMap.size());
+		return new ArrayList<>(this.repoMap.values());
 	}
 
 	@DataBoundSetter
@@ -79,7 +90,7 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 
 	public synchronized void setReposMap(final Map<UUID, ArtifactRepository> repos) {
 		// TODO consider using a read-write-lock
-		IdentifierUtils.updateMapEntries(this.repos, repos);
+		IdentifierUtils.updateMapEntries(this.repoMap, repos);
 	}
 
 	// used by jelly
@@ -87,28 +98,26 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 	@Restricted(NoExternalUse.class)
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
 		System.out.println(json.toString());
-		final JSONArray sourcesArray = IdentifierUtils.getOptJsonAsArray(json, "repos");
-		setReposMap(IdentifierUtils.bindIdentifiedEntries(req, sourcesArray, ArtifactRepository.class,
-				this::containsRepoId, this::verifyPostBind, ArtifactRepository.JSON_ID_FIELD_NAME));
-		System.out.println("repos: " + this.repos.size());
+		setReposMap(IdentifierUtils.bindIdentifiedEntries(req, json, ArtifactRepository.class, this::containsRepoId,
+				"repos", ArtifactRepository.JSON_ID_FIELD_NAME, null));
 		save();
 		return true;
 	}
 
-	protected FormException verifyPostBind(final UUID uuid, final ArtifactRepository repo) {
-		if (!uuid.equals(repo.uuid))
-			return new FormException("UUID mismatch after binding", "repos");
-		return null;
+	@Override
+	public synchronized void save() {
+		this.repos = getRepos();
+		super.save();
+	}
+
+	@Override
+	public GlobalConfigurationCategory getCategory() {
+		return GlobalConfigurationCategory.get(ArtifactLifecycleCategory.class);
 	}
 
 	@NonNull
 	public static GlobalRepositoryIndex get() {
 		return GlobalConfiguration.all()
 				.getInstance(GlobalRepositoryIndex.class);
-	}
-
-	@Override
-	public GlobalConfigurationCategory getCategory() {
-		return GlobalConfigurationCategory.get(ArtifactLifecycleCategory.class);
 	}
 }

@@ -81,9 +81,8 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 
 	@Override
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
-		final JSONArray configArray = IdentifierUtils.getOptJsonAsArray(json, "configs");
-		this.setConfigMap(IdentifierUtils.bindIdentifiedEntries(req, configArray, ProxyConfig.class,
-				this.proxyMap::containsKey, this::verifyPostBind, ProxyConfig.JSON_ID_FIELD_NAME));
+		this.setConfigMap(IdentifierUtils.bindIdentifiedEntries(req, json, ProxyConfig.class,
+				this.proxyMap::containsKey, "configs", ProxyConfig.JSON_ID_FIELD_NAME, null));
 		save();
 		return true;
 	}

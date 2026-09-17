@@ -16,13 +16,13 @@
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.Map.Entry;
 
-import org.apache.commons.collections.map.HashedMap;
 import org.kohsuke.stapler.StaplerRequest2;
 
 import hudson.Util;
@@ -31,6 +31,8 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 public class IdentifierUtils {
+
+	public static final String ERR_POST_BINDING_UUID_MISMATCH = "post binding UUID mismatch";
 
 	public static UUID fixNull(final UUID uuid) {
 		return uuid == null ? UUID.randomUUID() : uuid;
@@ -66,9 +68,10 @@ public class IdentifierUtils {
 	}
 
 	public static <T extends IdentifiedByUUID> Map<UUID, T> bindIdentifiedEntries(final StaplerRequest2 req,
-			final JSONArray jsonArray, final Class<T> type, final Predicate<UUID> isIdDuplicate,
-			final BiFunction<UUID, T, FormException> postBindCheck, final String jsonIdFieldName) throws FormException {
-		final Map<UUID, T> newMap = new HashedMap(jsonArray.size());
+			final JSONObject json, final Class<T> type, final Predicate<UUID> isIdDuplicate, final String key,
+			final String jsonIdFieldName, final BiFunction<UUID, T, FormException> postBindCheck) throws FormException {
+		final JSONArray jsonArray = getOptJsonAsArray(json, key);
+		final Map<UUID, T> newMap = new LinkedHashMap<>(jsonArray.size());
 		if (jsonArray != null) {
 			for (int i = 0; i < jsonArray.size(); i++) {
 				final JSONObject dataObj = jsonArray.getJSONObject(i);
@@ -94,9 +97,13 @@ public class IdentifierUtils {
 				}
 
 				final T data = req.bindJSON(type, dataObj);
-				final FormException ex = postBindCheck.apply(uuid, data);
-				if (ex != null)
-					throw ex;
+				if (!uuid.equals(data.getUuid()))
+					throw new FormException(ERR_POST_BINDING_UUID_MISMATCH, key);
+				if (postBindCheck != null) {
+					final FormException ex = postBindCheck.apply(uuid, data);
+					if (ex != null)
+						throw ex;
+				}
 				newMap.put(data.getUuid(), data);
 			}
 		}

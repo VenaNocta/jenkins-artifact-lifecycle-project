@@ -36,7 +36,6 @@ import hudson.model.Item;
 import hudson.model.Run;
 import hudson.util.ListBoxModel;
 import jenkins.model.GlobalConfiguration;
-import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 @Extension
@@ -82,17 +81,10 @@ public class GlobalBomIndexConfiguration extends GlobalConfiguration {
 
 	@Override
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
-		final JSONArray sourcesArray = IdentifierUtils.getOptJsonAsArray(json, "sources");
-		this.setSourcesMap(IdentifierUtils.bindIdentifiedEntries(req, sourcesArray, BomSource.class,
-				this.sources::containsKey, this::verifyPostBind, BomSource.JSON_ID_FIELD_NAME));
+		this.setSourcesMap(IdentifierUtils.bindIdentifiedEntries(req, json, BomSource.class,
+				this.sources::containsKey, "sources", BomSource.JSON_ID_FIELD_NAME,null));
 		save();
 		return true;
-	}
-
-	protected FormException verifyPostBind(final UUID uuid, final BomSource source) {
-		if (!uuid.equals(source.uuid))
-			return new FormException("UUID mismatch after binding", "sources");
-		return null;
 	}
 
 	@NonNull
