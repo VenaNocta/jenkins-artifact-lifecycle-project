@@ -15,7 +15,7 @@
  */
 package org.jenkinsci.plugins.artifact.deploy.steps;
 
-import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
@@ -23,7 +23,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.ExtensionPoint;
 import jenkins.model.Jenkins;
 
-public abstract class ArtifactDeployExecutionFactory<T extends ArtifactDeploymentRepository> implements ExtensionPoint {
+public abstract class ArtifactDeployExecutionFactory<T extends ArtifactRepository> implements ExtensionPoint {
 	public final transient Class<? extends T> clazz;
 
 	protected ArtifactDeployExecutionFactory(final Class<? extends T> clazz) {
@@ -41,12 +41,12 @@ public abstract class ArtifactDeployExecutionFactory<T extends ArtifactDeploymen
 			throws Exception;
 
 	public StepExecution newDeployStepExecution(final StepContext context, final DeployArtifactsStep step,
-			final ArtifactDeploymentRepository repo) throws Exception {
+			final ArtifactRepository repo) throws Exception {
 		return create(context, step, (T) repo);
 	}
 
 	@CheckForNull
-	public static <C extends ArtifactDeploymentRepository> ArtifactDeployExecutionFactory<C> get(final Class<C> type) {
+	public static <C extends ArtifactRepository> ArtifactDeployExecutionFactory<C> get(final Class<C> type) {
 		for (ArtifactDeployExecutionFactory<C> f : Jenkins.get()
 				.getExtensionList(ArtifactDeployExecutionFactory.class))
 			if (f.clazz == type)

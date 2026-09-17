@@ -29,13 +29,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.UUID;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
-import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
 import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeployExecutionFactory;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.accmod.Restricted;
@@ -68,7 +69,7 @@ import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
 import net.runeduniverse.lib.utils.common.URIBuilder;;
 
-public class SonatypeNexusDeploymentRepository extends ArtifactDeploymentRepository {
+public class SonatypeNexusDeploymentRepository extends ArtifactRepository {
 
 	private static final long serialVersionUID = 1L;
 
@@ -82,18 +83,20 @@ public class SonatypeNexusDeploymentRepository extends ArtifactDeploymentReposit
 	@CheckForNull
 	private String credentialsId;
 
-	public SonatypeNexusDeploymentRepository(@NonNull String id, @CheckForNull String description, //
-			@CheckForNull URI uri, @CheckForNull String repo, @CheckForNull String credentialsId) {
-		super(id, description);
+	public SonatypeNexusDeploymentRepository(@NonNull final String uuid, final String name,
+			@CheckForNull String description, @CheckForNull URI uri, @CheckForNull String repo,
+			@CheckForNull String credentialsId) {
+		super(UUID.fromString(uuid), name, description);
 		this.uri = uri;
 		this.repo = repo;
 		this.credentialsId = credentialsId;
 	}
 
 	@DataBoundConstructor
-	public SonatypeNexusDeploymentRepository(@NonNull String id, @CheckForNull String description, //
-			@CheckForNull String uri, @CheckForNull String repo, @CheckForNull String credentialsId) {
-		super(id, description);
+	public SonatypeNexusDeploymentRepository(@NonNull final String uuid, final String name,
+			@CheckForNull String description, @CheckForNull String uri, @CheckForNull String repo,
+			@CheckForNull String credentialsId) {
+		super(UUID.fromString(uuid), name, description);
 		setUri(uri);
 		this.repo = repo;
 		this.credentialsId = credentialsId;
@@ -120,6 +123,10 @@ public class SonatypeNexusDeploymentRepository extends ArtifactDeploymentReposit
 			this.uri = null;
 			return;
 		}
+		if (builder == null) {
+			this.uri = null;
+			return;
+		}
 		builder.fixScheme(DEFAULT_PROTOCOL)
 				.applyHostFix();
 		this.uri = builder.hasScheme(PROTOCOLS) ? builder.toURI(null) : null;
@@ -136,7 +143,7 @@ public class SonatypeNexusDeploymentRepository extends ArtifactDeploymentReposit
 	}
 
 	@Extension
-	public static class SonatypeNexusDescriptor extends ArtifactDeploymentRepositoryDescriptor {
+	public static class SonatypeNexusDescriptor extends ArtifactRepositoryDescriptor {
 
 		@Override
 		public String getDisplayName() {

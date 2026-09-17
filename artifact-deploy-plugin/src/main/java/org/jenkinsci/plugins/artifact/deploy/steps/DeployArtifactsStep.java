@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeployConfigurationProvider;
-import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -109,7 +109,7 @@ public class DeployArtifactsStep extends Step implements Serializable {
 
 	@Override
 	public StepExecution start(final StepContext context) throws Exception {
-		final ArtifactDeploymentRepository repo = ArtifactDeployConfigurationProvider.findRepo(context.get(Run.class),
+		final ArtifactRepository repo = ArtifactDeployConfigurationProvider.findRepoByName(context.get(Run.class),
 				this.repo);
 		if (repo == null)
 			return new InvalidStepExecution(context) {

@@ -23,14 +23,15 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepository;
-import org.jenkinsci.plugins.artifact.deploy.config.ArtifactDeploymentRepositoryDescriptor;
 import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeployExecutionFactory;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.accmod.Restricted;
@@ -62,7 +63,7 @@ import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
 import net.runeduniverse.lib.utils.common.URIBuilder;
 
-public class SonatypeMavenCentralDeploymentRepository extends ArtifactDeploymentRepository {
+public class SonatypeMavenCentralDeploymentRepository extends ArtifactRepository {
 
 	private static final Logger LOGGER = Logger.getLogger(SonatypeMavenCentralDeploymentRepository.class.getName());
 
@@ -92,10 +93,11 @@ public class SonatypeMavenCentralDeploymentRepository extends ArtifactDeployment
 	private String publishingType;
 
 	@DataBoundConstructor
-	public SonatypeMavenCentralDeploymentRepository(@NonNull String id, @Nullable String description, //
+	public SonatypeMavenCentralDeploymentRepository(@NonNull final String uuid, final String name,
+			@Nullable String description, //
 			@CheckForNull String namespace, @CheckForNull String credentialsId, @NonNull boolean allowAutoPublish,
 			@Nullable String publishingType) {
-		super(id, description);
+		super(UUID.fromString(uuid), name, description);
 		this.namespace = namespace;
 		this.credentialsId = credentialsId;
 		this.allowAutoPublish = allowAutoPublish;
@@ -143,7 +145,7 @@ public class SonatypeMavenCentralDeploymentRepository extends ArtifactDeployment
 	}
 
 	@Extension
-	public static class SonatypeMavenCentralDescriptor extends ArtifactDeploymentRepositoryDescriptor {
+	public static class SonatypeMavenCentralDescriptor extends ArtifactRepositoryDescriptor {
 
 		@Override
 		public String getDisplayName() {
@@ -266,6 +268,5 @@ public class SonatypeMavenCentralDeploymentRepository extends ArtifactDeployment
 				SonatypeMavenCentralDeploymentRepository repo) throws Exception {
 			return new SonatypeMavenCentralDeployExecution(context, step, repo);
 		}
-
 	}
 }

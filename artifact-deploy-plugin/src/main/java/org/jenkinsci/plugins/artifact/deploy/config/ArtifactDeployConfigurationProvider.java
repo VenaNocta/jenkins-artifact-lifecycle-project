@@ -16,6 +16,10 @@
 package org.jenkinsci.plugins.artifact.deploy.config;
 
 import java.util.Optional;
+import java.util.UUID;
+
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
+
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
@@ -28,23 +32,45 @@ public interface ArtifactDeployConfigurationProvider extends ExtensionPoint {
 	/**
 	 * Asks the provider to return the repo
 	 *
-	 * @param run the Run from where the repo is requested
-	 * @param id  the repo-id
+	 * @param run  the Run from where the repo is requested
+	 * @param uuid the repo-uuid
 	 * @return {@code Optional} when the provider has a definition covering the
-	 *         given id; otherwise {@code null}
+	 *         given uuid; otherwise {@code null}
 	 */
 	@CheckForNull
-	public Optional<ArtifactDeploymentRepository> getRepo(@Nullable Run<?, ?> run, @NonNull String id);
+	public Optional<ArtifactRepository> getRepoByUuid(@Nullable Run<?, ?> run, @NonNull UUID uuid);
+
+	/**
+	 * Asks the provider to return the repo
+	 *
+	 * @param run  the Run from where the repo is requested
+	 * @param name the repo-name
+	 * @return {@code Optional} when the provider has a definition covering the
+	 *         given name; otherwise {@code null}
+	 */
+	@CheckForNull
+	public Optional<ArtifactRepository> getRepoByName(@Nullable Run<?, ?> run, @NonNull String name);
 
 	public static ExtensionList<ArtifactDeployConfigurationProvider> all() {
 		return ExtensionList.lookup(ArtifactDeployConfigurationProvider.class);
 	}
 
 	@CheckForNull
-	public static ArtifactDeploymentRepository findRepo(@Nullable Run<?, ?> run, @NonNull String id) {
-		Optional<ArtifactDeploymentRepository> r = null;
+	public static ArtifactRepository findRepoByUuid(@Nullable final Run<?, ?> run, @NonNull final UUID uuid) {
+		Optional<ArtifactRepository> r = null;
 		for (ArtifactDeployConfigurationProvider provider : all()) {
-			r = provider.getRepo(run, id);
+			r = provider.getRepoByUuid(run, uuid);
+			if (r != null)
+				break;
+		}
+		return r == null || r.isEmpty() ? null : r.get();
+	}
+
+	@CheckForNull
+	public static ArtifactRepository findRepoByName(@Nullable final Run<?, ?> run, @NonNull final String name) {
+		Optional<ArtifactRepository> r = null;
+		for (ArtifactDeployConfigurationProvider provider : all()) {
+			r = provider.getRepoByName(run, name);
 			if (r != null)
 				break;
 		}

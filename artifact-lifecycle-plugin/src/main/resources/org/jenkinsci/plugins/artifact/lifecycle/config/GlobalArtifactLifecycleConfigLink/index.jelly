@@ -3,10 +3,14 @@
 <j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout"
 	xmlns:f="/lib/form" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
 	xmlns:local="local">
-	<l:layout title="${%Artifact Lifecycle}" norefresh="true">
+	<j:set var="page" value="${it.getPage()}" />
+	<j:set var="pageTitle" value="${page.displayName}" />
+	<l:layout
+		title="${pageTitle==null ? 'Artifact Lifecycle' : pageTitle}"
+		norefresh="true">
 		<st:include page="sidepanel" />
 		<l:main-panel>
-			<st:include page="page" it="${it.getPage()}" />
+			<st:include page="page" it="${page}" />
 		</l:main-panel>
 	</l:layout>
 </j:jelly>

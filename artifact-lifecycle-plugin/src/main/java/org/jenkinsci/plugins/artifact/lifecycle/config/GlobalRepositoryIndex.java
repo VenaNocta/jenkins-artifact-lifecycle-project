@@ -51,6 +51,16 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 		return this.repos.get(uuid);
 	}
 
+	public ArtifactRepository getRepoByName(final String name) {
+		if (name == null)
+			return null;
+		return this.repos.values()
+				.stream()
+				.filter(s -> name.equals(s.getName()))
+				.findFirst()
+				.orElse(null);
+	}
+
 	public boolean containsRepoId(final UUID uuid) {
 		return this.repos.containsKey(uuid);
 	}
@@ -76,9 +86,11 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 	@Override
 	@Restricted(NoExternalUse.class)
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
+		System.out.println(json.toString());
 		final JSONArray sourcesArray = IdentifierUtils.getOptJsonAsArray(json, "repos");
 		setReposMap(IdentifierUtils.bindIdentifiedEntries(req, sourcesArray, ArtifactRepository.class,
 				this::containsRepoId, this::verifyPostBind, ArtifactRepository.JSON_ID_FIELD_NAME));
+		System.out.println("repos: " + this.repos.size());
 		save();
 		return true;
 	}
