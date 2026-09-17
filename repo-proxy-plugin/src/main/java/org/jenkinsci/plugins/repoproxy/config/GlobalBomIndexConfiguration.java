@@ -81,8 +81,8 @@ public class GlobalBomIndexConfiguration extends GlobalConfiguration {
 
 	@Override
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
-		this.setSourcesMap(IdentifierUtils.bindIdentifiedEntries(req, json, BomSource.class,
-				this.sources::containsKey, "sources", BomSource.JSON_ID_FIELD_NAME,null));
+		this.setSourcesMap(IdentifierUtils.bindIdentifiedEntries(req, json, BomSource.class, this.sources::containsKey,
+				"sources", BomSource.JSON_ID_FIELD_NAME, null));
 		save();
 		return true;
 	}

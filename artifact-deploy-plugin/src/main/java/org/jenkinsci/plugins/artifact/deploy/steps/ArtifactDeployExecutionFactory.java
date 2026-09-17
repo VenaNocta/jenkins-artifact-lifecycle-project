@@ -24,6 +24,7 @@ import hudson.ExtensionPoint;
 import jenkins.model.Jenkins;
 
 public abstract class ArtifactDeployExecutionFactory<T extends ArtifactRepository> implements ExtensionPoint {
+
 	public final transient Class<? extends T> clazz;
 
 	protected ArtifactDeployExecutionFactory(final Class<? extends T> clazz) {
@@ -53,5 +54,4 @@ public abstract class ArtifactDeployExecutionFactory<T extends ArtifactRepositor
 				return f;
 		return null;
 	}
-
 }
