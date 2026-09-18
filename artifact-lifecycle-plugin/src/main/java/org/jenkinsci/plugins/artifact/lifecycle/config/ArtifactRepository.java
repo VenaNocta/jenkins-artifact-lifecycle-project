@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -37,6 +38,10 @@ public abstract class ArtifactRepository implements Describable<ArtifactReposito
 
 	@NonNull
 	protected final UUID uuid;
+
+	// consider tracking the owner(item)!
+	// final Item item=null;
+	// => if privs/creds => must be available with owner!
 
 	protected String name;
 	protected String description;
@@ -68,6 +73,12 @@ public abstract class ArtifactRepository implements Describable<ArtifactReposito
 		return new HashSet<>(this.tags);
 	}
 
+	public String getTagsList() {
+		return getTags().parallelStream()
+				.map(ArtifactRepositoryTag::getDisplayName)
+				.collect(Collectors.joining(" "));
+	}
+
 	public boolean matchTags(final Predicate<ArtifactRepositoryTag> check) {
 		if (check == null)
 			return false;
@@ -88,7 +99,8 @@ public abstract class ArtifactRepository implements Describable<ArtifactReposito
 	@DataBoundSetter
 	public void setTags(@NonNull final Collection<ArtifactRepositoryTag> tags) {
 		this.tags.clear();
-		this.tags.addAll(tags);
+		if (tags != null)
+			this.tags.addAll(tags);
 	}
 
 	@Override

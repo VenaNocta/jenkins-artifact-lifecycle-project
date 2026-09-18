@@ -23,11 +23,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
+import java.util.function.Predicate;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -37,6 +40,8 @@ import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeployExecutionFactor
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryDescriptor;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTag;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTags;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.accmod.Restricted;
@@ -69,7 +74,7 @@ import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
 import net.runeduniverse.lib.utils.common.URIBuilder;;
 
-public class SonatypeNexusDeploymentRepository extends ArtifactRepository {
+public class SonatypeNexusRepository extends ArtifactRepository {
 
 	private static final long serialVersionUID = 1L;
 
@@ -83,23 +88,21 @@ public class SonatypeNexusDeploymentRepository extends ArtifactRepository {
 	@CheckForNull
 	private String credentialsId;
 
-	public SonatypeNexusDeploymentRepository(@NonNull final String uuid, final String name,
-			@CheckForNull String description, @CheckForNull URI uri, @CheckForNull String repo,
-			@CheckForNull String credentialsId) {
+	public SonatypeNexusRepository(@NonNull final String uuid, final String name, @CheckForNull String description,
+			@CheckForNull URI uri, @CheckForNull String repo, @CheckForNull String credentialsId) {
 		super(UUID.fromString(uuid), name, description);
 		this.uri = uri;
-		this.repo = repo;
-		this.credentialsId = credentialsId;
+		this.repo = Util.fixEmpty(repo);
+		this.credentialsId = Util.fixEmpty(credentialsId);
 	}
 
 	@DataBoundConstructor
-	public SonatypeNexusDeploymentRepository(@NonNull final String uuid, final String name,
-			@CheckForNull String description, @CheckForNull String uri, @CheckForNull String repo,
-			@CheckForNull String credentialsId) {
+	public SonatypeNexusRepository(@NonNull final String uuid, final String name, @CheckForNull String description,
+			@CheckForNull String uri, @CheckForNull String repo, @CheckForNull String credentialsId) {
 		super(UUID.fromString(uuid), name, description);
 		setUri(uri);
-		this.repo = repo;
-		this.credentialsId = credentialsId;
+		this.repo = Util.fixEmpty(repo);
+		this.credentialsId = Util.fixEmpty(credentialsId);
 	}
 
 	public URI getUri() {
@@ -111,7 +114,94 @@ public class SonatypeNexusDeploymentRepository extends ArtifactRepository {
 	}
 
 	public String getCredentialsId() {
-		return Util.fixEmpty(this.credentialsId);
+		return this.credentialsId;
+	}
+
+	protected Set<ArtifactRepositoryTag> computeTags() {
+		// TODO implement!
+		// consider tracking the owner(item)!
+		final Item item = null;
+
+		if (this.uri == null || this.repo == null)
+			return Set.of();
+		final URIBuilder b = new URIBuilder(this.uri).appendPath("/service/rest/");
+		final URI repoURI = b.withChildPath("v1/repositories")
+				.toURI(null);
+		// invalid uri => no data
+		if (repoURI == null)
+			return Set.of();
+
+		final HttpClient client = ProxyConfiguration.newHttpClient();
+		final HttpRequest.Builder requestBuilder = ProxyConfiguration.newHttpRequestBuilder(repoURI)
+				.GET();
+		if (this.credentialsId != null) {
+			final StandardUsernamePasswordCredentials cred = CredentialsMatchers.firstOrNull( //
+					CredentialsProvider.lookupCredentialsInItem( //
+							StandardUsernamePasswordCredentials.class, item, null),
+					CredentialsMatchers.withId(this.credentialsId));
+			if (cred != null) {
+				requestBuilder.setHeader("Authorization",
+						"Basic " + Base64.encodeBase64String((cred.getUsername() + ":" + cred.getPassword()
+								.getPlainText()).getBytes()));
+			}
+		}
+		final Set<ArtifactRepositoryTag> set = new HashSet<>();
+		final HttpRequest request = requestBuilder.build();
+
+		JsonNode rootNode = null;
+		try {
+			final HttpResponse<String> response = client.send(request, BodyHandlers.ofString());
+			if (response.statusCode() == HttpURLConnection.HTTP_OK) {
+				rootNode = new ObjectMapper().readTree(response.body());
+				set.add(ArtifactRepositoryTags.PROTOCOL__SONATYPE_NEXUS_APIv1);
+			}
+		} catch (IOException | InterruptedException e) {
+		}
+
+		if (rootNode instanceof ArrayNode arrayNode) {
+			for (Iterator<JsonNode> i = arrayNode.elements(); i.hasNext();) {
+				final JsonNode node = i.next();
+				final String repoId = getValue(node.get("name"));
+				final String format = getValue(node.get("format"));
+				final String type = getValue(node.get("type"));
+				if (!this.repo.equals(repoId) || format == null || type == null)
+					continue;
+				set.add(ArtifactRepositoryTags.TYPE__SOURCE);
+				if ("hosted".equals(type))
+					set.add(ArtifactRepositoryTags.TYPE__TARGET);
+				switch (format) {
+				case "maven2":
+					set.add(ArtifactRepositoryTags.PROTOCOL__MAVEN2_HTTP);
+					break;
+				}
+				return set;
+			}
+		}
+		return set;
+	}
+
+	protected String getValue(final JsonNode node) {
+		if (!node.isValueNode())
+			return null;
+		return node.asText();
+	}
+
+	@Override
+	public Set<ArtifactRepositoryTag> getTags() {
+		final Set<ArtifactRepositoryTag> set = super.getTags();
+		set.addAll(computeTags());
+		return set;
+	}
+
+	public boolean matchTags(final Predicate<ArtifactRepositoryTag> check) {
+		if (check == null)
+			return false;
+		if (this.tags.parallelStream()
+				.anyMatch(check))
+			return true;
+		// only compute after defaults - may take time!
+		return computeTags().parallelStream()
+				.anyMatch(check);
 	}
 
 	@DataBoundSetter
@@ -134,12 +224,12 @@ public class SonatypeNexusDeploymentRepository extends ArtifactRepository {
 
 	@DataBoundSetter
 	public void setRepo(@NonNull final String repo) {
-		this.repo = repo;
+		this.repo = Util.fixEmpty(repo);
 	}
 
 	@DataBoundSetter
 	public void setCredentialsId(@CheckForNull final String credentialsId) {
-		this.credentialsId = credentialsId;
+		this.credentialsId = Util.fixEmpty(credentialsId);
 	}
 
 	@Extension
@@ -306,7 +396,7 @@ public class SonatypeNexusDeploymentRepository extends ArtifactRepository {
 			return dropdown;
 		}
 
-		protected String getValue(JsonNode node) {
+		protected String getValue(final JsonNode node) {
 			if (!node.isValueNode())
 				return null;
 			return node.asText();
@@ -365,13 +455,12 @@ public class SonatypeNexusDeploymentRepository extends ArtifactRepository {
 	}
 
 	@Extension
-	public static class SonatypeNexusFactory extends ArtifactDeployExecutionFactory<SonatypeNexusDeploymentRepository> {
+	public static class SonatypeNexusFactory extends ArtifactDeployExecutionFactory<SonatypeNexusRepository> {
 
 		@Override
-		public StepExecution create(StepContext context, DeployArtifactsStep step,
-				SonatypeNexusDeploymentRepository repo) throws Exception {
+		public StepExecution create(StepContext context, DeployArtifactsStep step, SonatypeNexusRepository repo)
+				throws Exception {
 			return new SonatypeNexusDeployExecution(context, step, repo);
 		}
-
 	}
 }

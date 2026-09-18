@@ -68,7 +68,7 @@ import hudson.model.Result;
 import jenkins.util.VirtualFile;
 import net.runeduniverse.lib.utils.common.URIBuilder;
 
-public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<SonatypeNexusDeploymentRepository> {
+public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<SonatypeNexusRepository> {
 
 	public static final String[] METADATA_MAVEN2_GROUPID = //
 			new String[] { "maven2.groupId", "maven.groupId", "groupId" };
@@ -84,7 +84,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 	private static final long serialVersionUID = 1L;
 
 	protected SonatypeNexusDeployExecution(final StepContext context, final DeployArtifactsStep step,
-			final SonatypeNexusDeploymentRepository repo) {
+			final SonatypeNexusRepository repo) {
 		super(context, step, repo);
 	}
 
@@ -98,7 +98,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 
 	@Override
 	public boolean start() throws Exception {
-		final SonatypeNexusDeploymentRepository repoConfig = getRepoConfig();
+		final SonatypeNexusRepository repoConfig = getRepoConfig();
 		final Bundle bundle = getSelectedBundle();
 
 		if (bundle.isEmpty()) {

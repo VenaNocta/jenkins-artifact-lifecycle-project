@@ -32,6 +32,7 @@ import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeployExecutionFactor
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryDescriptor;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTags;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.accmod.Restricted;
@@ -63,9 +64,9 @@ import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
 import net.runeduniverse.lib.utils.common.URIBuilder;
 
-public class SonatypeMavenCentralDeploymentRepository extends ArtifactRepository {
+public class SonatypeCentralPortalRepository extends ArtifactRepository {
 
-	private static final Logger LOGGER = Logger.getLogger(SonatypeMavenCentralDeploymentRepository.class.getName());
+	private static final Logger LOGGER = Logger.getLogger(SonatypeCentralPortalRepository.class.getName());
 
 	private static final long serialVersionUID = 1L;
 
@@ -93,8 +94,7 @@ public class SonatypeMavenCentralDeploymentRepository extends ArtifactRepository
 	private String publishingType;
 
 	@DataBoundConstructor
-	public SonatypeMavenCentralDeploymentRepository(@NonNull final String uuid, final String name,
-			@Nullable String description, //
+	public SonatypeCentralPortalRepository(@NonNull final String uuid, final String name, @Nullable String description, //
 			@CheckForNull String namespace, @CheckForNull String credentialsId, @NonNull boolean allowAutoPublish,
 			@Nullable String publishingType) {
 		super(UUID.fromString(uuid), name, description);
@@ -102,6 +102,9 @@ public class SonatypeMavenCentralDeploymentRepository extends ArtifactRepository
 		this.credentialsId = credentialsId;
 		this.allowAutoPublish = allowAutoPublish;
 		this.publishingType = publishingType;
+		// tags
+		this.tags.add(ArtifactRepositoryTags.TYPE__TARGET);
+		this.tags.add(ArtifactRepositoryTags.PROTOCOL__SONATYPE_CENTRAL_PORTAL_APIv1);
 	}
 
 	public String getNamespace() {
@@ -260,12 +263,12 @@ public class SonatypeMavenCentralDeploymentRepository extends ArtifactRepository
 	}
 
 	@Extension
-	public static class SonatypeMavenCentralFactory
-			extends ArtifactDeployExecutionFactory<SonatypeMavenCentralDeploymentRepository> {
+	public static class SonatypeCentralPortalFactory
+			extends ArtifactDeployExecutionFactory<SonatypeCentralPortalRepository> {
 
 		@Override
-		public StepExecution create(StepContext context, DeployArtifactsStep step,
-				SonatypeMavenCentralDeploymentRepository repo) throws Exception {
+		public StepExecution create(StepContext context, DeployArtifactsStep step, SonatypeCentralPortalRepository repo)
+				throws Exception {
 			return new SonatypeMavenCentralDeployExecution(context, step, repo);
 		}
 	}

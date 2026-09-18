@@ -82,8 +82,7 @@ import net.runeduniverse.lib.utils.logging.log.DefaultCompoundTree;
 import net.runeduniverse.lib.utils.logging.log.api.CompoundTree;
 import net.runeduniverse.lib.utils.logging.log.api.CompoundTreeStyle;
 
-public class SonatypeMavenCentralDeployExecution
-		extends DeployArtifactsStepExecution<SonatypeMavenCentralDeploymentRepository> {
+public class SonatypeMavenCentralDeployExecution extends DeployArtifactsStepExecution<SonatypeCentralPortalRepository> {
 
 	public static final String[] OPTION_PUBLISHING_TYPE = //
 			new String[] { "publishing.type", "publishing.mode" };
@@ -123,7 +122,7 @@ public class SonatypeMavenCentralDeployExecution
 	private CompoundTreeStyle style = null;
 
 	protected SonatypeMavenCentralDeployExecution(final StepContext context, final DeployArtifactsStep step,
-			final SonatypeMavenCentralDeploymentRepository repo) {
+			final SonatypeCentralPortalRepository repo) {
 		super(context, step, repo);
 	}
 
@@ -132,7 +131,7 @@ public class SonatypeMavenCentralDeployExecution
 	}
 
 	protected String getPublishingType() {
-		final SonatypeMavenCentralDeploymentRepository repoConfig = getRepoConfig();
+		final SonatypeCentralPortalRepository repoConfig = getRepoConfig();
 		final String defaultValue = StringUtils.trimToNull(repoConfig.getPublishingType());
 		String selected = getEntryString(this.step.getOptions(), OPTION_PUBLISHING_TYPE);
 		// when null, select default value
@@ -140,12 +139,12 @@ public class SonatypeMavenCentralDeployExecution
 			selected = defaultValue;
 		// when null, return safest default value
 		if (selected == null)
-			return SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__USER_MANAGED;
+			return SonatypeCentralPortalRepository.PUBLISHING_TYPE__USER_MANAGED;
 		// check if AUTOMATIC is enabled, reset in case it is disabled & selected
 		if (!repoConfig.getAllowAutoPublish()
-				&& SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__AUTOMATIC.equals(selected)) {
-			if (SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__AUTOMATIC.equals(defaultValue))
-				return SonatypeMavenCentralDeploymentRepository.PUBLISHING_TYPE__USER_MANAGED;
+				&& SonatypeCentralPortalRepository.PUBLISHING_TYPE__AUTOMATIC.equals(selected)) {
+			if (SonatypeCentralPortalRepository.PUBLISHING_TYPE__AUTOMATIC.equals(defaultValue))
+				return SonatypeCentralPortalRepository.PUBLISHING_TYPE__USER_MANAGED;
 			return defaultValue;
 		}
 		return selected;
@@ -212,7 +211,7 @@ public class SonatypeMavenCentralDeployExecution
 
 	@Override
 	public boolean start() throws Exception {
-		final SonatypeMavenCentralDeploymentRepository repoConfig = getRepoConfig();
+		final SonatypeCentralPortalRepository repoConfig = getRepoConfig();
 		final Bundle bundle = getSelectedBundle();
 
 		if (bundle.isEmpty()) {

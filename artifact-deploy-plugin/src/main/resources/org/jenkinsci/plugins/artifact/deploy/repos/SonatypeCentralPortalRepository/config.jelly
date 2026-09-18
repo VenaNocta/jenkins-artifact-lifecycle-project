@@ -7,7 +7,8 @@
 	<f:entry title="${%Namespace}" field="namespace">
 		<f:textbox />
 	</f:entry>
-	<f:entry title="${%Upload Credentials}" field="credentialsId">
+	<f:entry title="${%Down-/Upload Credentials}"
+		field="credentialsId">
 		<c:select />
 	</f:entry>
 	<f:entry title="${%Enable 'AUTOMATIC' Publishing Mode}"

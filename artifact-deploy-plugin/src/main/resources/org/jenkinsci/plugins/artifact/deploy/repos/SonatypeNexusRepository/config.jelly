@@ -10,7 +10,8 @@
 	<f:entry title="${%Repository}" field="repo">
 		<f:select />
 	</f:entry>
-	<f:entry title="${%Upload Credentials}" field="credentialsId">
+	<f:entry title="${%Down-/Upload Credentials}"
+		field="credentialsId">
 		<c:select />
 	</f:entry>
 </j:jelly>
