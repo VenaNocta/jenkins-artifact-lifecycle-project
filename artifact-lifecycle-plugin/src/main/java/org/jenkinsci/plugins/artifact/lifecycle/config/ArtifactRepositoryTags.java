@@ -20,26 +20,30 @@ public final class ArtifactRepositoryTags {
 	private ArtifactRepositoryTags() {
 	}
 
+	public static final String TYPE = "00-repo-type";
+	public static final String PROTOCOL = "10-protocol";
+	public static final String CUSTOM = "custom";
+
 	// ========================================================================
 	// GENERIC
 	// ========================================================================
 
 	public static final ArtifactRepositoryTag TYPE__SOURCE = //
-			new ArtifactRepositoryTag("source", "repo-type", "Type.Source");
+			new ArtifactRepositoryTag("source", TYPE, "Type.Source");
 	public static final ArtifactRepositoryTag TYPE__TARGET = //
-			new ArtifactRepositoryTag("target", "repo-type", "Type.Target");
+			new ArtifactRepositoryTag("target", TYPE, "Type.Target");
 
 	public static final ArtifactRepositoryTag PROTOCOL__MAVEN2_HTTP = //
-			new ArtifactRepositoryTag("maven2-http", "protocol", "Protocol.Maven2.HTTP");
+			new ArtifactRepositoryTag("maven2-http", PROTOCOL, "Protocol.Maven2.HTTP");
 
 	// ========================================================================
 	// PRODUCT SPECIFIC
 	// ========================================================================
 
 	public static final ArtifactRepositoryTag PROTOCOL__SONATYPE_NEXUS_APIv1 = //
-			new ArtifactRepositoryTag("sonatype-nexus-api-v1", "protocol", "Protocol.Sonatype.Nexus.APIv1");
+			new ArtifactRepositoryTag("sonatype-nexus-api-v1", PROTOCOL, "Protocol.Sonatype.Nexus.APIv1");
 	public static final ArtifactRepositoryTag PROTOCOL__SONATYPE_CENTRAL_PORTAL_APIv1 = //
-			new ArtifactRepositoryTag("sonatype-central-portal-api-v1", "protocol",
+			new ArtifactRepositoryTag("sonatype-central-portal-api-v1", PROTOCOL,
 					"Protocol.Sonatype.CentralPortal.APIv1");
 
 }

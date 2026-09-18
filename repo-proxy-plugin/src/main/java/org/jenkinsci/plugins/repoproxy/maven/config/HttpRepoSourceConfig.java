@@ -20,7 +20,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTags;
+import org.jenkinsci.plugins.artifact.lifecycle.config.GlobalRepositoryIndex;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
@@ -40,6 +43,7 @@ import hudson.model.Item;
 import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
 import net.runeduniverse.lib.repo.maven.client.http.HttpSource;
 import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
@@ -52,6 +56,7 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 	protected int maxRetries;
 	@CheckForNull
 	protected String credentialsId;
+	protected UUID repoId;
 
 	@DataBoundConstructor
 	public HttpRepoSourceConfig(final String key) {
@@ -64,6 +69,12 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 
 	public int getMaxRetries() {
 		return this.maxRetries;
+	}
+
+	@Override
+	@CheckForNull
+	public UUID getRepoId() {
+		return this.repoId;
 	}
 
 	@CheckForNull
@@ -86,6 +97,20 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 	@DataBoundSetter
 	public void setMaxRetries(final int maxRetries) {
 		this.maxRetries = maxRetries;
+	}
+
+	public void setRepoIdValue(final UUID value) {
+		this.repoId = value;
+	}
+
+	@DataBoundSetter
+	public void setRepoId(String value) {
+		try {
+			value = Util.fixEmptyAndTrim(value);
+			this.repoId = value == null ? null : UUID.fromString(value);
+		} catch (IllegalArgumentException e) {
+			this.repoId = null;
+		}
 	}
 
 	@DataBoundSetter
@@ -159,6 +184,33 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 			} catch (NumberFormatException e) {
 				return FormValidation.error("");
 			}
+		}
+
+		public ListBoxModel allValuesAsListBox(final Item item) {
+			return GlobalRepositoryIndex.allValuesAsListBox(GlobalRepositoryIndex.get()
+					.getRepos(/*
+								 * repo -> repo.matchTags(ArtifactRepositoryTags.TYPE__SOURCE::equals) &&
+								 * repo.matchTags(ArtifactRepositoryTags.PROTOCOL__MAVEN2_HTTP::equals)
+								 */));
+		}
+
+		public ListBoxModel doFillRepoIdItems(@AncestorInPath final Item item, @QueryParameter final String repoId) {
+			final ListBoxModel model = allValuesAsListBox(item);
+
+			boolean hasValue = false;
+			for (Option option : model) {
+				if (repoId != null && repoId.equals(option.value))
+					hasValue = true;
+				final String name = Util.fixEmptyAndTrim(option.name);
+				option.name = String.format("%s » %s", option.value, name == null ? "???" : name);
+			}
+			if (!hasValue) {
+				if (Util.fixEmptyAndTrim(repoId) == null || "---".equals(repoId))
+					model.add(0, new Option("- none -", repoId));
+				else
+					model.add(0, new Option(String.format("%s » ???", repoId), repoId));
+			}
+			return model;
 		}
 
 		public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item item) {

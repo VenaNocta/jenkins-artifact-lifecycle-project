@@ -17,10 +17,11 @@ package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.util.Objects;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.artifact.lifecycle.config.tags.Messages;
 import org.jvnet.localizer.ResourceBundleHolder;
 
-public class ArtifactRepositoryTag {
+public class ArtifactRepositoryTag implements Comparable<ArtifactRepositoryTag> {
 
 	/**
 	 * The resource bundle reference
@@ -77,5 +78,15 @@ public class ArtifactRepositoryTag {
 			return Objects.equals(this.key, other.getKey()) && Objects.equals(this.type, other.getType());
 		}
 		return false;
+	}
+
+	@Override
+	public int compareTo(final ArtifactRepositoryTag o) {
+		if (o == null)
+			return -1;
+		final int val = StringUtils.compare(this.type, o.type, false);
+		if (val == 0)
+			return StringUtils.compare(this.key, o.key, false);
+		return val;
 	}
 }

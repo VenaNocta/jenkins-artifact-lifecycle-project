@@ -17,7 +17,6 @@ package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -70,7 +69,7 @@ public abstract class ArtifactRepository implements Describable<ArtifactReposito
 	}
 
 	public Set<ArtifactRepositoryTag> getTags() {
-		return new HashSet<>(this.tags);
+		return new TreeSet<>(this.tags);
 	}
 
 	public String getTagsList() {

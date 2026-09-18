@@ -23,7 +23,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -32,6 +31,7 @@ import java.util.Set;
 import java.util.Map.Entry;
 import java.util.function.Predicate;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import org.apache.commons.codec.binary.Base64;
@@ -145,7 +145,7 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 								.getPlainText()).getBytes()));
 			}
 		}
-		final Set<ArtifactRepositoryTag> set = new HashSet<>();
+		final Set<ArtifactRepositoryTag> set = new TreeSet<>();
 		final HttpRequest request = requestBuilder.build();
 
 		JsonNode rootNode = null;

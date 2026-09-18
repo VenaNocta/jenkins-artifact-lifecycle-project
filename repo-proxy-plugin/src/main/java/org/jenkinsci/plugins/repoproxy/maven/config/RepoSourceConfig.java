@@ -21,9 +21,9 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import org.kohsuke.stapler.DataBoundSetter;
-
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -49,6 +49,8 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 	public String getKey() {
 		return this.key;
 	}
+
+	protected abstract UUID getRepoId();
 
 	public String getUri() {
 		return this.uri == null ? null : this.uri.toString();

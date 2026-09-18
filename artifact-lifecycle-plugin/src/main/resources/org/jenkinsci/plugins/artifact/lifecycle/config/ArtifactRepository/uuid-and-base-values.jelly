@@ -3,16 +3,22 @@
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
 	<input type="hidden" name="uuid"
 		value="${instance == null ? null : instance.uuid}" />
-	<f:entry title="${%ID}">
-		<div style="color:#888">
-			${instance == null ? "???" : instance.uuid}
+	<div style="display:flex; gap:20px; width:100%;">
+		<div style="flex:0 0 auto;">
+			<f:entry title="${%ID}">
+				<div style="color:#888; white-space:nowrap;">
+					${instance == null ? "???" : instance.uuid}
+				</div>
+			</f:entry>
 		</div>
-	</f:entry>
-	<f:entry title="${%Tags}">
-		<div style="color:#888">
-			${instance == null ? "" : instance.tagsList}
+		<div style="flex:1; min-width:0;">
+			<f:entry title="${%Tags}">
+				<div style="color:#888">
+					${instance == null ? "" : instance.tagsList}
+				</div>
+			</f:entry>
 		</div>
-	</f:entry>
+	</div>
 	<f:entry title="${%Name}" field="name">
 		<f:textbox />
 	</f:entry>

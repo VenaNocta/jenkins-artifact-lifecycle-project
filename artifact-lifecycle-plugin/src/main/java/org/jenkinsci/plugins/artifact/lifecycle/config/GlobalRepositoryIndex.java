@@ -21,7 +21,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.UUID;
 import org.jenkinsci.Symbol;
@@ -33,6 +35,8 @@ import org.kohsuke.stapler.StaplerRequest2;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import hudson.Util;
+import hudson.util.ListBoxModel;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
 import net.sf.json.JSONObject;
@@ -73,6 +77,26 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 
 	public boolean containsRepoId(final UUID uuid) {
 		return this.repoMap.containsKey(uuid);
+	}
+
+	public Map<UUID, ArtifactRepository> getRepoMap(final Predicate<ArtifactRepository> check) {
+		final Map<UUID, ArtifactRepository> repoMap = new LinkedHashMap<>();
+		this.repoMap.values()
+				.parallelStream()
+				.filter(Objects::nonNull)
+				.filter(check::test)
+				.forEachOrdered(v -> repoMap.put(v.getUuid(), v));
+		return repoMap;
+	}
+
+	public List<ArtifactRepository> getRepos(final Predicate<ArtifactRepository> check) {
+		final List<ArtifactRepository> repoLst = new LinkedList<>();
+		this.repoMap.values()
+				.parallelStream()
+				.filter(Objects::nonNull)
+				.filter(check::test)
+				.forEachOrdered(repoLst::add);
+		return repoLst;
 	}
 
 	// used by jelly & JCasC
@@ -117,5 +141,16 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 	public static GlobalRepositoryIndex get() {
 		return GlobalConfiguration.all()
 				.getInstance(GlobalRepositoryIndex.class);
+	}
+
+	public static ListBoxModel allValuesAsListBox(final List<ArtifactRepository> values) {
+		final ListBoxModel model = new ListBoxModel();
+		for (ArtifactRepository repo : values) {
+			final UUID uuid = repo.getUuid();
+			if (uuid == null)
+				continue;
+			model.add(Util.fixEmptyAndTrim(repo.getName()), uuid.toString());
+		}
+		return model;
 	}
 }
