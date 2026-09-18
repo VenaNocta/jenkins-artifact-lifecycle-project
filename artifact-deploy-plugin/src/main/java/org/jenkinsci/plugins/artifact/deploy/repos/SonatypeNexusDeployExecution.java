@@ -90,7 +90,7 @@ public class SonatypeNexusDeployExecution extends DeployArtifactsStepExecution<S
 
 	protected void useCreds(Function<StandardUsernamePasswordCredentials, Boolean> consumer)
 			throws IOException, InterruptedException {
-		final String credentialsId = repoConfig.getCredentialsId();
+		final String credentialsId = repoConfig.getCredentialId();
 		if (credentialsId == null)
 			return;
 		super.useCreds(StandardUsernamePasswordCredentials.class, credentialsId, consumer);

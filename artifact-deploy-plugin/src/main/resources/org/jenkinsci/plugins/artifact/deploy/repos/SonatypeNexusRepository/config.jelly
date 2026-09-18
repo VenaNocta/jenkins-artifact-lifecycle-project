@@ -11,7 +11,7 @@
 		<f:select />
 	</f:entry>
 	<f:entry title="${%Down-/Upload Credentials}"
-		field="credentialsId">
+		field="credentialId">
 		<c:select />
 	</f:entry>
 </j:jelly>

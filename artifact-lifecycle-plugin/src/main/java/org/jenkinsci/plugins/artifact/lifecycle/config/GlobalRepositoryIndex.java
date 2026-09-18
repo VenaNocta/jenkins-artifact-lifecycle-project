@@ -121,7 +121,7 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 	@Restricted(NoExternalUse.class)
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
 		setReposMap(IdentifierUtils.bindIdentifiedEntries(req, json, ArtifactRepository.class, this::containsRepoId,
-				"repos", ArtifactRepository.JSON_ID_FIELD_NAME, null));
+				"repos", IdentifiedByUUID.JSON_ID_FIELD_NAME, null));
 		save();
 		return true;
 	}

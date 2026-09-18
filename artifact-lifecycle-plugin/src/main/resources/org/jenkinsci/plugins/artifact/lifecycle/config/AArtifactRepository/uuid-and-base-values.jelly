@@ -12,9 +12,15 @@
 			</f:entry>
 		</div>
 		<div style="flex:1; min-width:0;">
-			<f:entry title="${%Tags}">
-				<div style="color:#888">
-					${instance == null ? "" : instance.tagsList}
+			<f:entry title="${%Types}">
+				<div style="display:flex; flex-wrap:wrap; gap:6px;">
+					<j:forEach var="type"
+						items="${descriptor.getProviderTypes(instance)}">
+						<span
+							style="border:1px solid #888; border-radius:4px; padding:2px 6px; color:#888; white-space:nowrap;">
+							${type}
+						</span>
+					</j:forEach>
 				</div>
 			</f:entry>
 		</div>

@@ -22,8 +22,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTags;
 import org.jenkinsci.plugins.artifact.lifecycle.config.GlobalRepositoryIndex;
+import org.jenkinsci.plugins.artifact.lifecycle.maven.config.Maven2Repository;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
@@ -188,10 +188,7 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 
 		public ListBoxModel allValuesAsListBox(final Item item) {
 			return GlobalRepositoryIndex.allValuesAsListBox(GlobalRepositoryIndex.get()
-					.getRepos(/*
-								 * repo -> repo.matchTags(ArtifactRepositoryTags.TYPE__SOURCE::equals) &&
-								 * repo.matchTags(ArtifactRepositoryTags.PROTOCOL__MAVEN2_HTTP::equals)
-								 */));
+					.getRepos(Maven2Repository::isSupported));
 		}
 
 		public ListBoxModel doFillRepoIdItems(@AncestorInPath final Item item, @QueryParameter final String repoId) {

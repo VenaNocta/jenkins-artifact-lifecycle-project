@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.util.function.Function;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.UsernamePasswordCredentials;
-import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
+import org.jenkinsci.plugins.artifact.lifecycle.config.AArtifactRepository;
 import org.jenkinsci.plugins.artifact.bundle.context.Bundle;
 import org.jenkinsci.plugins.artifact.bundle.context.BundleContext;
 import org.jenkinsci.plugins.artifact.bundle.context.Bundles;
@@ -36,7 +36,7 @@ import jenkins.model.Jenkins;
 import jenkins.util.JenkinsJVM;
 import jenkins.util.SystemProperties;
 
-public abstract class DeployArtifactsStepExecution<T extends ArtifactRepository> extends BundleStepExecution {
+public abstract class DeployArtifactsStepExecution<T extends AArtifactRepository> extends BundleStepExecution {
 
 	private static final long serialVersionUID = 1L;
 

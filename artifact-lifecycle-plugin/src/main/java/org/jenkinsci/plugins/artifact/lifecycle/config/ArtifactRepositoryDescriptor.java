@@ -15,6 +15,8 @@
  */
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
+import java.util.Set;
+
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
@@ -38,5 +40,9 @@ public class ArtifactRepositoryDescriptor extends Descriptor<ArtifactRepository>
 			return FormValidation.error("Invalid characters");
 		// check duplicates
 		return FormValidation.ok();
+	}
+
+	public Set<String> getProviderTypes(final ArtifactRepository repository) {
+		return ArtifactRepositoryTypeProvider.allProviderTypes(repository);
 	}
 }

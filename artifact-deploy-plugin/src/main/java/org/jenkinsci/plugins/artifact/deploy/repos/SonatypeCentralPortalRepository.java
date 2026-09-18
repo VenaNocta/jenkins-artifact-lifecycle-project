@@ -23,16 +23,19 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
+import org.jenkinsci.plugins.artifact.deploy.config.DeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeployExecutionFactory;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
+import org.jenkinsci.plugins.artifact.lifecycle.config.AArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryDescriptor;
-import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTags;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTypeProvider;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.accmod.Restricted;
@@ -64,7 +67,7 @@ import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
 import net.runeduniverse.lib.utils.common.URIBuilder;
 
-public class SonatypeCentralPortalRepository extends ArtifactRepository {
+public class SonatypeCentralPortalRepository extends AArtifactRepository implements DeploymentRepository {
 
 	private static final Logger LOGGER = Logger.getLogger(SonatypeCentralPortalRepository.class.getName());
 
@@ -88,31 +91,29 @@ public class SonatypeCentralPortalRepository extends ArtifactRepository {
 	@CheckForNull
 	private String namespace;
 	@CheckForNull
-	private String credentialsId;
+	private String credentialId;
 	private boolean allowAutoPublish = false;
 	@CheckForNull
 	private String publishingType;
 
 	@DataBoundConstructor
 	public SonatypeCentralPortalRepository(@NonNull final String uuid, final String name, @Nullable String description, //
-			@CheckForNull String namespace, @CheckForNull String credentialsId, @NonNull boolean allowAutoPublish,
+			@CheckForNull String namespace, @CheckForNull String credentialId, @NonNull boolean allowAutoPublish,
 			@Nullable String publishingType) {
 		super(UUID.fromString(uuid), name, description);
 		this.namespace = namespace;
-		this.credentialsId = credentialsId;
+		this.credentialId = credentialId;
 		this.allowAutoPublish = allowAutoPublish;
 		this.publishingType = publishingType;
-		// tags
-		this.tags.add(ArtifactRepositoryTags.TYPE__TARGET);
-		this.tags.add(ArtifactRepositoryTags.PROTOCOL__SONATYPE_CENTRAL_PORTAL_APIv1);
 	}
 
 	public String getNamespace() {
 		return this.namespace;
 	}
 
-	public String getCredentialsId() {
-		return this.credentialsId;
+	@Override
+	public String getCredentialId() {
+		return this.credentialId;
 	}
 
 	public boolean getAllowAutoPublish() {
@@ -133,8 +134,8 @@ public class SonatypeCentralPortalRepository extends ArtifactRepository {
 	}
 
 	@DataBoundSetter
-	public void setCredentialsId(@CheckForNull final String credentialsId) {
-		this.credentialsId = credentialsId;
+	public void setCredentialId(@CheckForNull final String credentialId) {
+		this.credentialId = credentialId;
 	}
 
 	@DataBoundSetter
@@ -183,7 +184,7 @@ public class SonatypeCentralPortalRepository extends ArtifactRepository {
 			return dropdown;
 		}
 
-		public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item item) {
+		public ListBoxModel doFillCredentialIdItems(@AncestorInPath Item item) {
 			if (item == null && !Jenkins.get()
 					.hasPermission(Jenkins.ADMINISTER) || item != null && !item.hasPermission(Item.EXTENDED_READ)) {
 				return new StandardListBoxModel();
@@ -194,7 +195,7 @@ public class SonatypeCentralPortalRepository extends ArtifactRepository {
 
 		@Restricted(NoExternalUse.class)
 		@POST
-		public FormValidation doCheckCredentialsId(@AncestorInPath Item item, @QueryParameter String value) {
+		public FormValidation doCheckCredentialId(@AncestorInPath Item item, @QueryParameter String value) {
 			final URIBuilder b = new URIBuilder(API_URI);
 			final URI repoURI = b.appendPath("v1/publisher/status")
 					.setQuery("id=")
@@ -259,6 +260,21 @@ public class SonatypeCentralPortalRepository extends ArtifactRepository {
 					return FormValidation.warning("Failed to verify Credentials!");
 				return FormValidation.warning("Failed to verify Credentials: " + msg);
 			}
+		}
+	}
+
+	public static boolean isSupported(final ArtifactRepository repository) {
+		return repository instanceof SonatypeCentralPortalRepository;
+	}
+
+	@Extension
+	public static class TypeProvider implements ArtifactRepositoryTypeProvider {
+
+		@Override
+		public Set<String> getProviderTypes(final ArtifactRepository repository) {
+			if (SonatypeCentralPortalRepository.isSupported(repository))
+				return Set.of("ST:Central-Portal");
+			return Set.of();
 		}
 	}
 

@@ -29,19 +29,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
-import java.util.function.Predicate;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
+import org.jenkinsci.plugins.artifact.deploy.config.DeploymentRepository;
 import org.jenkinsci.plugins.artifact.deploy.steps.ArtifactDeployExecutionFactory;
 import org.jenkinsci.plugins.artifact.deploy.steps.DeployArtifactsStep;
+import org.jenkinsci.plugins.artifact.lifecycle.config.AArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryDescriptor;
-import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTag;
-import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTags;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTypeProvider;
+import org.jenkinsci.plugins.artifact.lifecycle.maven.config.Maven2Repository;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.accmod.Restricted;
@@ -72,9 +73,9 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
-import net.runeduniverse.lib.utils.common.URIBuilder;;
+import net.runeduniverse.lib.utils.common.URIBuilder;
 
-public class SonatypeNexusRepository extends ArtifactRepository {
+public class SonatypeNexusRepository extends AArtifactRepository implements Maven2Repository, DeploymentRepository {
 
 	private static final long serialVersionUID = 1L;
 
@@ -86,38 +87,62 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 	@CheckForNull
 	private String repo;
 	@CheckForNull
-	private String credentialsId;
+	private String credentialId;
 
 	public SonatypeNexusRepository(@NonNull final String uuid, final String name, @CheckForNull String description,
-			@CheckForNull URI uri, @CheckForNull String repo, @CheckForNull String credentialsId) {
+			@CheckForNull URI uri, @CheckForNull String repo, @CheckForNull String credentialId) {
 		super(UUID.fromString(uuid), name, description);
 		this.uri = uri;
-		this.repo = Util.fixEmpty(repo);
-		this.credentialsId = Util.fixEmpty(credentialsId);
+		this.repo = Util.fixEmptyAndTrim(repo);
+		this.credentialId = Util.fixEmptyAndTrim(credentialId);
 	}
 
 	@DataBoundConstructor
 	public SonatypeNexusRepository(@NonNull final String uuid, final String name, @CheckForNull String description,
-			@CheckForNull String uri, @CheckForNull String repo, @CheckForNull String credentialsId) {
+			@CheckForNull String uri, @CheckForNull String repo, @CheckForNull String credentialId) {
 		super(UUID.fromString(uuid), name, description);
 		setUri(uri);
-		this.repo = Util.fixEmpty(repo);
-		this.credentialsId = Util.fixEmpty(credentialsId);
+		this.repo = Util.fixEmptyAndTrim(repo);
+		this.credentialId = Util.fixEmptyAndTrim(credentialId);
 	}
 
 	public URI getUri() {
 		return this.uri;
 	}
 
+	@Override
+	public URI getMaven2Uri() {
+		if (this.uri == null)
+			return null;
+		return new URIBuilder(this.uri)//
+				.appendPath("/repository/" + this.repo)
+				.toURI(null);
+	}
+
+	public URI getSonatypeNexusApiUri() {
+		if (this.uri == null)
+			return null;
+		return new URIBuilder(this.uri).appendPath("/service/rest/")
+				.toURI(null);
+	}
+
 	public String getRepo() {
 		return this.repo;
 	}
 
-	public String getCredentialsId() {
-		return this.credentialsId;
+	public String getCredentialId() {
+		return this.credentialId;
 	}
 
-	protected Set<ArtifactRepositoryTag> computeTags() {
+	@Override
+	public boolean hasDeploymentSupport() {
+		// TODO if "hosted".equals(type) => true else false
+		return true;
+	}
+
+	// TODO reuse for sth else!
+	// TODO compute & set repo-format ("maven2") on repo selection!
+	protected Set<String> computeTags() {
 		// TODO implement!
 		// consider tracking the owner(item)!
 		final Item item = null;
@@ -134,18 +159,18 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 		final HttpClient client = ProxyConfiguration.newHttpClient();
 		final HttpRequest.Builder requestBuilder = ProxyConfiguration.newHttpRequestBuilder(repoURI)
 				.GET();
-		if (this.credentialsId != null) {
+		if (this.credentialId != null) {
 			final StandardUsernamePasswordCredentials cred = CredentialsMatchers.firstOrNull( //
 					CredentialsProvider.lookupCredentialsInItem( //
 							StandardUsernamePasswordCredentials.class, item, null),
-					CredentialsMatchers.withId(this.credentialsId));
+					CredentialsMatchers.withId(this.credentialId));
 			if (cred != null) {
 				requestBuilder.setHeader("Authorization",
 						"Basic " + Base64.encodeBase64String((cred.getUsername() + ":" + cred.getPassword()
 								.getPlainText()).getBytes()));
 			}
 		}
-		final Set<ArtifactRepositoryTag> set = new TreeSet<>();
+		final Set<String> set = new TreeSet<>();
 		final HttpRequest request = requestBuilder.build();
 
 		JsonNode rootNode = null;
@@ -153,7 +178,7 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 			final HttpResponse<String> response = client.send(request, BodyHandlers.ofString());
 			if (response.statusCode() == HttpURLConnection.HTTP_OK) {
 				rootNode = new ObjectMapper().readTree(response.body());
-				set.add(ArtifactRepositoryTags.PROTOCOL__SONATYPE_NEXUS_APIv1);
+				// set.add(ArtifactRepositoryTags.PROTOCOL__SONATYPE_NEXUS_APIv1);
 			}
 		} catch (IOException | InterruptedException e) {
 		}
@@ -166,12 +191,13 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 				final String type = getValue(node.get("type"));
 				if (!this.repo.equals(repoId) || format == null || type == null)
 					continue;
-				set.add(ArtifactRepositoryTags.TYPE__SOURCE);
-				if ("hosted".equals(type))
-					set.add(ArtifactRepositoryTags.TYPE__TARGET);
+				// set.add(ArtifactRepositoryTags.TYPE__SOURCE);
+				if ("hosted".equals(type)) {
+					// set.add(ArtifactRepositoryTags.TYPE__TARGET);
+				}
 				switch (format) {
 				case "maven2":
-					set.add(ArtifactRepositoryTags.PROTOCOL__MAVEN2_HTTP);
+					// set.add(ArtifactRepositoryTags.PROTOCOL__MAVEN2_HTTP);
 					break;
 				}
 				return set;
@@ -184,24 +210,6 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 		if (!node.isValueNode())
 			return null;
 		return node.asText();
-	}
-
-	@Override
-	public Set<ArtifactRepositoryTag> getTags() {
-		final Set<ArtifactRepositoryTag> set = super.getTags();
-		set.addAll(computeTags());
-		return set;
-	}
-
-	public boolean matchTags(final Predicate<ArtifactRepositoryTag> check) {
-		if (check == null)
-			return false;
-		if (this.tags.parallelStream()
-				.anyMatch(check))
-			return true;
-		// only compute after defaults - may take time!
-		return computeTags().parallelStream()
-				.anyMatch(check);
 	}
 
 	@DataBoundSetter
@@ -224,12 +232,12 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 
 	@DataBoundSetter
 	public void setRepo(@NonNull final String repo) {
-		this.repo = Util.fixEmpty(repo);
+		this.repo = Util.fixEmptyAndTrim(repo);
 	}
 
 	@DataBoundSetter
-	public void setCredentialsId(@CheckForNull final String credentialsId) {
-		this.credentialsId = Util.fixEmpty(credentialsId);
+	public void setCredentialId(@CheckForNull final String credentialId) {
+		this.credentialId = Util.fixEmptyAndTrim(credentialId);
 	}
 
 	@Extension
@@ -319,7 +327,7 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 		}
 
 		public ListBoxModel doFillRepoItems(@AncestorInPath Item item, @QueryParameter String uri,
-				@QueryParameter String repo, @QueryParameter String credentialsId) {
+				@QueryParameter String repo, @QueryParameter String credentialId) {
 			repo = StringUtils.trimToNull(repo);
 
 			final ListBoxModel dropdown = new ListBoxModel();
@@ -344,11 +352,11 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 			final HttpClient client = ProxyConfiguration.newHttpClient();
 			final HttpRequest.Builder requestBuilder = ProxyConfiguration.newHttpRequestBuilder(repoURI)
 					.GET();
-			if ((credentialsId = StringUtils.trimToNull(credentialsId)) != null) {
+			if ((credentialId = StringUtils.trimToNull(credentialId)) != null) {
 				final StandardUsernamePasswordCredentials cred = CredentialsMatchers.firstOrNull( //
 						CredentialsProvider.lookupCredentialsInItem( //
 								StandardUsernamePasswordCredentials.class, item, null),
-						CredentialsMatchers.withId(credentialsId));
+						CredentialsMatchers.withId(credentialId));
 				if (cred != null) {
 					requestBuilder.setHeader("Authorization",
 							"Basic " + Base64.encodeBase64String((cred.getUsername() + ":" + cred.getPassword()
@@ -402,7 +410,7 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 			return node.asText();
 		}
 
-		public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item item) {
+		public ListBoxModel doFillCredentialIdItems(@AncestorInPath Item item) {
 			if (item == null && !Jenkins.get()
 					.hasPermission(Jenkins.ADMINISTER) || item != null && !item.hasPermission(Item.EXTENDED_READ)) {
 				return new StandardListBoxModel();
@@ -413,7 +421,7 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 
 		@Restricted(NoExternalUse.class)
 		@POST
-		public FormValidation doCheckCredentialsId(@AncestorInPath Item item, @QueryParameter String value,
+		public FormValidation doCheckCredentialId(@AncestorInPath Item item, @QueryParameter String value,
 				@QueryParameter String uri) {
 
 			final URIBuilder b = getUriBuilder(uri);
@@ -451,6 +459,21 @@ public class SonatypeNexusRepository extends ArtifactRepository {
 			if (response != null && response.statusCode() == 401)
 				return FormValidation.warning("Credentials unauthorized!");
 			return FormValidation.ok();
+		}
+	}
+
+	public static boolean isSupported(final ArtifactRepository repository) {
+		return repository instanceof SonatypeNexusRepository;
+	}
+
+	@Extension
+	public static class TypeProvider implements ArtifactRepositoryTypeProvider {
+
+		@Override
+		public Set<String> getProviderTypes(final ArtifactRepository repository) {
+			if (SonatypeNexusRepository.isSupported(repository))
+				return Set.of("ST:Nexus-API");
+			return Set.of();
 		}
 	}
 
