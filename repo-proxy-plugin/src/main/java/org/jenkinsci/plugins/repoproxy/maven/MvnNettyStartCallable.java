@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.jenkinsci.plugins.artifact.lifecycle.maven.config.Maven2Repository;
 import org.jenkinsci.plugins.repoproxy.config.BomSourceCache;
 import org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyRegistry;
@@ -56,16 +57,18 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 	protected final Map<String, MvnProxyConfig> instanceConfigs;
 	protected final Map<UUID, BomSourceCache> bomCacheMap;
+	protected final Map<UUID, Maven2Repository> repoMap;
 	protected final Map<String, IdCredentials> credentialMap;
 	protected final Set<InetAddress> addressSet;
 	protected final int port;
 
 	public MvnNettyStartCallable(final String flowNodeId, final Map<String, MvnProxyConfig> instanceConfigs,
-			final Map<UUID, BomSourceCache> bomCacheMap, final Map<String, IdCredentials> credentialMap,
-			final Set<InetAddress> addressSet, final int port) {
+			final Map<UUID, BomSourceCache> bomCacheMap, final Map<UUID, Maven2Repository> repoMap,
+			final Map<String, IdCredentials> credentialMap, final Set<InetAddress> addressSet, final int port) {
 		super(flowNodeId);
 		this.instanceConfigs = instanceConfigs;
 		this.bomCacheMap = bomCacheMap;
+		this.repoMap = repoMap;
 		this.credentialMap = credentialMap;
 		this.addressSet = addressSet;
 		this.port = port;
@@ -139,7 +142,7 @@ public class MvnNettyStartCallable extends AgentNettyStartCallable {
 
 			final Path repoPath = cachePath.resolve(entry.getKey());
 			instance.sources()
-					.putAll(config.buildSourceMap(repoPath, bomCacheMap, this.credentialMap, data -> {
+					.putAll(config.buildSourceMap(repoPath, bomCacheMap, this.repoMap, this.credentialMap, data -> {
 						if (data instanceof ProxyCallbackData)
 							callback.accept(data);
 						else

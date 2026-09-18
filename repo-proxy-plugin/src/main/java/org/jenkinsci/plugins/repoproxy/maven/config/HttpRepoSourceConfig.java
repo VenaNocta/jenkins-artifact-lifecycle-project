@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.GlobalRepositoryIndex;
 import org.jenkinsci.plugins.artifact.lifecycle.maven.config.Maven2Repository;
 import org.kohsuke.accmod.Restricted;
@@ -33,20 +34,17 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
 import com.cloudbees.plugins.credentials.common.IdCredentials;
-import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.Item;
-import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.ListBoxModel.Option;
-import jenkins.model.Jenkins;
 import net.runeduniverse.lib.repo.maven.client.http.HttpSource;
 import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
+import net.runeduniverse.lib.utils.common.URIBuilder;
 
 public class HttpRepoSourceConfig extends RepoSourceConfig {
 
@@ -54,9 +52,6 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 
 	protected int maxRedirects;
 	protected int maxRetries;
-	@CheckForNull
-	protected String credentialsId;
-	protected UUID repoId;
 
 	@DataBoundConstructor
 	public HttpRepoSourceConfig(final String key) {
@@ -72,21 +67,12 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 	}
 
 	@Override
-	@CheckForNull
-	public UUID getRepoId() {
-		return this.repoId;
-	}
-
-	@CheckForNull
-	public String getCredentialsId() {
-		return this.credentialsId;
-	}
-
-	@Override
 	public Set<String> getCredentialIds() {
-		if (this.credentialsId == null)
+		final Maven2Repository repo = getRepo();
+		final String credId = repo.getCredentialId();
+		if (repo == null || credId == null)
 			return super.getCredentialIds();
-		return Set.of(getCredentialsId());
+		return Set.of(credId);
 	}
 
 	@DataBoundSetter
@@ -99,31 +85,17 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 		this.maxRetries = maxRetries;
 	}
 
-	public void setRepoIdValue(final UUID value) {
-		this.repoId = value;
-	}
-
-	@DataBoundSetter
-	public void setRepoId(String value) {
-		try {
-			value = Util.fixEmptyAndTrim(value);
-			this.repoId = value == null ? null : UUID.fromString(value);
-		} catch (IllegalArgumentException e) {
-			this.repoId = null;
-		}
-	}
-
-	@DataBoundSetter
-	public void setCredentialsId(final String credentialsId) {
-		this.credentialsId = Util.fixEmptyAndTrim(credentialsId);
-	}
-
 	@Override
-	public RepositorySource buildSource(final Path repoPath, final Map<String, IdCredentials> credentialMap) {
-		final HttpSource source = new HttpSource(this.key, this.uri, repoPath.resolve(this.key), this.maxRedirects,
-				this.maxRetries);
+	public RepositorySource buildSource(final Path repoPath, final Map<UUID, Maven2Repository> repoMap,
+			final Map<String, IdCredentials> credentialMap) {
+		// TODO check for null repo, uri and credId!
+		final Maven2Repository repo = repoMap.get(this.repoId);
+		if (Descriptor.isSupported(repo))
+			return null;
+		final HttpSource source = new HttpSource(this.key, repo.getMaven2Uri(), repoPath.resolve(this.key),
+				this.maxRedirects, this.maxRetries);
 		// set repo credentials
-		if (credentialMap.get(this.credentialsId) instanceof StandardUsernamePasswordCredentials cred) {
+		if (credentialMap.get(repo.getCredentialId()) instanceof StandardUsernamePasswordCredentials cred) {
 			source.setRepoCredentials(new DefaultBasicRepoCredentials(cred));
 		}
 		return source;
@@ -188,7 +160,7 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 
 		public ListBoxModel allValuesAsListBox(final Item item) {
 			return GlobalRepositoryIndex.allValuesAsListBox(GlobalRepositoryIndex.get()
-					.getRepos(Maven2Repository::isSupported));
+					.getRepos(Descriptor::isSupported));
 		}
 
 		public ListBoxModel doFillRepoIdItems(@AncestorInPath final Item item, @QueryParameter final String repoId) {
@@ -210,13 +182,10 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 			return model;
 		}
 
-		public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item item) {
-			if (item == null && !Jenkins.get()
-					.hasPermission(Jenkins.ADMINISTER) || item != null && !item.hasPermission(Item.EXTENDED_READ)) {
-				return new StandardListBoxModel();
-			}
-			return new StandardListBoxModel().includeEmptyValue()
-					.includeAs(ACL.SYSTEM2, item, StandardUsernamePasswordCredentials.class);
+		public static boolean isSupported(final ArtifactRepository repository) {
+			if (repository instanceof Maven2Repository repo)
+				return repo.hasMaven2Support() && new URIBuilder(repo.getMaven2Uri()).hasScheme(Descriptor.PROTOCOLS);
+			return false;
 		}
 	}
 }

@@ -2,11 +2,7 @@
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
 	xmlns:l="/lib/layout" xmlns:st="jelly:stapler"
 	xmlns:c="/lib/credentials">
-	<st:include page="key-and-uri" class="${descriptor.clazz}" />
-	<f:entry title="Repo">
-		<f:select field="repoId" default="---"
-			style="font-family: monospace;" />
-	</f:entry>
+	<st:include page="key-and-repo" class="${descriptor.clazz}" />
 	<f:entry title="max Redirect Count" field="maxRedirects">
 		<f:number min="0" step="1"
 			default="${descriptor.defaultMaxRedirects()}" />
@@ -14,8 +10,5 @@
 	<f:entry title="max Retry Count" field="maxRetries">
 		<f:number min="0" step="1"
 			default="${descriptor.defaultMaxRetries()}" />
-	</f:entry>
-	<f:entry title="${%Download Credentials}" field="credentialsId">
-		<c:select />
 	</f:entry>
 </j:jelly>

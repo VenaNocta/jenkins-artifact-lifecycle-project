@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
 import org.jenkinsci.plugins.repoproxy.config.BomSourceCache;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -35,11 +36,14 @@ public interface ProxyBootstrapper {
 
 	public Set<UUID> getRequiredBoms();
 
+	public Set<UUID> getRequiredRepos();
+
 	public Set<String> getRequiredCredentials();
 
 	public ControllerToAgentFileCallable<UUID> serverStartCallable(NetLink link, //
 			StepContext context, Map<String, String> proxyEnv, //
-			Map<UUID, BomSourceCache> bomCacheMap, Map<String, IdCredentials> credentialMap, //
+			Map<UUID, BomSourceCache> bomCacheMap, Map<UUID, ArtifactRepository> repoMap,
+			Map<String, IdCredentials> credentialMap, //
 			TaskListener listener) throws IOException, InterruptedException;
 
 	public void receiveCallback(String refKey, Serializable data);

@@ -16,23 +16,24 @@
 package org.jenkinsci.plugins.repoproxy.maven.config;
 
 import java.io.Serializable;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
+import org.jenkinsci.plugins.artifact.lifecycle.config.GlobalRepositoryIndex;
+import org.jenkinsci.plugins.artifact.lifecycle.maven.config.Maven2Repository;
 import org.kohsuke.stapler.DataBoundSetter;
+
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionPoint;
+import hudson.Util;
 import hudson.model.Describable;
 import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
-import net.runeduniverse.lib.utils.common.StringUtils;
-import net.runeduniverse.lib.utils.common.URIBuilder;
 
 public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>, Serializable, ExtensionPoint {
 
@@ -40,7 +41,7 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 
 	protected String key;
 	@CheckForNull
-	protected URI uri;
+	protected UUID repoId;
 
 	protected RepoSourceConfig(@NonNull final String key) {
 		setKey(key);
@@ -50,14 +51,21 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 		return this.key;
 	}
 
-	protected abstract UUID getRepoId();
-
-	public String getUri() {
-		return this.uri == null ? null : this.uri.toString();
+	@CheckForNull
+	public UUID getRepoId() {
+		return this.repoId;
 	}
 
-	public URI getUri2() {
-		return this.uri;
+	public Maven2Repository getRepo() {
+		final ArtifactRepository repository = GlobalRepositoryIndex.get()
+				.getRepoById(this.repoId);
+		if (Maven2Repository.isSupported(repository))
+			return (Maven2Repository) repository;
+		return null;
+	}
+
+	public Set<UUID> getRepoIds() {
+		return Set.of(this.repoId);
 	}
 
 	public Set<String> getCredentialIds() {
@@ -65,40 +73,27 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 	}
 
 	public void setKey(@NonNull String key) {
-		if ((key = StringUtils.trimToNull(key)) == null)
+		if ((key = Util.fixEmptyAndTrim(key)) == null)
 			key = getDescriptor().randomKey();
 		this.key = key;
 	}
 
-	protected void setUri(final URIBuilder builder) {
-		if (builder == null) {
-			this.uri = null;
-			return;
-		}
-		final RepoSourceConfigDescriptor descriptor = getDescriptor();
-		builder.fixScheme(descriptor.defaultProtocol())
-				.applyHostFix();
-		this.uri = builder.hasScheme(descriptor.protocols()) ? builder.toURI(null) : null;
-	}
-
-	public void setUri(final URI uri) {
-		if (uri == null)
-			this.uri = null;
-		else
-			setUri(new URIBuilder(uri));
+	public void setRepoIdValue(final UUID value) {
+		this.repoId = value;
 	}
 
 	@DataBoundSetter
-	public void setUri(final String uri) {
-		URIBuilder builder = null;
+	public void setRepoId(String value) {
 		try {
-			builder = URIBuilder.fromString(uri);
-		} catch (URISyntaxException ignored) {
+			value = Util.fixEmptyAndTrim(value);
+			this.repoId = value == null ? null : UUID.fromString(value);
+		} catch (IllegalArgumentException e) {
+			this.repoId = null;
 		}
-		setUri(builder);
 	}
 
-	public abstract RepositorySource buildSource(Path repoPath, Map<String, IdCredentials> credentialMap);
+	public abstract RepositorySource buildSource(Path repoPath, Map<UUID, Maven2Repository> repoMap,
+			Map<String, IdCredentials> credentialMap);
 
 	@Override
 	public RepoSourceConfigDescriptor getDescriptor() {

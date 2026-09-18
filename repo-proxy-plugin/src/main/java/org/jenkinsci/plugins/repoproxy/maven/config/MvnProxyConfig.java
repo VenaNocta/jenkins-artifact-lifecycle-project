@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.artifact.lifecycle.maven.config.Maven2Repository;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
 import org.jenkinsci.plugins.repoproxy.maven.ArtifactRequestTracker;
@@ -122,6 +123,17 @@ public class MvnProxyConfig extends ProxyConfig {
 		return ids;
 	}
 
+	public Set<UUID> getRequiredRepos() {
+		final Set<UUID> repoIds = new LinkedHashSet<>();
+		this.sourceMap.values()
+				.stream()
+				.filter(Objects::nonNull)
+				.map(RepoSourceConfig::getRepoIds)
+				.filter(Objects::nonNull)
+				.forEach(repoIds::addAll);
+		return repoIds;
+	}
+
 	public Set<String> getRequiredCredentials() {
 		final Set<String> credIds = new LinkedHashSet<>();
 		this.sourceMap.values()
@@ -134,8 +146,8 @@ public class MvnProxyConfig extends ProxyConfig {
 	}
 
 	public Map<String, RepositorySource> buildSourceMap(final Path repoPath, final Map<UUID, Path> bomCacheMap,
-			final Map<String, IdCredentials> credentialMap, final Consumer<Serializable> callback)
-			throws IOException, InterruptedException {
+			final Map<UUID, Maven2Repository> repoMap, final Map<String, IdCredentials> credentialMap,
+			final Consumer<Serializable> callback) throws IOException, InterruptedException {
 		final List<MetadataValidator> metadataValidators = new LinkedList<>();
 		final LinkedList<ArtifactValidator> artifactValidators = new LinkedList<>();
 		// aggregate validators
@@ -156,7 +168,9 @@ public class MvnProxyConfig extends ProxyConfig {
 		return this.sourceMap.values()
 				.stream()
 				.collect(Collectors.toMap(RepoSourceConfig::getKey, c -> {
-					final RepositorySource source = c.buildSource(repoPath, credentialMap);
+					final RepositorySource source = c.buildSource(repoPath, repoMap, credentialMap);
+					if (source == null)
+						return null;
 					metadataValidators.stream()
 							.forEachOrdered(source::addLastValidator);
 					artifactValidators.stream()

@@ -30,6 +30,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
+import org.jenkinsci.plugins.artifact.lifecycle.maven.config.Maven2Repository;
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
 import org.jenkinsci.plugins.isolationctx.config.IpUtils;
 import org.jenkinsci.plugins.isolationctx.dto.TrafficMap;
@@ -96,6 +98,16 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 	}
 
 	@Override
+	public Set<UUID> getRequiredRepos() {
+		final Set<UUID> ids = new LinkedHashSet<>();
+		this.instConfigs.values()
+				.stream()
+				.map(MvnProxyConfig::getRequiredRepos)
+				.forEach(ids::addAll);
+		return ids;
+	}
+
+	@Override
 	public Set<String> getRequiredCredentials() {
 		final Set<String> creds = new LinkedHashSet<>();
 		this.instConfigs.values()
@@ -108,17 +120,21 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 	@Override
 	public ControllerToAgentFileCallable<UUID> serverStartCallable(final NetLink link, //
 			final StepContext context, final Map<String, String> proxyEnv, final Map<UUID, BomSourceCache> bomCacheMap,
-			final Map<String, IdCredentials> credentialMap, final TaskListener listener)
-			throws IOException, InterruptedException {
+			final Map<UUID, ArtifactRepository> repoMap, final Map<String, IdCredentials> credentialMap,
+			final TaskListener listener) throws IOException, InterruptedException {
 
 		final Set<InetAddress> addressSet = this.ipSet.stream()
 				.map(ip -> ip.toInetAddress(null))
 				.filter(Objects::nonNull)
 				.collect(Collectors.toSet());
+		final Map<UUID, Maven2Repository> repoMap2 = repoMap.values()
+				.stream()
+				.filter(Maven2Repository::isSupported)
+				.collect(Collectors.toMap(ArtifactRepository::getUuid, r -> (Maven2Repository) r));
 
 		final FlowNode node = context.get(FlowNode.class);
 		final MvnNettyStartCallable callable = new MvnNettyStartCallable(//
-				node.getId(), this.instConfigs, bomCacheMap, credentialMap, addressSet, this.port);
+				node.getId(), this.instConfigs, bomCacheMap, repoMap2, credentialMap, addressSet, this.port);
 
 		updateEnv(this.instConfigs.keySet(), this.ipSet, this.port, proxyEnv, "MVN");
 

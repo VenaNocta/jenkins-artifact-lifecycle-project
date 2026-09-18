@@ -34,7 +34,7 @@ public interface Maven2Repository extends ArtifactRepository {
 
 	// some implementations support multiple types!
 	public default boolean hasMaven2Support() {
-		return true;
+		return getMaven2Uri() != null;
 	}
 
 	public static boolean isSupported(final ArtifactRepository repository) {

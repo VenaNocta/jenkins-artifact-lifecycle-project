@@ -29,6 +29,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
+import org.jenkinsci.plugins.artifact.lifecycle.config.GlobalRepositoryIndex;
 import org.jenkinsci.plugins.isolationctx.IsolationContext;
 import org.jenkinsci.plugins.isolationctx.WorkflowUtils;
 import org.jenkinsci.plugins.isolationctx.IsolationContext.NetLink;
@@ -187,6 +189,7 @@ public class RepoProxyStepExecution extends StepExecution {
 		final PrintStream log = listener.getLogger();
 
 		final Set<UUID> bomIds = new LinkedHashSet<>();
+		final Set<UUID> repoIds = new LinkedHashSet<>();
 		final Set<String> credIds = new LinkedHashSet<>();
 
 		for (Entry<String, ProxyConfig> entry : configs.entrySet()) {
@@ -206,17 +209,26 @@ public class RepoProxyStepExecution extends StepExecution {
 
 			this.activeProxies.put(refKey, bootstrapper);
 			bomIds.addAll(bootstrapper.getRequiredBoms());
+			repoIds.addAll(bootstrapper.getRequiredRepos());
 			credIds.addAll(bootstrapper.getRequiredCredentials());
 		}
 
 		// preload data
 		final Map<UUID, BomSourceCache> bomCacheMap = new LinkedHashMap<>();
+		final Map<UUID, ArtifactRepository> repoMap = new LinkedHashMap<>();
 		final Map<String, IdCredentials> credMap = new LinkedHashMap<>();
 		{
 			final Launcher nodeBasedLauncher = this.cacheBomFolder.createLauncher(listener);
 			for (UUID uuid : bomIds) {
 				bomCacheMap.put(uuid, BomSourceProvider.findSourceById(run, uuid)
 						.buildCache(run, nodeBasedLauncher, this.cacheBomFolder.child(uuid.toString()), listener));
+			}
+			for (UUID uuid : repoIds) {
+				final ArtifactRepository repo = GlobalRepositoryIndex.get()
+						.getRepoById(uuid);
+				if (repo == null)
+					continue;
+				repoMap.put(uuid, repo);
 			}
 			for (String credId : credIds) {
 				final IdCredentials cred = CredentialsProvider.findCredentialById(credId, IdCredentials.class, run);
@@ -235,7 +247,7 @@ public class RepoProxyStepExecution extends StepExecution {
 			} while (this.activeNettyHandleCacheRefMap.containsValue(cacheRef));
 			// create new cachePath for bootstrap in context and call it
 			final ControllerToAgentFileCallable<UUID> callable = //
-					bootstrap.serverStartCallable(link, context, proxyEnv, bomCacheMap, credMap, listener);
+					bootstrap.serverStartCallable(link, context, proxyEnv, bomCacheMap, repoMap, credMap, listener);
 			final FilePath dir = this.cacheFolder.child(cacheRef.toString());
 			dir.mkdirs();
 			this.activeNettyHandleCacheRefMap.put(dir.act(callable), cacheRef);
