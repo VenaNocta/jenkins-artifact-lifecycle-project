@@ -99,6 +99,10 @@
 		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>variant</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>structs</artifactId>
 		</dependency>
 		<dependency>

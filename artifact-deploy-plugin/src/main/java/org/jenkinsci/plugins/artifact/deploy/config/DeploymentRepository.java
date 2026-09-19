@@ -23,6 +23,7 @@ import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTypePro
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.Extension;
 
+// TODO bind to the existence of an Uploader!
 public interface DeploymentRepository extends ArtifactRepository {
 
 	@CheckForNull
@@ -44,6 +45,7 @@ public interface DeploymentRepository extends ArtifactRepository {
 
 		@Override
 		public Set<String> getProviderTypes(final ArtifactRepository repository) {
+			// TODO bind to the existence of an Uploader!
 			if (DeploymentRepository.isSupported(repository))
 				return Set.of("Deploy-Target");
 			return Set.of();

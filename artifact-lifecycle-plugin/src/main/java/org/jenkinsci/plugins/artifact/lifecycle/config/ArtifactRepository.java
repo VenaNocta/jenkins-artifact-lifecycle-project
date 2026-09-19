@@ -22,7 +22,11 @@ import hudson.model.Describable;
 
 public interface ArtifactRepository extends Describable<ArtifactRepository>, IdentifiedByUUID, Serializable {
 
-	public default ArtifactRepositoryAdapter adapter(final Set<Class<?>> types) {
+	public default ArtifactRepository self() {
+		return this;
+	}
+
+	public default ArtifactRepository adapter(final Set<Class<?>> types) {
 		return null;
 	}
 

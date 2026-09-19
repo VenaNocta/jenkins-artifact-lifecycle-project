@@ -42,7 +42,6 @@ import org.jenkinsci.plugins.artifact.lifecycle.config.AArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryDescriptor;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepositoryTypeProvider;
-import org.jenkinsci.plugins.artifact.lifecycle.maven.config.Maven2Repository;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.accmod.Restricted;
@@ -75,7 +74,7 @@ import hudson.util.ListBoxModel.Option;
 import jenkins.model.Jenkins;
 import net.runeduniverse.lib.utils.common.URIBuilder;
 
-public class SonatypeNexusRepository extends AArtifactRepository implements Maven2Repository, DeploymentRepository {
+public class SonatypeNexusRepository extends AArtifactRepository implements DeploymentRepository {
 
 	private static final long serialVersionUID = 1L;
 
@@ -106,17 +105,13 @@ public class SonatypeNexusRepository extends AArtifactRepository implements Mave
 		this.credentialId = Util.fixEmptyAndTrim(credentialId);
 	}
 
-	public URI getUri() {
-		return this.uri;
+	@Override
+	public ArtifactRepository adapter(final Set<Class<?>> types) {
+		return SonatypeNexusRepositoryAdapterFactory.buildProxy(this, types);
 	}
 
-	@Override
-	public URI getMaven2Uri() {
-		if (this.uri == null)
-			return null;
-		return new URIBuilder(this.uri)//
-				.appendPath("/repository/" + this.repo)
-				.toURI(null);
+	public URI getUri() {
+		return this.uri;
 	}
 
 	public URI getSonatypeNexusApiUri() {
@@ -128,6 +123,10 @@ public class SonatypeNexusRepository extends AArtifactRepository implements Mave
 
 	public String getRepo() {
 		return this.repo;
+	}
+
+	public String getFormat() {
+		return "maven2";
 	}
 
 	public String getCredentialId() {

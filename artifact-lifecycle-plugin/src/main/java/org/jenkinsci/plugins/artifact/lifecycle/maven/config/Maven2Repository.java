@@ -48,7 +48,10 @@ public interface Maven2Repository extends ArtifactRepository {
 
 		@Override
 		public Set<String> getProviderTypes(final ArtifactRepository repository) {
-			if (Maven2Repository.isSupported(repository))
+			if (repository == null)
+				return Set.of();
+			if (Maven2Repository.isSupported(repository)
+					|| Maven2Repository.isSupported(repository.adapter(Set.of(Maven2Repository.class))))
 				return Set.of("Maven2");
 			return Set.of();
 		}
