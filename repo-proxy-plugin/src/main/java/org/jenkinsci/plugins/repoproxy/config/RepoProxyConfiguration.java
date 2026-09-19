@@ -26,6 +26,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
+import org.jenkinsci.plugins.artifact.lifecycle.config.GlobalArtifactLifecycleConfigLink.ArtifactLifecycleCategory;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest2;
 
@@ -35,6 +36,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Run;
 import jenkins.model.GlobalConfiguration;
+import jenkins.model.GlobalConfigurationCategory;
 import net.sf.json.JSONObject;
 
 @Extension
@@ -107,6 +109,11 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 		if (!uuid.equals(config.uuid))
 			return new FormException("UUID mismatch after binding", "configs");
 		return null;
+	}
+
+	@Override
+	public GlobalConfigurationCategory getCategory() {
+		return GlobalConfigurationCategory.get(ArtifactLifecycleCategory.class);
 	}
 
 	@NonNull

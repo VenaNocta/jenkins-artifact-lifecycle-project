@@ -160,7 +160,7 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 
 		public ListBoxModel allValuesAsListBox(final Item item) {
 			return GlobalRepositoryIndex.allValuesAsListBox(GlobalRepositoryIndex.get()
-					.getRepos(Descriptor::isSupported));
+					.getRepos(Descriptor::isSupported, Set.of(Maven2Repository.class)));
 		}
 
 		public ListBoxModel doFillRepoIdItems(@AncestorInPath final Item item, @QueryParameter final String repoId) {

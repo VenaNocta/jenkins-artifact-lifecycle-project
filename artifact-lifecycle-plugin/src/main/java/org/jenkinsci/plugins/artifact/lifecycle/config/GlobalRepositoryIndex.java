@@ -22,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -80,9 +81,15 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 	}
 
 	public Map<UUID, ArtifactRepository> getRepoMap(final Predicate<ArtifactRepository> check) {
+		return getRepoMap(check, null);
+	}
+
+	public Map<UUID, ArtifactRepository> getRepoMap(final Predicate<ArtifactRepository> check,
+			final Set<Class<?>> types) {
 		final Map<UUID, ArtifactRepository> repoMap = new LinkedHashMap<>();
 		this.repoMap.values()
 				.parallelStream()
+				.map(adaptToTypes(types))
 				.filter(Objects::nonNull)
 				.filter(check::test)
 				.forEachOrdered(v -> repoMap.put(v.getUuid(), v));
@@ -90,13 +97,41 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 	}
 
 	public List<ArtifactRepository> getRepos(final Predicate<ArtifactRepository> check) {
+		return getRepos(check, null);
+	}
+
+	public List<ArtifactRepository> getRepos(final Predicate<ArtifactRepository> check, final Set<Class<?>> types) {
 		final List<ArtifactRepository> repoLst = new LinkedList<>();
 		this.repoMap.values()
 				.parallelStream()
+				.map(adaptToTypes(types))
 				.filter(Objects::nonNull)
 				.filter(check::test)
 				.forEachOrdered(repoLst::add);
 		return repoLst;
+	}
+
+	public static Function<ArtifactRepository, ArtifactRepository> adaptToTypes(final Set<Class<?>> types) {
+		if (types == null || types.isEmpty())
+			return Function.identity();
+		return repo -> {
+			// check the repo
+			boolean ok = true;
+			for (Class<?> type : types)
+				ok &= type.isInstance(repo);
+			if (ok)
+				return repo;
+			// get the adapter
+			if ((repo = repo.adapter(types)) == null)
+				return null;
+			// check the adapter
+			ok = true;
+			for (Class<?> type : types)
+				ok &= type.isInstance(repo);
+			if (ok)
+				return repo;
+			return null;
+		};
 	}
 
 	// used by jelly & JCasC

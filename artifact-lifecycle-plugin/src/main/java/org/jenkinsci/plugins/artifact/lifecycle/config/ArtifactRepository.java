@@ -16,10 +16,15 @@
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.io.Serializable;
+import java.util.Set;
 
 import hudson.model.Describable;
 
 public interface ArtifactRepository extends Describable<ArtifactRepository>, IdentifiedByUUID, Serializable {
+
+	public default ArtifactRepositoryAdapter adapter(final Set<Class<?>> types) {
+		return null;
+	}
 
 	public String getName();
 
