@@ -26,12 +26,12 @@
 		<version>1.0.0</version>
 	</parent>
 
-	<groupId>org.jenkins-ci.plugins.pgpcredentials</groupId>
-	<artifactId>pgpcredentials-plugin</artifactId>
+	<groupId>org.jenkins-ci.plugins</groupId>
+	<artifactId>pgp-credentials</artifactId>
 	<version>1.0.0</version>
 	<packaging>hpi</packaging>
 
-	<name>Jenkins PGP-Credentials Plugin</name>
+	<name>Jenkins PGP-Credentials</name>
 	<url>https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
 	<inceptionYear>2025</inceptionYear>
 
@@ -40,8 +40,7 @@
 		<root-dir>..</root-dir>
 		<no-test-jar>false</no-test-jar>
 		<!-- VERSIONS -->
-		<sources-version>0</sources-version>
-		<api-version>2</api-version>
+		<sources-version>1.0.0</sources-version>
 	</properties>
 
 	<licenses>
@@ -189,7 +188,7 @@
 			<dependency>
 				<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
 				<artifactId>artifact-signing-sbom</artifactId>
-				<version>${major-version}.${minor-version}.${sources-version}</version>
+				<version>${sources-version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>

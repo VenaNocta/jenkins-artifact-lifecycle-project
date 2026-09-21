@@ -17,8 +17,9 @@ package org.jenkinsci.plugins.repoproxy.config;
 
 import java.util.logging.Logger;
 
-import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactLifecycleConfigLink;
-import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactLifecycleGlobalConfigPage;
+import org.jenkinsci.plugins.artifact.lifecycle.ui.ArtifactLifecycleConfigLink;
+import org.jenkinsci.plugins.artifact.lifecycle.ui.ArtifactLifecycleGlobalConfigPage;
+
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Descriptor;

@@ -26,7 +26,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
-import org.jenkinsci.plugins.artifact.lifecycle.config.GlobalArtifactLifecycleConfigLink.ArtifactLifecycleCategory;
+import org.jenkinsci.plugins.artifact.lifecycle.ui.GlobalArtifactLifecycleConfigLink.ArtifactLifecycleCategory;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest2;
 

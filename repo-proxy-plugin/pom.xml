@@ -31,7 +31,7 @@
 	<version>1.0.0</version>
 	<packaging>hpi</packaging>
 
-	<name>Jenkins Repo-Proxy Plugin</name>
+	<name>Jenkins Repo-Proxy</name>
 	<description>Provides RepoProxy StepContext</description>
 	<url>https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
 	<inceptionYear>2026</inceptionYear>
@@ -41,7 +41,7 @@
 		<root-dir>..</root-dir>
 		<!-- VERSIONS -->
 		<sbom>0</sbom>
-		<pgpcredentials-version>1.0.0</pgpcredentials-version>
+		<pgp-credentials-version>1.0.0</pgp-credentials-version>
 		<isolation-context-version>1.0.0</isolation-context-version>
 		<maven-repo-bom-version>0.1.0</maven-repo-bom-version>
 		<netty-version>4.2.10.Final</netty-version>
@@ -97,19 +97,25 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.jenkins-ci.plugins.pgpcredentials</groupId>
-			<artifactId>pgpcredentials-plugin</artifactId>
-			<version>${pgpcredentials-version}</version>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>artifact-lifecycle</artifactId>
+			<version>${lifecycle-version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>artifact-lifecycle-maven-api</artifactId>
+			<version>${lifecycle-version}</version>
+			<!-- <optional>true</optional> -->
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>pgp-credentials</artifactId>
+			<version>${pgp-credentials-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins.context</groupId>
 			<artifactId>isolation-context-plugin</artifactId>
 			<version>${isolation-context-version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
-			<artifactId>artifact-lifecycle-plugin</artifactId>
-			<version>${lifecycle-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
