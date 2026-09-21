@@ -18,7 +18,6 @@ package org.jenkinsci.plugins.artifact.signing.steps;
 import java.io.Serializable;
 import java.util.Set;
 
-import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -30,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 
 import hudson.EnvVars;
 import hudson.Extension;
+import hudson.Util;
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -70,39 +70,36 @@ public class SignArtifactStep extends Step implements Serializable {
 	}
 
 	public String getSignaturePrefix() {
-		if (StringUtils.isBlank(this.prefix))
-			return "";
 		return this.prefix;
 	}
 
 	public String getSignatureSuffix() {
-		if (StringUtils.isBlank(this.suffix))
-			return "asc";
 		return this.suffix;
 	}
 
 	@DataBoundSetter
-	public void setCredentialId(String credentialId) {
-		this.credentialId = credentialId;
+	// TODO -> replace with signing engine ID
+	public void setCredentialId(final String credentialId) {
+		this.credentialId = Util.fixEmptyAndTrim(credentialId);
 	}
 
 	@DataBoundSetter
-	public void setSignaturePrefix(String prefix) {
-		this.prefix = prefix;
+	public void setSignaturePrefix(final String prefix) {
+		this.prefix = Util.fixEmptyAndTrim(prefix);
 	}
 
 	@DataBoundSetter
-	public void setSignatureSuffix(String suffix) {
-		this.suffix = suffix;
+	public void setSignatureSuffix(final String suffix) {
+		this.suffix = Util.fixEmptyAndTrim(suffix);
 	}
 
 	@DataBoundSetter
-	public void setFingerprint(boolean fingerprint) {
+	public void setFingerprint(final boolean fingerprint) {
 		this.fingerprint = fingerprint;
 	}
 
 	@Override
-	public StepExecution start(StepContext context) throws Exception {
+	public StepExecution start(final StepContext context) throws Exception {
 		return new SignArtifactStepExecution(context, this);
 	}
 
