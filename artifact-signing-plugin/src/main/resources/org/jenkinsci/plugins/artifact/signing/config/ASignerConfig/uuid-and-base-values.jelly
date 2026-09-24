@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+	<j:invokeStatic var="nameTitle"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="ASignerConfig_NameTitle" />
+	<j:invokeStatic var="descriptionTitle"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="ASignerConfig_DescriptionTitle" />
+	<!-- page -->
+	<input type="hidden" name="uuid"
+		value="${instance == null ? null : instance.uuid}" />
+	<f:entry title="${%ID}">
+		<div style="color:#888">
+			${instance == null ? "???" : instance.uuid}
+		</div>
+	</f:entry>
+	<f:entry title="${nameTitle}" field="name">
+		<f:textbox />
+	</f:entry>
+	<f:entry title="${descriptionTitle}" field="description">
+		<f:textbox />
+	</f:entry>
+</j:jelly>

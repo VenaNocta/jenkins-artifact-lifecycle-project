@@ -38,6 +38,27 @@ public class IdentifierUtils {
 		return uuid == null ? UUID.randomUUID() : uuid;
 	}
 
+	public static UUID fixInvalidUUID(String uuid) {
+		if ((uuid = Util.fixEmptyAndTrim(uuid)) == null)
+			return null;
+		try {
+			return UUID.fromString(uuid);
+		} catch (IllegalArgumentException ignored) {
+			return null;
+		}
+	}
+
+	public static String nullInvalidUUID(String uuid) {
+		if ((uuid = Util.fixEmptyAndTrim(uuid)) == null)
+			return null;
+		try {
+			UUID.fromString(uuid);
+		} catch (IllegalArgumentException ignored) {
+			return null;
+		}
+		return uuid;
+	}
+
 	public static <T extends IdentifiedByUUID> void updateMapEntries(final Map<UUID, T> baseData,
 			final Map<UUID, T> data) {
 		// retain & update old "known" entries

@@ -41,6 +41,7 @@
 		<!-- VERSIONS -->
 		<sources-version>1.0.0</sources-version>
 		<pgp-credentials-version>1.0.0</pgp-credentials-version>
+		<lifecycle-version>1.0.0</lifecycle-version>
 	</properties>
 
 	<licenses>
@@ -85,6 +86,11 @@
 	</issueManagement>
 
 	<dependencies>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>artifact-lifecycle</artifactId>
+			<version>${lifecycle-version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.jenkins-ci.plugins</groupId>
 			<artifactId>variant</artifactId>

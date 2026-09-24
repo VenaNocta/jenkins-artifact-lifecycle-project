@@ -1,0 +1,14 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
+	xmlns:l="/lib/layout" xmlns:st="jelly:stapler"
+	xmlns:c="/lib/credentials">
+	<j:invokeStatic var="credentialIdTitle"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="EmbeddedPGPSignerConfig_CredentialIdTitle" />
+	<!-- page -->
+	<st:include page="uuid-and-base-values"
+		class="${descriptor.clazz}" />
+	<f:entry title="${credentialIdTitle}" field="credentialId">
+		<c:select />
+	</f:entry>
+</j:jelly>

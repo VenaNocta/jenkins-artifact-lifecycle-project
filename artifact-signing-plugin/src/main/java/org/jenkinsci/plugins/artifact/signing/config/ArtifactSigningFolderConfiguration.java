@@ -60,7 +60,6 @@ public class ArtifactSigningFolderConfiguration extends AbstractFolderProperty<A
 	}
 
 	@OptionalExtension(requirePlugins = { "cloudbees-folder" })
-	// @Extension(optional = true)
 	@Symbol("artifactSigningConfig")
 	public static class ArtifactSigningFolderConfigurationDescriptor extends AbstractFolderPropertyDescriptor {
 
@@ -83,7 +82,6 @@ public class ArtifactSigningFolderConfiguration extends AbstractFolderProperty<A
 	}
 
 	// should be asked first
-	// @Extension(optional = true, ordinal = 10000)
 	@OptionalExtension(requirePlugins = { "cloudbees-folder" }, ordinal = 10000)
 	public static class ArtifactSigningFolderConfigurationProvider implements ArtifactSigningConfigurationProvider {
 

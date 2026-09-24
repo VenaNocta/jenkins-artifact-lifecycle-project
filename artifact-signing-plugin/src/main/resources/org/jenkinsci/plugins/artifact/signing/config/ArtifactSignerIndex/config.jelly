@@ -1,0 +1,41 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
+	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+	<j:invokeStatic var="defaultSignerTitle"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="GlobalConfiguration_DefaultSigner" />
+	<j:invokeStatic var="signersTitle"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="GlobalConfiguration_SignersTitle" />
+	<j:invokeStatic var="advancedSectionTitle"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="GlobalConfiguration_AdvancedSection" />
+	<j:invokeStatic var="secureLabelExpressionTitle"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="GlobalConfiguration_SecureLabelExpression" />
+	<j:invokeStatic var="secureWorkspaceSuffixTitle"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="GlobalConfiguration_SecureWorkspaceSuffix" />
+	<!-- page -->
+	<f:entry title="${defaultSignerTitle}">
+		<f:select field="defaultSignerId" default=""
+			style="font-family: monospace;" />
+	</f:entry>
+	<!-- top of the page = optional section; to avoid long scrolling -->
+	<f:optionalBlock name="advanced"
+		title="${advancedSectionTitle}">
+		<f:entry title="${secureLabelExpressionTitle}"
+			field="secureLabelExpression">
+			<f:textbox />
+		</f:entry>
+		<f:entry title="${secureWorkspaceSuffixTitle}"
+			field="secureWorkspaceSuffix">
+			<f:textbox />
+		</f:entry>
+	</f:optionalBlock>
+	<!-- bottom of the page = signer configurations -->
+	<f:entry title="${signersTitle}">
+		<f:repeatableHeteroProperty field="signers"
+			hasHeader="true" />
+	</f:entry>
+</j:jelly>
