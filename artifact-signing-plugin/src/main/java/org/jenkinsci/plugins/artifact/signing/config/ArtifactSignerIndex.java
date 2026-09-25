@@ -21,9 +21,11 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifiedByUUID;
@@ -36,11 +38,18 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
 
+import com.google.inject.Inject;
+
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.Util;
 import hudson.model.Item;
+import hudson.model.ItemGroup;
+import hudson.model.Job;
+import hudson.model.Run;
 import hudson.util.ListBoxModel;
 import hudson.util.ListBoxModel.Option;
 import jenkins.model.GlobalConfiguration;
@@ -108,14 +117,42 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 		return this.signerMap.get(uuid);
 	}
 
-	public SignerConfig getSignerByName(final String name) {
-		if (name == null)
-			return null;
-		return this.signerMap.values()
+	public SignerConfig getSignerByName(@Nullable final Item item, @Nullable final String name) {
+		final Optional<UUID> selected = SignerNameResolver.all()
 				.stream()
-				.filter(s -> name.equals(s.getName()))
+				.map(resolver -> resolver.resolveName(item, name))
+				.findFirst()
+				.orElse(Optional.empty());
+		return selected.isEmpty() ? null : getSignerById(selected.get());
+	}
+
+	public SignerConfig getSignerByName(@Nullable final Run<?, ?> run, @Nullable final String name) {
+		if (run == null)
+			return null;
+		final String name0 = Util.fixEmptyAndTrim(name);
+		final ExtensionList<SignerNameResolver> resolvers = SignerNameResolver.all();
+		final Job<?, ?> job = run.getParent();
+
+		Optional<UUID> selected = resolvers.stream()
+				.map(resolver -> resolver.resolveName(job, name0))
 				.findFirst()
 				.orElse(null);
+		if (selected != null)
+			return selected.isEmpty() ? null : getSignerById(selected.get());
+
+		for (ItemGroup<?> itemGroup = job.getParent(); itemGroup != null;) {
+			if (itemGroup instanceof Item item) {
+				itemGroup = item.getParent();
+				selected = resolvers.stream()
+						.map(resolver -> resolver.resolveName(item, name0))
+						.findFirst()
+						.orElse(null);
+				if (selected != null)
+					return selected.isEmpty() ? null : getSignerById(selected.get());
+			} else
+				break;
+		}
+		return null;
 	}
 
 	public boolean containsSignerId(final UUID uuid) {
@@ -131,6 +168,12 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 	public List<SignerConfig> getSigners(final Item context) {
 		// TODO actually check the owner Item!
 		return new ArrayList<>(this.signerMap.values());
+	}
+
+	public Stream<SignerConfig> getSignersAsStream(final Item context) {
+		// TODO actually check the owner Item!
+		return this.signerMap.values()
+				.parallelStream();
 	}
 
 	public void setDefaultSignerIdValue(final UUID value) {
@@ -254,5 +297,23 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 				model.add(0, new Option(String.format("%s » ???", selectedId), selectedId));
 		}
 		return model;
+	}
+
+	// provides the global fallback values
+	@Extension(ordinal = -10000)
+	public static class GlobalSignerNameResolver implements SignerNameResolver {
+
+		@Inject
+		private ArtifactSignerIndex index;
+
+		@Override
+		public Optional<UUID> resolveName(@Nullable final Item item, @Nullable final String name) {
+			if (name == null)
+				return Optional.ofNullable(this.index.getDefaultSignerId());
+			return this.index.getSignersAsStream(item)
+					.filter(signer -> name.equals(signer.getName()))
+					.map(SignerConfig::getUuid)
+					.findFirst();
+		}
 	}
 }
