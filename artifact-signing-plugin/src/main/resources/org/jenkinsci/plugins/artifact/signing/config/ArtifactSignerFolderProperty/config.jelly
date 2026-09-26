@@ -1,0 +1,25 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
+	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+	<j:invokeStatic var="title"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="FolderProperty_DisplayName" />
+	<j:invokeStatic var="defaultSignerTitle"
+		className="org.jenkinsci.plugins.artifact.signing.config.Messages"
+		method="FolderProperty_DefaultSigner" />
+	<!-- page -->
+	<f:section title="${title}">
+		<f:entry title="Inherit upstream Signers Mappings"
+			field="inheritSigners">
+			<f:checkbox default="true" />
+		</f:entry>
+		<f:entry title="${defaultSignerTitle}">
+			<f:select field="defaultSignerId" default=""
+				style="font-family: monospace;" />
+		</f:entry>
+		<f:entry title="Name-Signer Mappings">
+			<f:repeatableProperty field="nameMappings2"
+				header="Name-Mapping" />
+		</f:entry>
+	</f:section>
+</j:jelly>

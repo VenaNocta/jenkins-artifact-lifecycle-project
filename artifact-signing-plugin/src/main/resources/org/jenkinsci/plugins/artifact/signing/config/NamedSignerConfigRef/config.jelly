@@ -1,0 +1,40 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
+	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+	<!-- page -->
+	<input type="hidden" name="locked"
+		value="${instance == null ? false : instance.locked}" />
+	<j:choose>
+		<j:when test="${instance == null || !instance.locked}">
+			<f:repeatableDeleteButton />
+			<div style="display:flex; gap:20px; width:100%;">
+				<div style="flex:0 0 auto; min-width:25%">
+					<f:entry field="name">
+						<f:textbox />
+					</f:entry>
+				</div>
+				<div style="flex:1; min-width:0;">
+					<f:entry>
+						<f:select field="uuid" default="---"
+							style="font-family: monospace;" />
+					</f:entry>
+				</div>
+			</div>
+		</j:when>
+		<j:otherwise>
+			<div style="display:flex; gap:20px; width:100%;">
+				<div style="flex:0 0 auto; min-width:25%">
+					<f:entry field="name">
+						<f:textbox disabled="true" />
+					</f:entry>
+				</div>
+				<div style="flex:1; min-width:0;">
+					<f:entry>
+						<f:select field="uuid" default="---" disabled="true"
+							style="font-family: monospace;" />
+					</f:entry>
+				</div>
+			</div>
+		</j:otherwise>
+	</j:choose>
+</j:jelly>

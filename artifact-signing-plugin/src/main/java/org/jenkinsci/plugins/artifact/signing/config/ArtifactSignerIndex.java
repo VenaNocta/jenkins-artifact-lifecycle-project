@@ -18,10 +18,13 @@ package org.jenkinsci.plugins.artifact.signing.config;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,8 +41,6 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
 
-import com.google.inject.Inject;
-
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
@@ -48,10 +49,7 @@ import hudson.ExtensionList;
 import hudson.Util;
 import hudson.model.Item;
 import hudson.model.ItemGroup;
-import hudson.model.Job;
-import hudson.model.Run;
 import hudson.util.ListBoxModel;
-import hudson.util.ListBoxModel.Option;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
 import net.jcip.annotations.GuardedBy;
@@ -122,25 +120,16 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 				.stream()
 				.map(resolver -> resolver.resolveName(item, name))
 				.findFirst()
-				.orElse(Optional.empty());
+				.orElse(_resolveName(item, name));
 		return selected.isEmpty() ? null : getSignerById(selected.get());
 	}
 
-	public SignerConfig getSignerByName(@Nullable final Run<?, ?> run, @Nullable final String name) {
-		if (run == null)
-			return null;
+	public SignerConfig findSignerByName(@Nullable ItemGroup<?> itemGroup, @Nullable final String name) {
 		final String name0 = Util.fixEmptyAndTrim(name);
 		final ExtensionList<SignerNameResolver> resolvers = SignerNameResolver.all();
-		final Job<?, ?> job = run.getParent();
 
-		Optional<UUID> selected = resolvers.stream()
-				.map(resolver -> resolver.resolveName(job, name0))
-				.findFirst()
-				.orElse(null);
-		if (selected != null)
-			return selected.isEmpty() ? null : getSignerById(selected.get());
-
-		for (ItemGroup<?> itemGroup = job.getParent(); itemGroup != null;) {
+		Optional<UUID> selected = null;
+		while (itemGroup != null) {
 			if (itemGroup instanceof Item item) {
 				itemGroup = item.getParent();
 				selected = resolvers.stream()
@@ -152,7 +141,40 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 			} else
 				break;
 		}
+		if (selected == null)
+			selected = _resolveName(itemGroup instanceof Item item ? item : null, name0);
 		return null;
+	}
+
+	public Optional<UUID> _resolveName(@Nullable final Item item, final String name) {
+		Objects.requireNonNull(item);
+		if (name == null)
+			return Optional.ofNullable(getDefaultSignerId());
+		return getSignersAsStream(item).filter(signer -> name.equals(signer.getName()))
+				.map(SignerConfig::getUuid)
+				.findFirst();
+	}
+
+	public Set<NamedSignerConfigRef> findAllSignerNameMappings(@Nullable ItemGroup<?> itemGroup) {
+		final List<SignerNameResolver> resolvers = SignerNameResolver.all();
+		final Set<NamedSignerConfigRef> set = new LinkedHashSet<>();
+
+		boolean inherit = true;
+		while (inherit) {
+			if (itemGroup instanceof Item item) {
+				itemGroup = item.getParent();
+				for (SignerNameResolver resolver : resolvers) {
+					inherit = inherit & resolver.collectNameMappings(item, set);
+				}
+			} else
+				break;
+		}
+		if (inherit) {
+			getSignersAsStream(itemGroup instanceof Item item ? item : null) //
+					.map(SignerConfig::toNamedRef)
+					.forEach(set::add);
+		}
+		return set;
 	}
 
 	public boolean containsSignerId(final UUID uuid) {
@@ -238,7 +260,7 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 
 	public ListBoxModel doFillDefaultSignerIdItems(@AncestorInPath final Item item,
 			@QueryParameter final String defaultSignerId) {
-		return allValuesAsListBox2(get().getSigners(item), defaultSignerId, true);
+		return IdentifierUtils.allValuesAsListBox(get().getSigners(item), defaultSignerId, SignerConfig::getName, true);
 	}
 
 	@NonNull
@@ -268,52 +290,5 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 			model.add(Util.fixEmptyAndTrim(repo.getName()), uuid.toString());
 		}
 		return model;
-	}
-
-	public static ListBoxModel allValuesAsListBox2(final List<SignerConfig> values, String selectedId,
-			final boolean withNone) {
-		selectedId = IdentifierUtils.nullInvalidUUID(selectedId);
-		final ListBoxModel model = new ListBoxModel();
-
-		boolean hasValue = false;
-		for (SignerConfig repo : values) {
-			final UUID uuid = repo.getUuid();
-			if (uuid == null)
-				continue;
-			final String val = uuid.toString();
-			if (selectedId != null && selectedId.equals(val))
-				hasValue = true;
-			String name = Util.fixEmptyAndTrim(repo.getName());
-			name = String.format("%s » %s", val, name == null ? "???" : name);
-			model.add(name, val);
-		}
-		if (withNone)
-			model.add(0, new Option("- none -", null));
-		if (!hasValue) {
-			if (selectedId == null) {
-				if (!withNone)
-					model.add(0, new Option("- none -", selectedId));
-			} else
-				model.add(0, new Option(String.format("%s » ???", selectedId), selectedId));
-		}
-		return model;
-	}
-
-	// provides the global fallback values
-	@Extension(ordinal = -10000)
-	public static class GlobalSignerNameResolver implements SignerNameResolver {
-
-		@Inject
-		private ArtifactSignerIndex index;
-
-		@Override
-		public Optional<UUID> resolveName(@Nullable final Item item, @Nullable final String name) {
-			if (name == null)
-				return Optional.ofNullable(this.index.getDefaultSignerId());
-			return this.index.getSignersAsStream(item)
-					.filter(signer -> name.equals(signer.getName()))
-					.map(SignerConfig::getUuid)
-					.findFirst();
-		}
 	}
 }

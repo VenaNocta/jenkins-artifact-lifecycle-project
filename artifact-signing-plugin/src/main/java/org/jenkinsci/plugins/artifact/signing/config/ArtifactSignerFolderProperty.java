@@ -15,24 +15,33 @@
  */
 package org.jenkinsci.plugins.artifact.signing.config;
 
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.jenkinsci.plugins.variant.OptionalExtension;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
 
 import com.cloudbees.hudson.plugins.folder.AbstractFolder;
 import com.cloudbees.hudson.plugins.folder.AbstractFolderProperty;
 import com.cloudbees.hudson.plugins.folder.AbstractFolderPropertyDescriptor;
-import com.google.inject.Inject;
-
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
-import hudson.Extension;
 import hudson.model.Item;
+import hudson.util.ListBoxModel;
 
 @OptionalExtension(requirePlugins = { "cloudbees-folder" })
 public class ArtifactSignerFolderProperty extends AbstractFolderProperty<AbstractFolder<?>> {
@@ -41,6 +50,7 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 
 	@CheckForNull
 	private UUID defaultSignerId;
+	private List<NamedSignerConfigRef> nameMappings = Collections.emptyList();
 
 	@DataBoundConstructor
 	public ArtifactSignerFolderProperty() {
@@ -54,6 +64,23 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 	@CheckForNull
 	public UUID getDefaultSignerId() {
 		return this.defaultSignerId;
+	}
+
+	// used by JCasC
+	public List<NamedSignerConfigRef> getNameMappings() {
+		final List<NamedSignerConfigRef> entries = new LinkedList<>(this.nameMappings);
+		entries.sort(NamedSignerConfigRef.COMPARE_BY_NAME);
+		return entries;
+	}
+
+	// used by jelly
+	public List<NamedSignerConfigRef> getNameMappings2() {
+		return ArtifactSignerIndex.get()
+				.findAllSignerNameMappings(getOwner())
+				.stream()
+				.filter(NamedSignerConfigRef.distinctByName())
+				// .sorted(NamedSignerConfigRef.COMPARE_BY_NAME)
+				.collect(Collectors.toList());
 	}
 
 	public void setDefaultSignerIdValue(final UUID value) {
@@ -70,26 +97,50 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 		this.defaultSignerId = IdentifierUtils.fixInvalidUUID(value);
 	}
 
+	// used by JCasC
+	@DataBoundSetter
+	public void setNameMappings(final List<NamedSignerConfigRef> nameMappings) {
+		this.nameMappings = nameMappings.stream()
+				.filter(Objects::nonNull)
+				.filter(NamedSignerConfigRef.distinctByName())
+				.collect(Collectors.toList());
+	}
+
+	// used by jelly
+	@DataBoundSetter
+	public void setNameMappings2(final List<NamedSignerConfigRef> nameMappings) {
+		this.nameMappings = nameMappings.stream()
+				.filter(Objects::nonNull)
+				.filter(NamedSignerConfigRef::isUnlocked)
+				.filter(NamedSignerConfigRef.distinctByName())
+				.collect(Collectors.toList());
+	}
+
 	@OptionalExtension(requirePlugins = { "cloudbees-folder" })
 	@Symbol("artifactSignerConfig")
-	public static class ArtifactSigningFolderConfigurationDescriptor extends AbstractFolderPropertyDescriptor {
+	public static class Descriptor extends AbstractFolderPropertyDescriptor {
 
 		@Override
 		public String getDisplayName() {
 			return Messages.FolderConfiguration_DisplayName();
 		}
 
+		@Restricted(NoExternalUse.class)
+		@POST
+		public ListBoxModel doFillDefaultSignerIdItems(@AncestorInPath final Item item,
+				@QueryParameter final String defaultSignerId, @QueryParameter boolean inheritSigners) {
+			return IdentifierUtils.allValuesAsListBox(ArtifactSignerIndex.get()
+					.getSigners(item), defaultSignerId, SignerConfig::getName, true,
+					inheritSigners ? "« inherited »" : IdentifierUtils.SELECT_NONE_TEXT);
+		}
 	}
 
-	// provides the global fallback values
-	@Extension(ordinal = -10000)
-	public static class GlobalSignerNameResolver implements SignerNameResolver {
-
-		@Inject
-		private ArtifactSignerIndex index;
+	// should be asked first
+	@OptionalExtension(requirePlugins = { "cloudbees-folder" }, ordinal = 10000)
+	public static class FolderSignerNameResolver implements SignerNameResolver {
 
 		@Override
-		public Optional<UUID> resolveName(@Nullable final Item item, @Nullable final String name) {
+		public Optional<UUID> resolveName(final Item item, @Nullable final String name) {
 			if (item instanceof AbstractFolder) {
 				final AbstractFolder<?> folder = (AbstractFolder<?>) item;
 				final ArtifactSignerFolderProperty cnf = folder.getProperties()
@@ -97,15 +148,35 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 				if (cnf == null)
 					return null;
 
-				if (name == null)
-					return Optional.ofNullable(cnf.getDefaultSignerId());
-				return this.index.getSignersAsStream(item)
-						.filter(signer -> name.equals(signer.getName()))
-						.map(SignerConfig::getUuid)
+				if (name == null) {
+					final UUID uuid = cnf.getDefaultSignerId();
+					if (cnf.getInheritSigners())
+						return uuid == null ? /* inherited = */ null : Optional.of(uuid);
+					return Optional.ofNullable(uuid);
+				}
+				return cnf.getNameMappings()
+						.stream()
+						.filter(ref -> name.equals(ref.getName()))
+						.map(NamedSignerConfigRef::getUuid)
 						.findFirst()
 						.or(() -> cnf.getInheritSigners() ? null : Optional.empty());
 			}
 			return null;
+		}
+
+		@Override
+		public boolean collectNameMappings(final Item item, final Set<NamedSignerConfigRef> nameMappings) {
+			Objects.requireNonNull(nameMappings);
+			if (item instanceof AbstractFolder) {
+				final AbstractFolder<?> folder = (AbstractFolder<?>) item;
+				final ArtifactSignerFolderProperty cnf = folder.getProperties()
+						.get(ArtifactSignerFolderProperty.class);
+				if (cnf == null)
+					return true;
+				nameMappings.addAll(cnf.getNameMappings());
+				return cnf.getInheritSigners();
+			}
+			return true;
 		}
 	}
 }

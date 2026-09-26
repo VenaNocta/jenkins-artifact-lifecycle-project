@@ -32,13 +32,12 @@ public class SignerConfigRef extends RefUUID {
 	}
 
 	@Extension
-	public static final class Descriptor extends DescriptorRefUUID {
+	public static class Descriptor extends DescriptorRefUUID {
 
 		@Override
 		public ListBoxModel allValuesAsListBox(final Item item) {
-			// TODO filter by owner Item
 			return ArtifactSignerIndex.allValuesAsListBox(ArtifactSignerIndex.get()
-					.getSigners());
+					.getSigners(item));
 		}
 	}
 }

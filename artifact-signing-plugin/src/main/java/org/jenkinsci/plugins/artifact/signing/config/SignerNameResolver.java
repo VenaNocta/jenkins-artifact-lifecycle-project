@@ -16,8 +16,11 @@
 package org.jenkinsci.plugins.artifact.signing.config;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.ExtensionList;
 import hudson.ExtensionPoint;
 import hudson.model.Item;
@@ -27,7 +30,10 @@ public interface SignerNameResolver extends ExtensionPoint {
 	// when result is null -> try next resolver
 	// when Optional is empty -> the name is not available / inheritance is
 	// disabled!
-	public Optional<UUID> resolveName(Item item, String name);
+	public Optional<UUID> resolveName(@NonNull Item item, @Nullable String name);
+
+	// when false -> inheritance is disabled!
+	public boolean collectNameMappings(@NonNull Item item, @NonNull Set<NamedSignerConfigRef> nameMappings);
 
 	public static ExtensionList<SignerNameResolver> all() {
 		return ExtensionList.lookup(SignerNameResolver.class);

@@ -30,6 +30,14 @@ public interface SignerConfig extends Describable<SignerConfig>, IdentifiedByUUI
 
 	public boolean isValid(Item item);
 
+	public default NamedSignerConfigRef toNamedRef() {
+		final NamedSignerConfigRef ref = new NamedSignerConfigRef();
+		ref.setLocked(true);
+		ref.setUuidValue(getUuid());
+		ref.setName(getName());
+		return ref;
+	}
+
 	public SigningEngine createEngine(StepContext context, String signaturePrefix, String signatureSuffix);
 
 	@Override
