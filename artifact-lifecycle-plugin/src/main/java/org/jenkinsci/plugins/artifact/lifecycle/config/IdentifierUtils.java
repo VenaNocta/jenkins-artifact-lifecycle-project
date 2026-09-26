@@ -17,9 +17,11 @@ package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.Map.Entry;
 
@@ -27,12 +29,16 @@ import org.kohsuke.stapler.StaplerRequest2;
 
 import hudson.Util;
 import hudson.model.Descriptor.FormException;
+import hudson.util.ListBoxModel;
+import hudson.util.ListBoxModel.Option;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 public class IdentifierUtils {
 
 	public static final String ERR_POST_BINDING_UUID_MISMATCH = "post binding UUID mismatch";
+
+	public static final String SELECT_NONE_TEXT = "- none -";
 
 	public static UUID fixNull(final UUID uuid) {
 		return uuid == null ? UUID.randomUUID() : uuid;
@@ -129,5 +135,39 @@ public class IdentifierUtils {
 			}
 		}
 		return newMap;
+	}
+
+	public static <T extends IdentifiedByUUID> ListBoxModel allValuesAsListBox(final List<T> values, String selectedId,
+			final Function<T, String> nameSupplier, final boolean withNone) {
+		return allValuesAsListBox(values, selectedId, nameSupplier, withNone, SELECT_NONE_TEXT);
+	}
+
+	public static <T extends IdentifiedByUUID> ListBoxModel allValuesAsListBox(final List<T> values, String selectedId,
+			final Function<T, String> nameSupplier, final boolean withNone, final String noneText) {
+		selectedId = IdentifierUtils.nullInvalidUUID(selectedId);
+		final ListBoxModel model = new ListBoxModel();
+
+		boolean hasValue = false;
+		for (T value : values) {
+			final UUID uuid = value.getUuid();
+			if (uuid == null)
+				continue;
+			final String val = uuid.toString();
+			if (selectedId != null && selectedId.equals(val))
+				hasValue = true;
+			String name = Util.fixEmptyAndTrim(nameSupplier.apply(value));
+			name = String.format("%s » %s", val, name == null ? "???" : name);
+			model.add(name, val);
+		}
+		if (withNone)
+			model.add(0, new Option(noneText, null));
+		if (!hasValue) {
+			if (selectedId == null) {
+				if (!withNone)
+					model.add(0, new Option(noneText, selectedId));
+			} else
+				model.add(0, new Option(String.format("%s » ???", selectedId), selectedId));
+		}
+		return model;
 	}
 }

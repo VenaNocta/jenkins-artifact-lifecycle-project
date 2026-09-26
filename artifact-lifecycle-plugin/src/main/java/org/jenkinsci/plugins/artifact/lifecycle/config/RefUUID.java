@@ -17,7 +17,6 @@ package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.io.Serializable;
 import java.util.UUID;
-
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -33,6 +32,8 @@ import hudson.util.ListBoxModel.Option;
 public class RefUUID implements Describable<RefUUID>, Serializable {
 
 	private static final long serialVersionUID = 1L;
+
+	public static final String SELECT_NONE_TEXT = "- none -";
 
 	protected UUID uuidValue = null;
 
@@ -93,7 +94,7 @@ public class RefUUID implements Describable<RefUUID>, Serializable {
 			}
 			if (!hasValue) {
 				if (Util.fixEmptyAndTrim(uuid) == null || "---".equals(uuid))
-					model.add(0, new Option("- none -", uuid));
+					model.add(0, new Option(SELECT_NONE_TEXT, uuid));
 				else
 					model.add(0, new Option(String.format("%s » ???", uuid), uuid));
 			}
