@@ -69,8 +69,8 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 	@Override
 	public Set<String> getCredentialIds() {
 		final Maven2Repository repo = getRepo();
-		final String credId = repo.getCredentialId();
-		if (repo == null || credId == null)
+		final String credId;
+		if (repo == null || (credId = repo.getCredentialId()) == null)
 			return super.getCredentialIds();
 		return Set.of(credId);
 	}
