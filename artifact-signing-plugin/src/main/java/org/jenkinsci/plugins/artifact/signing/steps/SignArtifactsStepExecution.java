@@ -30,13 +30,13 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import jenkins.model.ArtifactManager;
 
-public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
+public class SignArtifactsStepExecution extends SynchronousStepExecution<Void> {
 
 	private static final long serialVersionUID = 1L;
 
-	private final SignArtifactStep step;
+	private final SignArtifactsStep step;
 
-	protected SignArtifactStepExecution(@NonNull final StepContext context, @NonNull final SignArtifactStep step) {
+	protected SignArtifactsStepExecution(@NonNull final StepContext context, @NonNull final SignArtifactsStep step) {
 		super(context);
 		this.step = step;
 	}

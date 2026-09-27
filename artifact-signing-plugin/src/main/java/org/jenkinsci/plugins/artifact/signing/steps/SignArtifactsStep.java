@@ -34,7 +34,7 @@ import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 
-public class SignArtifactStep extends Step implements Serializable {
+public class SignArtifactsStep extends Step implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
@@ -52,7 +52,7 @@ public class SignArtifactStep extends Step implements Serializable {
 	private boolean fingerprint = true;
 
 	@DataBoundConstructor
-	public SignArtifactStep(String artifacts) {
+	public SignArtifactsStep(String artifacts) {
 		if (artifacts != null)
 			this.artifacts = artifacts.trim();
 	}
@@ -99,11 +99,11 @@ public class SignArtifactStep extends Step implements Serializable {
 
 	@Override
 	public StepExecution start(final StepContext context) throws Exception {
-		return new SignArtifactStepExecution(context, this);
+		return new SignArtifactsStepExecution(context, this);
 	}
 
 	@Extension
-	public static class SignArtifactDescriptor extends StepDescriptor {
+	public static class Descriptor extends StepDescriptor {
 
 		@Override
 		public String getFunctionName() {
