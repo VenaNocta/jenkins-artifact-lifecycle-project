@@ -98,9 +98,9 @@ public class NamedRefUUID extends RefUUID {
 		@POST
 		public FormValidation doCheckName(@AncestorInPath Item item, @QueryParameter String value) {
 			if ((value = Util.fixEmptyAndTrim(value)) == null)
-				FormValidation.error("Name is required");
+				return FormValidation.error("Name is required");
 			if (!allowCommentAsName() && value.charAt(0) == '#')
-				FormValidation.error("Comments are not allowed as Names!");
+				return FormValidation.error("Comments are not allowed as Names!");
 			return FormValidation.ok();
 		}
 	}

@@ -22,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -149,7 +150,13 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 	public Optional<UUID> _resolveName(@Nullable final Item item, final String name) {
 		if (name == null)
 			return Optional.ofNullable(getDefaultSignerId());
-		return getSignersAsStream(item).filter(signer -> name.equals(signer.getName()))
+		return getSignersAsStream(item)//
+				.filter(signer -> {
+					final String name0 = signer.getName();
+					if (name0 == null || name0.length() == 0)
+						return false;
+					return name0.charAt(0) != '#' && name.equals(name0);
+				})
 				.map(SignerConfig::getUuid)
 				.findFirst();
 	}
@@ -196,7 +203,8 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 	public Stream<SignerConfig> getSignersAsStream(final Item context) {
 		// TODO actually check the owner Item!
 		return this.signerMap.values()
-				.parallelStream();
+				.parallelStream()
+				.filter(Objects::nonNull);
 	}
 
 	public void setDefaultSignerIdValue(final UUID value) {

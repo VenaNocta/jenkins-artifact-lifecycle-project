@@ -34,7 +34,7 @@ public class SignerConfigDescriptor extends Descriptor<SignerConfig> {
 		if (value == null)
 			return FormValidation.ok();
 		// check invalid chars
-		if (!value.matches("[a-zA-Z0-9_\\.\\-<>]+"))
+		if (!value.matches("[a-zA-Z0-9_\\.\\-<>#]+"))
 			return FormValidation.error("Invalid characters");
 		// check duplicates
 		return FormValidation.ok();

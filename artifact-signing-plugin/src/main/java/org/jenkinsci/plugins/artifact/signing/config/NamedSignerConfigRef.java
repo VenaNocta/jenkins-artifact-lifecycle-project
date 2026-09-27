@@ -18,6 +18,7 @@ package org.jenkinsci.plugins.artifact.signing.config;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.jenkinsci.plugins.artifact.lifecycle.config.NamedRefUUID;
 import org.kohsuke.stapler.AncestorInPath;
+import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import hudson.Extension;
 import hudson.model.Item;
@@ -26,6 +27,11 @@ import hudson.util.ListBoxModel;
 public class NamedSignerConfigRef extends NamedRefUUID {
 
 	private static final long serialVersionUID = 1L;
+
+	@DataBoundConstructor
+	public NamedSignerConfigRef() {
+		super();
+	}
 
 	@Extension
 	public static class Descriptor extends NamedRefUUID.Descriptor {
