@@ -125,16 +125,18 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 		return selected.isEmpty() ? null : getSignerById(selected.get());
 	}
 
-	public SignerConfig findSignerByName(@Nullable ItemGroup<?> itemGroup, @Nullable final String name) {
+	public SignerConfig findSignerByName(@Nullable final Item item, @Nullable final String name) {
 		final String name0 = Util.fixEmptyAndTrim(name);
 		final ExtensionList<SignerNameResolver> resolvers = SignerNameResolver.all();
 
+		Object itemOrGroup = item;
 		Optional<UUID> selected = null;
-		while (itemGroup != null) {
-			if (itemGroup instanceof Item item) {
-				itemGroup = item.getParent();
+		while (itemOrGroup != null) {
+			if (itemOrGroup instanceof Item item0) {
+				itemOrGroup = item0.getParent();
 				selected = resolvers.stream()
-						.map(resolver -> resolver.resolveName(item, name0))
+						.map(resolver -> resolver.resolveName(item0, name0))
+						.filter(Objects::nonNull)
 						.findFirst()
 						.orElse(null);
 				if (selected != null)
@@ -143,7 +145,7 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 				break;
 		}
 		if (selected == null)
-			selected = _resolveName(itemGroup instanceof Item item ? item : null, name0);
+			selected = _resolveName(item, name0);
 		return selected.isEmpty() ? null : getSignerById(selected.get());
 	}
 

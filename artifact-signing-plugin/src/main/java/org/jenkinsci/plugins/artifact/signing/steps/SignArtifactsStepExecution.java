@@ -24,7 +24,6 @@ import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.model.AbstractBuild;
-import hudson.model.ItemGroup;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -56,8 +55,7 @@ public class SignArtifactsStepExecution extends SynchronousStepExecution<Void> {
 		}
 
 		final SignerConfig config = ArtifactSignerIndex.get()
-				.findSignerByName(build.getParent() instanceof ItemGroup<?> itemGroup ? itemGroup : null,
-						this.step.getSigner());
+				.findSignerByName(build.getParent(), this.step.getSigner());
 		if (config == null) {
 			listener.getLogger()
 					.println(Messages.SignArtifact_Exec_ERR_SignerNotFound(this.step.getSigner()));
