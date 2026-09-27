@@ -36,8 +36,6 @@ import org.kohsuke.stapler.StaplerRequest2;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
-import hudson.Util;
-import hudson.util.ListBoxModel;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
 import net.sf.json.JSONObject;
@@ -176,16 +174,5 @@ public class GlobalRepositoryIndex extends GlobalConfiguration {
 	public static GlobalRepositoryIndex get() {
 		return GlobalConfiguration.all()
 				.getInstance(GlobalRepositoryIndex.class);
-	}
-
-	public static ListBoxModel allValuesAsListBox(final List<ArtifactRepository> values) {
-		final ListBoxModel model = new ListBoxModel();
-		for (ArtifactRepository repo : values) {
-			final UUID uuid = repo.getUuid();
-			if (uuid == null)
-				continue;
-			model.add(Util.fixEmptyAndTrim(repo.getName()), uuid.toString());
-		}
-		return model;
 	}
 }

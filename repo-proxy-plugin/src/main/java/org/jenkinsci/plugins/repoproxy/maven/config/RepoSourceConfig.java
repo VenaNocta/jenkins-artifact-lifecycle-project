@@ -16,6 +16,7 @@
 package org.jenkinsci.plugins.repoproxy.maven.config;
 
 import java.io.Serializable;
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
@@ -34,6 +35,10 @@ import hudson.ExtensionPoint;
 import hudson.Util;
 import hudson.model.Describable;
 import net.runeduniverse.lib.repo.maven.proxy.api.RepositorySource;
+import net.runeduniverse.lib.utils.common.URIBuilder;
+
+import static net.runeduniverse.lib.utils.common.StringUtils.stripEnd;
+import static net.runeduniverse.lib.utils.common.StringUtils.trimToNull;
 
 public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>, Serializable, ExtensionPoint {
 
@@ -98,5 +103,16 @@ public abstract class RepoSourceConfig implements Describable<RepoSourceConfig>,
 	@Override
 	public RepoSourceConfigDescriptor getDescriptor() {
 		return (RepoSourceConfigDescriptor) Describable.super.getDescriptor();
+	}
+
+	public static URI fixRepoUri(final URI uri) {
+		if (uri == null)
+			return null;
+		final URIBuilder builder = new URIBuilder(uri);
+		final String path = trimToNull(stripEnd(builder.getPath(), "/"));
+		if (path == null)
+			return uri;
+		return builder.setPath(path + '/')
+				.toURI(null);
 	}
 }

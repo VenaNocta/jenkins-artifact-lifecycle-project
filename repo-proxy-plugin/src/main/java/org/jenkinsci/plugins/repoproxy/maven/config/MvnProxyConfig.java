@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
@@ -167,7 +168,7 @@ public class MvnProxyConfig extends ProxyConfig {
 		// init sources
 		return this.sourceMap.values()
 				.stream()
-				.collect(Collectors.toMap(RepoSourceConfig::getKey, c -> {
+				.map(c -> {
 					final RepositorySource source = c.buildSource(repoPath, repoMap, credentialMap);
 					if (source == null)
 						return null;
@@ -176,7 +177,9 @@ public class MvnProxyConfig extends ProxyConfig {
 					artifactValidators.stream()
 							.forEachOrdered(source::addLastValidator);
 					return source;
-				}));
+				})
+				.filter(Objects::nonNull)
+				.collect(Collectors.toMap(RepositorySource::key, Function.identity()));
 	}
 
 	@Extension

@@ -24,7 +24,10 @@ import java.util.UUID;
 
 import org.jenkinsci.plugins.artifact.lifecycle.config.ArtifactRepository;
 import org.jenkinsci.plugins.artifact.lifecycle.config.GlobalRepositoryIndex;
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.jenkinsci.plugins.artifact.lifecycle.maven.config.Maven2Repository;
+import org.jenkinsci.plugins.repoproxy.config.BomSource;
+import org.jenkinsci.plugins.repoproxy.config.BomSourceProvider;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
@@ -88,11 +91,10 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 	@Override
 	public RepositorySource buildSource(final Path repoPath, final Map<UUID, Maven2Repository> repoMap,
 			final Map<String, IdCredentials> credentialMap) {
-		// TODO check for null repo, uri and credId!
 		final Maven2Repository repo = repoMap.get(this.repoId);
-		if (Descriptor.isSupported(repo))
+		if (!Descriptor.isSupported(repo))
 			return null;
-		final HttpSource source = new HttpSource(this.key, repo.getMaven2Uri(), repoPath.resolve(this.key),
+		final HttpSource source = new HttpSource(this.key, fixRepoUri(repo.getMaven2Uri()), repoPath.resolve(this.key),
 				this.maxRedirects, this.maxRetries);
 		// set repo credentials
 		if (credentialMap.get(repo.getCredentialId()) instanceof StandardUsernamePasswordCredentials cred) {
@@ -158,28 +160,10 @@ public class HttpRepoSourceConfig extends RepoSourceConfig {
 			}
 		}
 
-		public ListBoxModel allValuesAsListBox(final Item item) {
-			return GlobalRepositoryIndex.allValuesAsListBox(GlobalRepositoryIndex.get()
-					.getRepos(Descriptor::isSupported, Set.of(Maven2Repository.class)));
-		}
-
 		public ListBoxModel doFillRepoIdItems(@AncestorInPath final Item item, @QueryParameter final String repoId) {
-			final ListBoxModel model = allValuesAsListBox(item);
-
-			boolean hasValue = false;
-			for (Option option : model) {
-				if (repoId != null && repoId.equals(option.value))
-					hasValue = true;
-				final String name = Util.fixEmptyAndTrim(option.name);
-				option.name = String.format("%s » %s", option.value, name == null ? "???" : name);
-			}
-			if (!hasValue) {
-				if (Util.fixEmptyAndTrim(repoId) == null || "---".equals(repoId))
-					model.add(0, new Option("- none -", repoId));
-				else
-					model.add(0, new Option(String.format("%s » ???", repoId), repoId));
-			}
-			return model;
+			return IdentifierUtils.allValuesAsListBox(GlobalRepositoryIndex.get()
+					.getRepos(Descriptor::isSupported, Set.of(Maven2Repository.class)), repoId,
+					ArtifactRepository::getName, false);
 		}
 
 		public static boolean isSupported(final ArtifactRepository repository) {

@@ -129,6 +129,8 @@ public class MvnProxyBootstrapper extends AProxyBootstrapper implements Action {
 				.collect(Collectors.toSet());
 		final Map<UUID, Maven2Repository> repoMap2 = repoMap.values()
 				.stream()
+				.filter(Objects::nonNull)
+				.map(repo -> repo instanceof Maven2Repository ? repo : repo.adapter(Set.of(Maven2Repository.class)))
 				.filter(Maven2Repository::isSupported)
 				.collect(Collectors.toMap(ArtifactRepository::getUuid, r -> (Maven2Repository) r));
 
