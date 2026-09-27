@@ -15,8 +15,11 @@
  */
 package org.jenkinsci.plugins.artifact.signing.config;
 
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.jenkinsci.plugins.artifact.lifecycle.config.RefUUID;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
 
 import hudson.Extension;
 import hudson.model.Item;
@@ -32,12 +35,11 @@ public class SignerConfigRef extends RefUUID {
 	}
 
 	@Extension
-	public static class Descriptor extends DescriptorRefUUID {
+	public static class Descriptor extends RefUUID.Descriptor {
 
-		@Override
-		public ListBoxModel allValuesAsListBox(final Item item) {
-			return ArtifactSignerIndex.allValuesAsListBox(ArtifactSignerIndex.get()
-					.getSigners(item));
+		public ListBoxModel doFillUuidItems(@AncestorInPath final Item item, @QueryParameter final String uuid) {
+			return IdentifierUtils.allValuesAsListBox(ArtifactSignerIndex.get()
+					.getSigners(item), uuid, SignerConfig::getName, true);
 		}
 	}
 }

@@ -45,11 +45,14 @@ import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.parsers.BomParserFactory;
 import org.cyclonedx.parsers.Parser;
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.jenkinsci.plugins.artifact.lifecycle.config.RefUUID;
+import org.jenkinsci.plugins.repoproxy.config.BomSource;
 import org.jenkinsci.plugins.repoproxy.config.BomSourceProvider;
 import org.jenkinsci.plugins.repoproxy.config.SimpleFileVisitor;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -243,7 +246,7 @@ public abstract class ACyclonedxValidatorConfig extends ValidatorConfig {
 		}
 
 		@Extension
-		public static final class Descriptor extends DescriptorRefUUID {
+		public static final class Descriptor extends RefUUID.Descriptor {
 
 			/**
 			 * Matches ".." in positions where it would be treated as the parent directory.
@@ -253,9 +256,9 @@ public abstract class ACyclonedxValidatorConfig extends ValidatorConfig {
 			 */
 			protected static final Pattern PROHIBITED_DOUBLE_DOT = Pattern.compile("(^|.*[\\\\/])\\.\\.($|[\\\\/].*)");
 
-			@Override
-			public ListBoxModel allValuesAsListBox(final Item item) {
-				return BomSourceProvider.allSourcesAsListBox(item);
+			public ListBoxModel doFillUuidItems(@AncestorInPath final Item item, @QueryParameter final String uuid) {
+				return IdentifierUtils.allValuesAsListBox(BomSourceProvider.allSources(item), uuid, BomSource::getName,
+						false);
 			}
 
 			@Restricted(NoExternalUse.class)

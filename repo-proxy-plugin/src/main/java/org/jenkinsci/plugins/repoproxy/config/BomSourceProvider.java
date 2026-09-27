@@ -25,10 +25,8 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.ExtensionList;
 import hudson.ExtensionPoint;
-import hudson.Util;
 import hudson.model.Item;
 import hudson.model.Run;
-import hudson.util.ListBoxModel;
 
 public interface BomSourceProvider extends ExtensionPoint {
 
@@ -93,16 +91,5 @@ public interface BomSourceProvider extends ExtensionPoint {
 					.forEach(sources::add);
 		}
 		return sources;
-	}
-
-	public static ListBoxModel allSourcesAsListBox(final Item item) {
-		final ListBoxModel model = new ListBoxModel();
-		for (BomSource source : allSources(item)) {
-			final UUID id = source.getUuid();
-			if (id == null)
-				continue;
-			model.add(Util.fixEmptyAndTrim(source.getName()), id.toString());
-		}
-		return model;
 	}
 }

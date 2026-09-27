@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
+import org.jenkinsci.plugins.artifact.lifecycle.config.NamedRefUUID;
+import org.jenkinsci.plugins.artifact.lifecycle.config.RefUUID;
 import org.jenkinsci.plugins.variant.OptionalExtension;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
@@ -78,8 +80,9 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 		return ArtifactSignerIndex.get()
 				.findAllSignerNameMappings(getOwner())
 				.stream()
-				.filter(NamedSignerConfigRef.distinctByName())
-				.sorted(NamedSignerConfigRef.COMPARE_BY_NAME)
+				.filter(NamedRefUUID::noComment)
+				.filter(NamedRefUUID.distinctByName())
+				.sorted(NamedRefUUID.COMPARE_BY_NAME)
 				.collect(Collectors.toList());
 	}
 
@@ -111,7 +114,8 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 	public void setNameMappings2(final List<NamedSignerConfigRef> nameMappings) {
 		this.nameMappings = nameMappings.stream()
 				.filter(Objects::nonNull)
-				.filter(NamedSignerConfigRef::isUnlocked)
+				.filter(NamedRefUUID::isUnlocked)
+				.filter(NamedRefUUID::noComment)
 				.filter(NamedSignerConfigRef.distinctByName())
 				.collect(Collectors.toList());
 	}
@@ -156,8 +160,9 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 				}
 				return cnf.getNameMappings()
 						.stream()
+						.filter(NamedRefUUID::noComment)
 						.filter(ref -> name.equals(ref.getName()))
-						.map(NamedSignerConfigRef::getUuid)
+						.map(RefUUID::getUuid)
 						.findFirst()
 						.or(() -> cnf.getInheritSigners() ? null : Optional.empty());
 			}

@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifiedByUUID;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
+import org.jenkinsci.plugins.artifact.lifecycle.config.NamedRefUUID;
 import org.jenkinsci.plugins.artifact.lifecycle.ui.GlobalArtifactLifecycleConfigLink.ArtifactLifecycleCategory;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
@@ -170,6 +171,8 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 		if (inherit) {
 			getSignersAsStream(itemGroup instanceof Item item ? item : null) //
 					.map(SignerConfig::toNamedRef)
+					// remove mappings for hidden entries
+					.filter(NamedRefUUID::noComment)
 					.forEach(set::add);
 		}
 		return set;
@@ -277,16 +280,5 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 		if ((value = Util.fixEmptyAndTrim(value)) == null)
 			return DEFAULT_SECURE_WORKSPACE_SUFFIX;
 		return value;
-	}
-
-	public static ListBoxModel allValuesAsListBox(final List<SignerConfig> values) {
-		final ListBoxModel model = new ListBoxModel();
-		for (SignerConfig repo : values) {
-			final UUID uuid = repo.getUuid();
-			if (uuid == null)
-				continue;
-			model.add(Util.fixEmptyAndTrim(repo.getName()), uuid.toString());
-		}
-		return model;
 	}
 }

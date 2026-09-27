@@ -17,23 +17,14 @@ package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.io.Serializable;
 import java.util.UUID;
-import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.QueryParameter;
-
 import hudson.Util;
 import hudson.model.Describable;
-import hudson.model.Descriptor;
-import hudson.model.Item;
-import hudson.util.ListBoxModel;
-import hudson.util.ListBoxModel.Option;
 
 public class RefUUID implements Describable<RefUUID>, Serializable {
 
 	private static final long serialVersionUID = 1L;
-
-	public static final String SELECT_NONE_TEXT = "- none -";
 
 	protected UUID uuidValue = null;
 
@@ -78,27 +69,7 @@ public class RefUUID implements Describable<RefUUID>, Serializable {
 				&& (this.uuidValue == null ? other.uuidValue == null : this.uuidValue.equals(other.uuidValue));
 	}
 
-	public static abstract class DescriptorRefUUID extends Descriptor<RefUUID> {
+	public static abstract class Descriptor extends hudson.model.Descriptor<RefUUID> {
 
-		public abstract ListBoxModel allValuesAsListBox(final Item item);
-
-		public ListBoxModel doFillUuidItems(@AncestorInPath final Item item, @QueryParameter final String uuid) {
-			final ListBoxModel model = allValuesAsListBox(item);
-
-			boolean hasValue = false;
-			for (Option option : model) {
-				if (uuid != null && uuid.equals(option.value))
-					hasValue = true;
-				final String name = Util.fixEmptyAndTrim(option.name);
-				option.name = String.format("%s » %s", option.value, name == null ? "???" : name);
-			}
-			if (!hasValue) {
-				if (Util.fixEmptyAndTrim(uuid) == null || "---".equals(uuid))
-					model.add(0, new Option(SELECT_NONE_TEXT, uuid));
-				else
-					model.add(0, new Option(String.format("%s » ???", uuid), uuid));
-			}
-			return model;
-		}
 	}
 }

@@ -28,8 +28,10 @@ import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
 import org.jenkinsci.plugins.artifact.lifecycle.config.RefUUID;
 import org.jenkinsci.plugins.artifact.lifecycle.ui.GlobalArtifactLifecycleConfigLink.ArtifactLifecycleCategory;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -153,11 +155,11 @@ public class GlobalBomIndexConfiguration extends GlobalConfiguration {
 		}
 
 		@Extension
-		public static final class Descriptor extends DescriptorRefUUID {
+		public static final class Descriptor extends RefUUID.Descriptor {
 
-			@Override
-			public ListBoxModel allValuesAsListBox(final Item item) {
-				return BomSourceProvider.allSourcesAsListBox(item);
+			public ListBoxModel doFillUuidItems(@AncestorInPath final Item item, @QueryParameter final String uuid) {
+				return IdentifierUtils.allValuesAsListBox(BomSourceProvider.allSources(item), uuid, BomSource::getName,
+						false);
 			}
 		}
 	}
