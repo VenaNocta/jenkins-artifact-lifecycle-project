@@ -39,7 +39,7 @@
 		<root-dir>..</root-dir>
 		<!-- VERSIONS -->
 		<sources-version>0</sources-version>
-		<pgpcredentials-version>2</pgpcredentials-version>
+		<pgpcredentials-version>0</pgpcredentials-version>
 	</properties>
 
 	<licenses>

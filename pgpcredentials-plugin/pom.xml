@@ -41,7 +41,6 @@
 		<no-test-jar>false</no-test-jar>
 		<!-- VERSIONS -->
 		<sources-version>0</sources-version>
-		<api-version>2</api-version>
 	</properties>
 
 	<licenses>

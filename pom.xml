@@ -114,7 +114,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<root-dir>${basedir}</root-dir>
 		<!-- VERSIONS -->
-		<major-version>0</major-version>
+		<major-version>1</major-version>
 		<minor-version>0</minor-version>
 		<artifact-version>0</artifact-version>
 		<!-- ARTIFACT VERSIONS -->
