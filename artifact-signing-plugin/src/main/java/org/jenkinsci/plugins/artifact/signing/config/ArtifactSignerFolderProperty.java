@@ -79,7 +79,7 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 				.findAllSignerNameMappings(getOwner())
 				.stream()
 				.filter(NamedSignerConfigRef.distinctByName())
-				// .sorted(NamedSignerConfigRef.COMPARE_BY_NAME)
+				.sorted(NamedSignerConfigRef.COMPARE_BY_NAME)
 				.collect(Collectors.toList());
 	}
 

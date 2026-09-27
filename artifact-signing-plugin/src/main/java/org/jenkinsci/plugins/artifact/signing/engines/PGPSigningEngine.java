@@ -32,7 +32,6 @@ import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPSignature;
 import org.bouncycastle.openpgp.PGPSignatureGenerator;
-import org.jenkinsci.plugins.artifact.signing.config.ArtifactSigningConfigurationProvider;
 import org.jenkinsci.plugins.artifact.signing.steps.Messages;
 import org.jenkinsci.plugins.pgpcredentials.PGPRequirementBuilder;
 import org.jenkinsci.plugins.pgpcredentials.PGPSignatureGeneratorBuilder;
@@ -92,18 +91,14 @@ public class PGPSigningEngine extends ASigningEngine {
 		final VirtualFile archiveFileRoot = artifactManager.root();
 
 		// -- load credentials --
-		String credentialId = this.credentialId;
-		if (StringUtils.isBlank(credentialId))
-			credentialId = ArtifactSigningConfigurationProvider
-					.get(ArtifactSigningConfigurationProvider::getDefaultCredentialsId, build);
-		if (StringUtils.isBlank(credentialId)) {
+		if (StringUtils.isBlank(this.credentialId)) {
 			listener.getLogger()
 					.println(Messages.PGPSigningEngine_ERR_NoKeyDefined());
 			return false;
 		}
 
 		listener.getLogger()
-				.println(Messages.PGPSigningEngine_SigningArtifactsWithKey(credentialId));
+				.println(Messages.PGPSigningEngine_SigningArtifactsWithKey(this.credentialId));
 
 		// -- prepare PGP signature-generator --
 		final PGPSignatureGeneratorBuilder builder = new PGPSignatureGeneratorBuilder();
@@ -113,7 +108,7 @@ public class PGPSigningEngine extends ASigningEngine {
 					.requireValid()
 					.requireSigningCapability()
 					.build();
-			final PGPPrivateKeyCredentials cred = CredentialsProvider.findCredentialById(credentialId,
+			final PGPPrivateKeyCredentials cred = CredentialsProvider.findCredentialById(this.credentialId,
 					PGPPrivateKeyCredentials.class, build, domainRequirements);
 
 			if (cred == null) {

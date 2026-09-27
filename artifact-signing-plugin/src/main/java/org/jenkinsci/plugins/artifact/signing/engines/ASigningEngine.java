@@ -18,7 +18,8 @@ package org.jenkinsci.plugins.artifact.signing.engines;
 import java.io.IOException;
 import java.util.Deque;
 import java.util.LinkedList;
-import org.jenkinsci.plugins.artifact.signing.config.ArtifactSigningConfiguration;
+
+import org.jenkinsci.plugins.artifact.signing.config.ArtifactSignerIndex;
 import org.jenkinsci.plugins.artifact.signing.steps.Messages;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -101,12 +102,12 @@ public abstract class ASigningEngine implements SigningEngine {
 	}
 
 	protected String getLabelExpression() {
-		return ArtifactSigningConfiguration.get()
+		return ArtifactSignerIndex.get()
 				.getSecureLabelExpression();
 	}
 
 	protected String getSecureWorkspaceSuffix() {
-		return ArtifactSigningConfiguration.get()
+		return ArtifactSignerIndex.get()
 				.getSecureWorkspaceSuffix();
 	}
 
