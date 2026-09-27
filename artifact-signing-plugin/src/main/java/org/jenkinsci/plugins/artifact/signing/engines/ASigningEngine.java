@@ -79,8 +79,7 @@ public abstract class ASigningEngine implements SigningEngine {
 				final TopLevelItem item = (TopLevelItem) pipeline.getParent();
 				ws = node.getWorkspaceFor(item);
 				if (ws == null) {
-					throw new IOException(
-							String.format(Messages.SignArtifact_Exec_ERR_FMT_NodeOffline(), node.getDisplayName()));
+					throw new IOException(Messages.ASigningEngine_ERR_NodeOffline(node.getDisplayName()));
 				}
 			}
 			// else: should not happen, but just in case go to fallback

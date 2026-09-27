@@ -44,7 +44,7 @@ public class SignArtifactStep extends Step implements Serializable {
 	 */
 	private String artifacts = null;
 
-	private String credentialId = null;
+	private String signer = null;
 
 	private String prefix = null;
 	private String suffix = null;
@@ -61,8 +61,8 @@ public class SignArtifactStep extends Step implements Serializable {
 		return this.artifacts;
 	}
 
-	public String getCredentialId() {
-		return this.credentialId;
+	public String getSigner() {
+		return this.signer;
 	}
 
 	public boolean getFingerprint() {
@@ -78,9 +78,8 @@ public class SignArtifactStep extends Step implements Serializable {
 	}
 
 	@DataBoundSetter
-	// TODO -> replace with signing engine ID
-	public void setCredentialId(final String credentialId) {
-		this.credentialId = Util.fixEmptyAndTrim(credentialId);
+	public void setSigner(final String signerId) {
+		this.signer = Util.fixEmptyAndTrim(signerId);
 	}
 
 	@DataBoundSetter

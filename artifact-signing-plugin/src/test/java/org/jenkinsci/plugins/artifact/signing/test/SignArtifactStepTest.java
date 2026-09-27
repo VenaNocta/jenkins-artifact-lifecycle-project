@@ -18,7 +18,12 @@ package org.jenkinsci.plugins.artifact.signing.test;
 import hudson.model.Label;
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
+import java.util.UUID;
 
+import org.jenkinsci.plugins.artifact.signing.config.ArtifactSignerIndex;
+import org.jenkinsci.plugins.artifact.signing.config.EmbeddedPGPSignerConfig;
+import org.jenkinsci.plugins.artifact.signing.config.SignerConfig;
 import org.jenkinsci.plugins.pgpcredentials.api.PGPPrivateKeyCredentials;
 import org.jenkinsci.plugins.pgpcredentials.test.APGPTest;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -41,15 +46,21 @@ public class SignArtifactStepTest extends APGPTest {
 	public TemporaryFolder tmp = new TemporaryFolder();
 
 	protected static final String ED25519_PRIVATE_KEY_ID = "ed25519-pgp-key";
+	protected static final UUID PGP_SIGNER_UUID = UUID.fromString("35ef8856-d8b7-4950-88b1-80f6a11cfffe");
+	protected static final String PGP_SIGNER_NAME = "pgp-embedded";
 
 	protected File armoredKey;
 	protected PGPPrivateKeyCredentials ed25519_privateKeyCred;
+	protected SignerConfig embeddedPgpSigner;
 
 	@Before
 	public void setup() throws IOException {
 		setupFile_ed25519_privateKey(this.armoredKey = tmp.newFile("ed25519-private-key.asc"));
 		this.ed25519_privateKeyCred = load_privateKeyCredentials(CredentialsScope.GLOBAL, ED25519_PRIVATE_KEY_ID,
 				ED25519_PASSPHRASE, this.armoredKey);
+
+		this.embeddedPgpSigner = new EmbeddedPGPSignerConfig(PGP_SIGNER_UUID, PGP_SIGNER_NAME, null,
+				ED25519_PRIVATE_KEY_ID);
 	}
 
 	@Test
@@ -62,10 +73,15 @@ public class SignArtifactStepTest extends APGPTest {
 				.getCredentials()
 				.add(this.ed25519_privateKeyCred);
 
+		System.out.println(PGP_SIGNER_UUID);
+
+		ArtifactSignerIndex.get()
+				.setSigners(Set.of(this.embeddedPgpSigner));
+
 		String pipelineScript = "node {\n" //
 				+ "writeFile file: 'file.jar', text: 'xxx' \n" //
 				+ "archiveArtifacts artifacts: '*', fingerprint: true\n" //
-				+ "signArtifacts artifacts: '*', credentialId: '" + ED25519_PRIVATE_KEY_ID + "'\n" //
+				+ "signArtifacts artifacts: '*', signer: '" + PGP_SIGNER_NAME + "'\n" //
 				+ "}";
 		job.setDefinition(new CpsFlowDefinition(pipelineScript, true));
 		WorkflowRun completedBuild = jenkins.assertBuildStatusSuccess(job.scheduleBuild2(0));

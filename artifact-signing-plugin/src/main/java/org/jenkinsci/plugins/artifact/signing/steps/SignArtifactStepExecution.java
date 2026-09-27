@@ -15,7 +15,8 @@
  */
 package org.jenkinsci.plugins.artifact.signing.steps;
 
-import org.jenkinsci.plugins.artifact.signing.engines.PGPSigningEngine;
+import org.jenkinsci.plugins.artifact.signing.config.ArtifactSignerIndex;
+import org.jenkinsci.plugins.artifact.signing.config.SignerConfig;
 import org.jenkinsci.plugins.artifact.signing.engines.SigningEngine;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
@@ -23,6 +24,7 @@ import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.model.AbstractBuild;
+import hudson.model.ItemGroup;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -53,8 +55,30 @@ public class SignArtifactStepExecution extends SynchronousStepExecution<Void> {
 			artifacts = env.expand(artifacts);
 		}
 
-		final SigningEngine engine = new PGPSigningEngine(getContext(), this.step.getSignaturePrefix(),
-				this.step.getSignatureSuffix(), this.step.getCredentialId());
+		final SignerConfig config = ArtifactSignerIndex.get()
+				.findSignerByName(build.getParent() instanceof ItemGroup<?> itemGroup ? itemGroup : null,
+						this.step.getSigner());
+		if (config == null) {
+			listener.getLogger()
+					.println(Messages.SignArtifact_Exec_ERR_SignerNotFound(this.step.getSigner()));
+			getContext().setResult(Result.FAILURE);
+			return null;
+		}
+		if (!config.isValid(build.getParent())) {
+			listener.getLogger()
+					.println(Messages.SignArtifact_Exec_ERR_SignerNotValid(this.step.getSigner()));
+			getContext().setResult(Result.FAILURE);
+			return null;
+		}
+		final SigningEngine engine = config.createEngine(getContext(), this.step.getSignaturePrefix(),
+				this.step.getSignatureSuffix());
+		if (engine == null) {
+			listener.getLogger()
+					.println(Messages.SignArtifact_Exec_ERR_SigningEngineNotFound(this.step.getSigner()));
+			getContext().setResult(Result.FAILURE);
+			return null;
+		}
+
 		if (!engine.signArtifacts(listener, artifactManager, artifacts, this.step.getFingerprint())) {
 			getContext().setResult(Result.FAILURE);
 			return null;

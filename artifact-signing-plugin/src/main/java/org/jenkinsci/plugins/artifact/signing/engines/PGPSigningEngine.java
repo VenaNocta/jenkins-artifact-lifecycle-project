@@ -98,12 +98,12 @@ public class PGPSigningEngine extends ASigningEngine {
 					.get(ArtifactSigningConfigurationProvider::getDefaultCredentialsId, build);
 		if (StringUtils.isBlank(credentialId)) {
 			listener.getLogger()
-					.println(Messages.SignArtifact_Exec_ERR_NoKeyDefined());
+					.println(Messages.PGPSigningEngine_ERR_NoKeyDefined());
 			return false;
 		}
 
 		listener.getLogger()
-				.println(String.format(Messages.SignArtifact_Exec_FMT_SigningArtifactsWithKey(), credentialId));
+				.println(Messages.PGPSigningEngine_SigningArtifactsWithKey(credentialId));
 
 		// -- prepare PGP signature-generator --
 		final PGPSignatureGeneratorBuilder builder = new PGPSignatureGeneratorBuilder();
@@ -118,12 +118,12 @@ public class PGPSigningEngine extends ASigningEngine {
 
 			if (cred == null) {
 				listener.getLogger()
-						.println(Messages.SignArtifact_Exec_ERR_NoSigningKeyFound());
+						.println(Messages.PGPSigningEngine_ERR_NoSigningKeyFound());
 				return false;
 			}
 			if (!cred.isValid()) {
 				listener.getLogger()
-						.println(Messages.SignArtifact_Exec_ERR_SigningKeyInvalid());
+						.println(Messages.PGPSigningEngine_ERR_SigningKeyInvalid());
 				return false;
 			}
 
@@ -147,7 +147,7 @@ public class PGPSigningEngine extends ASigningEngine {
 			}
 		}
 		listener.getLogger()
-				.println(String.format(Messages.SignArtifact_Exec_FMT_ArtifactsSigned(), signatures.size()));
+				.println(Messages.ASigningEngine_ArtifactsSigned(signatures.size()));
 
 		// -- archive signatures --
 		final Launcher launcher = ws.createLauncher(listener);
@@ -196,8 +196,8 @@ public class PGPSigningEngine extends ASigningEngine {
 					}
 				} else {
 					httpClient.connect("download",
-							String.format(Messages.SignArtifact_Exec_FMT_ArtifactDownload(),
-									RobustHTTPClient.sanitize(url), this.secureNode.getDisplayName()),
+							Messages.ASigningEngine_ArtifactDownload(RobustHTTPClient.sanitize(url),
+									this.secureNode.getDisplayName()),
 							client -> client.execute(new HttpGet(url.toString())), response -> {
 								try (InputStream is = response.getEntity()
 										.getContent()) {
@@ -222,7 +222,7 @@ public class PGPSigningEngine extends ASigningEngine {
 			try {
 				signature = this.signatureGenerator.generate();
 			} catch (PGPException e) {
-				this.listener.error(Messages.SignArtifact_Exec_ERR_FMT_SigningFailed(), e.getMessage());
+				this.listener.error(Messages.PGPSigningEngine_ERR_SigningFailed(e.getMessage()));
 				return false;
 			}
 			signature.encode(outputStream);

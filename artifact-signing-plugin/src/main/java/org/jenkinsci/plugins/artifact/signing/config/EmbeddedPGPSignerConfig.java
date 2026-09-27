@@ -58,6 +58,12 @@ public class EmbeddedPGPSignerConfig extends ASignerConfig {
 		this.credentialId = Util.fixEmptyAndTrim(credentialId);
 	}
 
+	public EmbeddedPGPSignerConfig(@NonNull final UUID uuid, final String name, @CheckForNull String description,
+			@CheckForNull String credentialId) {
+		super(uuid, name, description);
+		this.credentialId = Util.fixEmptyAndTrim(credentialId);
+	}
+
 	public String getCredentialId() {
 		return this.credentialId;
 	}
