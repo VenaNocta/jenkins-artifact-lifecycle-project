@@ -56,9 +56,7 @@ public abstract class ArtifactLifecycleGlobalConfigPage<T extends Describable<T>
 	protected boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
 		final Descriptor<GlobalConfiguration> desc = getConfigDescriptor();
 		final String sectionName = desc.getJsonSafeClassName();
-		if (json.has(sectionName)) {
-			desc.configure(req, json.getJSONObject(sectionName));
-		}
+		desc.configure(req, json.has(sectionName) ? json.getJSONObject(sectionName) : new JSONObject());
 		return true;
 	}
 }

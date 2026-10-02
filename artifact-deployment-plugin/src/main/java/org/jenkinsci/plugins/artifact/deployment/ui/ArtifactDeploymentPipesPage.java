@@ -15,23 +15,44 @@
  */
 package org.jenkinsci.plugins.artifact.deployment.ui;
 
+import java.util.logging.Logger;
+
+import org.jenkinsci.plugins.artifact.deployment.config.DeploymentPipeIndex;
 import org.jenkinsci.plugins.artifact.lifecycle.ui.ArtifactLifecycleConfigLink;
-import org.jenkinsci.plugins.artifact.lifecycle.ui.ArtifactLifecycleConfigPage;
+import org.jenkinsci.plugins.artifact.lifecycle.ui.ArtifactLifecycleGlobalConfigPage;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import hudson.model.Descriptor;
+import jenkins.model.GlobalConfiguration;
+import jenkins.model.Jenkins;
 
 @Extension
-public class ArtifactDeploymentPipesPage extends ArtifactLifecycleConfigPage {
+public class ArtifactDeploymentPipesPage extends ArtifactLifecycleGlobalConfigPage<ArtifactDeploymentPipesPage> {
+
+	public static final String PAGE_KEY = "deploy-pipe";
+
+	private static final Logger LOGGER = Logger.getLogger(ArtifactDeploymentPipesPage.class.getName());
+
+	@Override
+	protected Logger getLogger() {
+		return LOGGER;
+	}
 
 	@Override
 	public String getUrlName() {
-		return "deploy-pipe";
+		return PAGE_KEY;
 	}
 
 	@Override
 	public String getDisplayName() {
 		return Messages.ArtifactLifecycleCnfLink_DeployPipes_DisplayName();
+	}
+
+	// used by jelly
+	public Descriptor<GlobalConfiguration> getConfigDescriptor() {
+		return Jenkins.get()
+				.getDescriptorOrDie(DeploymentPipeIndex.class);
 	}
 
 	@Extension(ordinal = 5_000L)
@@ -40,7 +61,7 @@ public class ArtifactDeploymentPipesPage extends ArtifactLifecycleConfigPage {
 		@Override
 		@NonNull
 		public String getUrl() {
-			return ACTION_URL + "/deploy-pipe";
+			return ACTION_URL + "/" + PAGE_KEY;
 		}
 
 		@Override
