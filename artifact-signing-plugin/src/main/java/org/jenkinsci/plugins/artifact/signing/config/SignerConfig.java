@@ -18,18 +18,19 @@ package org.jenkinsci.plugins.artifact.signing.config;
 import java.io.Serializable;
 
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifiedByUUID;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ReferenceableByName;
 import org.jenkinsci.plugins.artifact.signing.engines.SigningEngine;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 
 import hudson.model.Describable;
 import hudson.model.Item;
 
-public interface SignerConfig extends Describable<SignerConfig>, IdentifiedByUUID, Serializable {
-
-	public String getName();
+public interface SignerConfig
+		extends Describable<SignerConfig>, ReferenceableByName<NamedSignerConfigRef>, IdentifiedByUUID, Serializable {
 
 	public boolean isValid(Item item);
 
+	@Override
 	public default NamedSignerConfigRef toNamedRef() {
 		final NamedSignerConfigRef ref = new NamedSignerConfigRef();
 		ref.setReadonly(true);

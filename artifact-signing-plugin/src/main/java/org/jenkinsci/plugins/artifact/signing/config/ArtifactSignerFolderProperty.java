@@ -77,8 +77,8 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 
 	// used by jelly
 	public List<NamedSignerConfigRef> getNameMappings2() {
-		return ArtifactSignerIndex.get()
-				.findAllSignerNameMappings(getOwner())
+		return ArtifactSignerIndex.getResolver()
+				.findAllEntryNameMappings(getOwner())
 				.stream()
 				.filter(NamedRefUUID::noComment)
 				.filter(NamedRefUUID.distinctByName())

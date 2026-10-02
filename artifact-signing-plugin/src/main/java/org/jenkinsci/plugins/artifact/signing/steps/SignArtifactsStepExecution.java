@@ -54,8 +54,8 @@ public class SignArtifactsStepExecution extends SynchronousStepExecution<Void> {
 			artifacts = env.expand(artifacts);
 		}
 
-		final SignerConfig config = ArtifactSignerIndex.get()
-				.findSignerByName(build.getParent(), this.step.getSigner());
+		final SignerConfig config = ArtifactSignerIndex.getResolver()
+				.findEntryByName(build.getParent(), this.step.getSigner());
 		if (config == null) {
 			listener.getLogger()
 					.println(Messages.SignArtifact_Exec_ERR_SignerNotFound(this.step.getSigner()));
