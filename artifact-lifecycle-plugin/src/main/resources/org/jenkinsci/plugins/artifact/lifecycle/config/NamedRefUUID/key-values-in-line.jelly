@@ -1,10 +1,10 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
 	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
-	<input type="hidden" name="locked"
-		value="${instance == null ? false : instance.locked}" />
+	<input type="hidden" name="readonly"
+		value="${instance == null ? false : instance.readonly}" />
 	<j:choose>
-		<j:when test="${instance == null || !instance.locked}">
+		<j:when test="${instance == null || !instance.readonly}">
 			<f:repeatableDeleteButton />
 			<div style="display:flex; gap:20px; width:100%;">
 				<div style="flex:0 0 auto; min-width:25%">

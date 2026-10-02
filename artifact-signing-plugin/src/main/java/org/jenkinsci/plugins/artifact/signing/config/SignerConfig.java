@@ -32,7 +32,7 @@ public interface SignerConfig extends Describable<SignerConfig>, IdentifiedByUUI
 
 	public default NamedSignerConfigRef toNamedRef() {
 		final NamedSignerConfigRef ref = new NamedSignerConfigRef();
-		ref.setLocked(true);
+		ref.setReadonly(true);
 		ref.setUuidValue(getUuid());
 		ref.setName(getName());
 		return ref;

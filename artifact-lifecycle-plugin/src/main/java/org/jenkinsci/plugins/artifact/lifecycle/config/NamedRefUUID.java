@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
+import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
@@ -38,8 +39,9 @@ public class NamedRefUUID extends RefUUID {
 	private static final long serialVersionUID = 1L;
 
 	public static final Comparator<NamedRefUUID> COMPARE_BY_NAME = new NameComparator();
+	public static final Comparator<NamedRefUUID> COMPARE_BY_NAME_WITH_COMMENTS = new NameComparatorWithComments();
 
-	protected boolean locked = false;
+	protected boolean readonly = false;
 	protected String name;
 
 	@DataBoundConstructor
@@ -51,12 +53,12 @@ public class NamedRefUUID extends RefUUID {
 		return this.name;
 	}
 
-	public boolean isLocked() {
-		return this.locked;
+	public boolean isReadonly() {
+		return this.readonly;
 	}
 
-	public boolean isUnlocked() {
-		return !this.locked;
+	public boolean isWritable() {
+		return !this.readonly;
 	}
 
 	@DataBoundSetter
@@ -65,14 +67,16 @@ public class NamedRefUUID extends RefUUID {
 	}
 
 	@DataBoundSetter
-	public void setLocked(final boolean locked) {
-		this.locked = locked;
+	public void setReadonly(final boolean readonly) {
+		this.readonly = readonly;
 	}
 
 	@Override
 	public boolean equals(final Object obj) {
-		return this == obj || obj instanceof NamedRefUUID other
-				&& (this.name == null ? other.name == null : this.name.equals(other.name) && super.equals(obj));
+		return this == obj || obj instanceof NamedRefUUID other && (//
+		(this.name == null ? other.name == null : this.name.equals(other.name)) //
+				&& other.readonly == this.readonly //
+				&& super.equals(obj));
 	}
 
 	public static Predicate<NamedRefUUID> distinctByName() {
@@ -83,9 +87,21 @@ public class NamedRefUUID extends RefUUID {
 		};
 	}
 
+	public static boolean isComment(final String name) {
+		return name == null ? false : name.charAt(0) == '#';
+	}
+
+	public static String unComment(String name) {
+		if (name == null)
+			return null;
+		name = StringUtils.stripStart(name, "#");
+		name = StringUtils.stripStart(name, null);
+		return name;
+	}
+
 	public static boolean noComment(final NamedRefUUID ref) {
 		final String name = ref.getName();
-		return name == null ? false : name.charAt(0) != '#';
+		return name == null ? false : !isComment(name);
 	}
 
 	public static abstract class Descriptor extends RefUUID.Descriptor {
@@ -99,7 +115,7 @@ public class NamedRefUUID extends RefUUID {
 		public FormValidation doCheckName(@AncestorInPath Item item, @QueryParameter String value) {
 			if ((value = Util.fixEmptyAndTrim(value)) == null)
 				return FormValidation.error("Name is required");
-			if (!allowCommentAsName() && value.charAt(0) == '#')
+			if (!allowCommentAsName() && isComment(value))
 				return FormValidation.error("Comments are not allowed as Names!");
 			return FormValidation.ok();
 		}
@@ -116,6 +132,20 @@ public class NamedRefUUID extends RefUUID {
 			if (o2 == null)
 				return 1;
 			return String.CASE_INSENSITIVE_ORDER.compare(o1.name, o2.name);
+		}
+	}
+
+	public static class NameComparatorWithComments implements Comparator<NamedRefUUID>, Serializable {
+
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		public int compare(final NamedRefUUID o1, final NamedRefUUID o2) {
+			if (o1 == null)
+				return o2 == null ? 0 : -1;
+			if (o2 == null)
+				return 1;
+			return String.CASE_INSENSITIVE_ORDER.compare(unComment(o1.name), unComment(o2.name));
 		}
 	}
 }

@@ -105,6 +105,7 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 	public void setNameMappings(final List<NamedSignerConfigRef> nameMappings) {
 		this.nameMappings = nameMappings.stream()
 				.filter(Objects::nonNull)
+				.filter(NamedRefUUID::noComment)
 				.filter(NamedSignerConfigRef.distinctByName())
 				.collect(Collectors.toList());
 	}
@@ -114,7 +115,8 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 	public void setNameMappings2(final List<NamedSignerConfigRef> nameMappings) {
 		this.nameMappings = nameMappings.stream()
 				.filter(Objects::nonNull)
-				.filter(NamedRefUUID::isUnlocked)
+				// readonly entries, are inherited entries -> skip
+				.filter(NamedRefUUID::isWritable)
 				.filter(NamedRefUUID::noComment)
 				.filter(NamedSignerConfigRef.distinctByName())
 				.collect(Collectors.toList());

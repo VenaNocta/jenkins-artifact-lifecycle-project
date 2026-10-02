@@ -157,7 +157,7 @@ public class ArtifactSignerIndex extends GlobalConfiguration {
 					final String name0 = signer.getName();
 					if (name0 == null || name0.length() == 0)
 						return false;
-					return name0.charAt(0) != '#' && name.equals(name0);
+					return !NamedRefUUID.isComment(name0) && name.equals(name0);
 				})
 				.map(SignerConfig::getUuid)
 				.findFirst();
