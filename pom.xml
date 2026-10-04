@@ -39,14 +39,15 @@
 
 	<modules>
 		<module>sbom</module>
+		<module>artifact-lifecycle-plugin</module>
+		<module>artifact-lifecycle-maven-api</module>
 		<module>pgpcredentials-plugin</module>
-		<module>artifact-bundle-plugin</module>
 		<module>artifact-signing-plugin</module>
+		<module>artifact-bundle-plugin</module>
 		<module>artifact-deployment-plugin</module>
 		<module>isolation-context-plugin</module>
 		<module>repo-proxy-plugin</module>
-		<module>artifact-lifecycle-plugin</module>
-		<module>artifact-lifecycle-maven-api</module>
+		<module>example</module>
 	</modules>
 
 	<licenses>
