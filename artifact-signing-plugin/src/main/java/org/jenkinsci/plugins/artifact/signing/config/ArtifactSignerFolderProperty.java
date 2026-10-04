@@ -58,7 +58,6 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 	public ArtifactSignerFolderProperty() {
 	}
 
-	@CheckForNull
 	public boolean getInheritSigners() {
 		return this.inheritSigners;
 	}
