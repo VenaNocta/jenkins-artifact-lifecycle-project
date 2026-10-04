@@ -141,7 +141,7 @@ public class DeploymentPipeIndex extends GlobalConfiguration {
 
 		@Override
 		protected ExtensionList<? extends NameResolver<NamedPipeRef>> allResolvers() {
-			return DeploymentPipeNameResolver.all();
+			return PipeNameResolver.all();
 		}
 
 		@Override

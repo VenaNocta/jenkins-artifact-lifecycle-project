@@ -25,6 +25,7 @@ import java.util.UUID;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifiedByUUID;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
+import org.jenkinsci.plugins.artifact.lifecycle.config.NamedRefUUID;
 import org.jenkinsci.plugins.artifact.lifecycle.config.ReferenceableByName;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
@@ -123,7 +124,7 @@ public class PipeConfig
 			if (value == null)
 				return FormValidation.ok();
 			// check invalid chars
-			if (!value.matches("[a-zA-Z0-9_\\.\\-<>#]+"))
+			if (!value.matches(NamedRefUUID.REGEX_NAME_OR_COMMENT))
 				return FormValidation.error("Invalid characters");
 			// check duplicates
 			return FormValidation.ok();

@@ -58,7 +58,6 @@ public class DeploymentPipeFolderProperty extends AbstractFolderProperty<Abstrac
 	public DeploymentPipeFolderProperty() {
 	}
 
-	@CheckForNull
 	public boolean getInheritPipes() {
 		return this.inheritPipes;
 	}
@@ -136,7 +135,7 @@ public class DeploymentPipeFolderProperty extends AbstractFolderProperty<Abstrac
 		public ListBoxModel doFillDefaultPipeIdItems(@AncestorInPath final Item item,
 				@QueryParameter final String defaultPipeId, @QueryParameter boolean inheritPipes) {
 			return IdentifierUtils.allValuesAsListBox(DeploymentPipeIndex.get()
-					.getPipes(item), defaultPipeId, PipeConfig::getName, true, IdentifierUtils.SELECT_NONE_TEXT);
+					.getPipes(item), defaultPipeId, PipeConfig::getName, true);
 		}
 	}
 
