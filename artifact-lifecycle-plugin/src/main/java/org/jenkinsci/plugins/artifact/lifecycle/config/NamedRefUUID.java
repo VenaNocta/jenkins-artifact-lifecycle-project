@@ -20,7 +20,6 @@ import java.util.Comparator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
-
 import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
@@ -37,6 +36,9 @@ import hudson.util.FormValidation;
 public class NamedRefUUID extends RefUUID {
 
 	private static final long serialVersionUID = 1L;
+
+	public static final String REGEX_NAME = "[a-zA-Z0-9_\\.\\-<>#]+";
+	public static final String REGEX_NAME_OR_COMMENT = "^(?:[a-zA-Z0-9_.\\-<>]+|#[a-zA-Z0-9_.\\-<> ]+)$";
 
 	public static final Comparator<NamedRefUUID> COMPARE_BY_NAME = new NameComparator();
 	public static final Comparator<NamedRefUUID> COMPARE_BY_NAME_WITH_COMMENTS = new NameComparatorWithComments();
@@ -117,6 +119,8 @@ public class NamedRefUUID extends RefUUID {
 				return FormValidation.error("Name is required");
 			if (!allowCommentAsName() && isComment(value))
 				return FormValidation.error("Comments are not allowed as Names!");
+			if (!value.matches(NamedRefUUID.REGEX_NAME_OR_COMMENT))
+				return FormValidation.error("Invalid characters");
 			return FormValidation.ok();
 		}
 	}
