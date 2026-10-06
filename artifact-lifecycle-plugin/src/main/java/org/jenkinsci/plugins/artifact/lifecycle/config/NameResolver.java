@@ -15,9 +15,10 @@
  */
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
+import java.util.Collection;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
@@ -31,5 +32,5 @@ public interface NameResolver<T extends NamedRefUUID> {
 	public Optional<UUID> resolveName(@NonNull Item item, @Nullable String name);
 
 	// when false -> inheritance is disabled!
-	public boolean collectNameMappings(@NonNull Item item, @NonNull Set<T> nameMappings);
+	public boolean collectNameMappings(@NonNull Item item, @NonNull Consumer<Collection<T>> collector);
 }

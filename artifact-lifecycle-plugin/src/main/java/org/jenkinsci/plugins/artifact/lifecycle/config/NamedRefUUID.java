@@ -16,6 +16,7 @@
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Comparator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,12 +74,41 @@ public class NamedRefUUID extends RefUUID {
 		this.readonly = readonly;
 	}
 
+	protected <T extends NamedRefUUID> T copyTo(final T ref) {
+		ref.setReadonly(this.readonly);
+		ref.setName(this.name);
+		ref.setUuidValue(this.uuidValue);
+		return ref;
+	}
+
 	@Override
 	public boolean equals(final Object obj) {
 		return this == obj || obj instanceof NamedRefUUID other && (//
 		(this.name == null ? other.name == null : this.name.equals(other.name)) //
 				&& other.readonly == this.readonly //
 				&& super.equals(obj));
+	}
+
+	public static <T extends NamedRefUUID> T asReadonly(T ref) {
+		if ((ref = copy(ref)) == null)
+			return null;
+		ref.setReadonly(true);
+		return ref;
+	}
+
+	public static <T extends NamedRefUUID> T copy(final T ref) {
+		if (ref == null)
+			return null;
+		try {
+			return ref.copyTo((T) ref.getDescriptor()
+					.getKlass()
+					.toJavaClass()
+					.getDeclaredConstructor()
+					.newInstance());
+		} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException
+				| NoSuchMethodException | SecurityException e) {
+			return null;
+		}
 	}
 
 	public static Predicate<NamedRefUUID> distinctByName() {

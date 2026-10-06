@@ -15,12 +15,15 @@
  */
 package org.jenkinsci.plugins.artifact.lifecycle.config;
 
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import edu.umd.cs.findbugs.annotations.Nullable;
@@ -88,16 +91,21 @@ public abstract class AGlobalNameResolver<T extends IdentifiedByUUID & Reference
 				.findFirst();
 	}
 
-	public Set<R> findAllEntryNameMappings(@Nullable ItemGroup<?> itemGroup) {
+	public Set<R> findAllEntryNameMappings(@Nullable final ItemGroup<?> itemGroup) {
 		final List<? extends NameResolver<R>> resolvers = allResolvers();
 		final Set<R> set = new LinkedHashSet<>();
+		final Predicate<NamedRefUUID> distinctByName = NamedRefUUID.distinctByName();
+		final Consumer<Collection<R>> collector = col -> col.stream()
+				.filter(distinctByName)
+				.forEach(set::add);
 
 		boolean inherit = true;
+		ItemGroup<?> itemGroup0 = itemGroup;
 		while (inherit) {
-			if (itemGroup instanceof Item item) {
-				itemGroup = item.getParent();
+			if (itemGroup0 instanceof Item item) {
+				itemGroup0 = item.getParent();
 				for (NameResolver<R> resolver : resolvers) {
-					inherit = inherit & resolver.collectNameMappings(item, set);
+					inherit = inherit & resolver.collectNameMappings(item, collector);
 				}
 			} else
 				break;
@@ -107,6 +115,7 @@ public abstract class AGlobalNameResolver<T extends IdentifiedByUUID & Reference
 					.map(ReferenceableByName::toNamedRef)
 					// remove mappings for hidden entries
 					.filter(NamedRefUUID::noComment)
+					.filter(distinctByName)
 					.forEach(set::add);
 		}
 		return set;
