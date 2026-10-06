@@ -15,14 +15,16 @@
  */
 package org.jenkinsci.plugins.artifact.deployment.config;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
@@ -76,10 +78,11 @@ public class DeploymentPipeFolderProperty extends AbstractFolderProperty<Abstrac
 
 	// used by jelly
 	public List<NamedPipeRef> getNameMappings2() {
-		return DeploymentPipeIndex.getResolver()
+		return Stream.concat(this.nameMappings.stream(), DeploymentPipeIndex.getResolver()
 				.findAllEntryNameMappings(getOwner())
 				.stream()
 				.filter(NamedRefUUID::noComment)
+				.map(NamedRefUUID::asReadonly))
 				.filter(NamedRefUUID.distinctByName())
 				.sorted(NamedRefUUID.COMPARE_BY_NAME)
 				.collect(Collectors.toList());
@@ -159,27 +162,29 @@ public class DeploymentPipeFolderProperty extends AbstractFolderProperty<Abstrac
 						return uuid == null ? /* inherited = */ null : Optional.of(uuid);
 					return Optional.ofNullable(uuid);
 				}
-				return cnf.getNameMappings()
+				final Optional<UUID> selected = cnf.getNameMappings()
 						.stream()
 						.filter(NamedRefUUID::noComment)
 						.filter(ref -> name.equals(ref.getName()))
 						.map(RefUUID::getUuid)
-						.findFirst()
-						.or(() -> cnf.getInheritPipes() ? null : Optional.empty());
+						.findFirst();
+				if (selected.isEmpty() && cnf.getInheritPipes())
+					return /* inherited = */ null;
+				return selected;
 			}
 			return null;
 		}
 
 		@Override
-		public boolean collectNameMappings(final Item item, final Set<NamedPipeRef> nameMappings) {
-			Objects.requireNonNull(nameMappings);
+		public boolean collectNameMappings(final Item item, final Consumer<Collection<NamedPipeRef>> collector) {
+			Objects.requireNonNull(collector);
 			if (item instanceof AbstractFolder) {
 				final AbstractFolder<?> folder = (AbstractFolder<?>) item;
 				final DeploymentPipeFolderProperty cnf = folder.getProperties()
 						.get(DeploymentPipeFolderProperty.class);
 				if (cnf == null)
 					return true;
-				nameMappings.addAll(cnf.getNameMappings());
+				collector.accept(cnf.getNameMappings());
 				return cnf.getInheritPipes();
 			}
 			return true;
