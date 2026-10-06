@@ -40,5 +40,4 @@ public class SignerConfigDescriptor extends Descriptor<SignerConfig> {
 		// check duplicates
 		return FormValidation.ok();
 	}
-
 }

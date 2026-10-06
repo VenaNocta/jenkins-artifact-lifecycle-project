@@ -15,14 +15,16 @@
  */
 package org.jenkinsci.plugins.artifact.signing.config;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
@@ -76,10 +78,11 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 
 	// used by jelly
 	public List<NamedSignerConfigRef> getNameMappings2() {
-		return ArtifactSignerIndex.getResolver()
+		return Stream.concat(this.nameMappings.stream(), ArtifactSignerIndex.getResolver()
 				.findAllEntryNameMappings(getOwner())
 				.stream()
 				.filter(NamedRefUUID::noComment)
+				.map(NamedRefUUID::asReadonly))
 				.filter(NamedRefUUID.distinctByName())
 				.sorted(NamedRefUUID.COMPARE_BY_NAME)
 				.collect(Collectors.toList());
@@ -159,27 +162,30 @@ public class ArtifactSignerFolderProperty extends AbstractFolderProperty<Abstrac
 						return uuid == null ? /* inherited = */ null : Optional.of(uuid);
 					return Optional.ofNullable(uuid);
 				}
-				return cnf.getNameMappings()
+				final Optional<UUID> selected = cnf.getNameMappings()
 						.stream()
 						.filter(NamedRefUUID::noComment)
 						.filter(ref -> name.equals(ref.getName()))
 						.map(RefUUID::getUuid)
-						.findFirst()
-						.or(() -> cnf.getInheritSigners() ? null : Optional.empty());
+						.findFirst();
+				if (selected.isEmpty() && cnf.getInheritSigners())
+					return /* inherited = */ null;
+				return selected;
 			}
 			return null;
 		}
 
 		@Override
-		public boolean collectNameMappings(final Item item, final Set<NamedSignerConfigRef> nameMappings) {
-			Objects.requireNonNull(nameMappings);
+		public boolean collectNameMappings(final Item item,
+				final Consumer<Collection<NamedSignerConfigRef>> collector) {
+			Objects.requireNonNull(collector);
 			if (item instanceof AbstractFolder) {
 				final AbstractFolder<?> folder = (AbstractFolder<?>) item;
 				final ArtifactSignerFolderProperty cnf = folder.getProperties()
 						.get(ArtifactSignerFolderProperty.class);
 				if (cnf == null)
 					return true;
-				nameMappings.addAll(cnf.getNameMappings());
+				collector.accept(cnf.getNameMappings());
 				return cnf.getInheritSigners();
 			}
 			return true;
