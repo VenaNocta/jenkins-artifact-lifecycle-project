@@ -135,7 +135,8 @@ public class DeploymentPipeFolderProperty extends AbstractFolderProperty<Abstrac
 		public ListBoxModel doFillDefaultPipeIdItems(@AncestorInPath final Item item,
 				@QueryParameter final String defaultPipeId, @QueryParameter boolean inheritPipes) {
 			return IdentifierUtils.allValuesAsListBox(DeploymentPipeIndex.get()
-					.getPipes(item), defaultPipeId, PipeConfig::getName, true);
+					.getPipes(item), defaultPipeId, PipeConfig::getName, true,
+					inheritPipes ? "« inherited »" : IdentifierUtils.SELECT_NONE_TEXT);
 		}
 	}
 
