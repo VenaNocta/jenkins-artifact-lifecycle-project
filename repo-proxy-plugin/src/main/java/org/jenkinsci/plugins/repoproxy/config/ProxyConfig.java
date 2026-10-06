@@ -20,19 +20,26 @@ import java.util.UUID;
 
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifiedByUUID;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
+import org.jenkinsci.plugins.artifact.lifecycle.config.ReferenceableByName;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionPoint;
 import hudson.Util;
 import hudson.model.Describable;
+import hudson.model.Item;
 
-public abstract class ProxyConfig implements Describable<ProxyConfig>, IdentifiedByUUID, Serializable, ExtensionPoint {
+public abstract class ProxyConfig implements Describable<ProxyConfig>, ReferenceableByName<NamedProxyConfigRef>,
+		IdentifiedByUUID, Serializable, ExtensionPoint {
 
 	private static final long serialVersionUID = 1L;
 
 	@NonNull
 	protected final UUID uuid;
+
+	// consider tracking the owner(item)!
+	// final Item item=null;
+	// => if privs/creds => must be available with owner!
 
 	protected String name;
 	protected String description;
@@ -68,6 +75,19 @@ public abstract class ProxyConfig implements Describable<ProxyConfig>, Identifie
 	@DataBoundSetter
 	public void setDescription(@NonNull final String description) {
 		this.description = description;
+	}
+
+	public boolean isValid(Item item) {
+		return true;
+	}
+
+	@Override
+	public NamedProxyConfigRef toNamedRef() {
+		final NamedProxyConfigRef ref = new NamedProxyConfigRef();
+		ref.setReadonly(true);
+		ref.setUuidValue(getUuid());
+		ref.setName(getName());
+		return ref;
 	}
 
 	@Override

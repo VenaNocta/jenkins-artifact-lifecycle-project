@@ -39,7 +39,7 @@ import org.jenkinsci.plugins.repoproxy.ProxyBootstrapper;
 import org.jenkinsci.plugins.repoproxy.ProxyProvider;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfig;
 import org.jenkinsci.plugins.repoproxy.config.ProxyConfigDescriptor;
-import org.jenkinsci.plugins.repoproxy.config.RepoProxyConfigurationProvider;
+import org.jenkinsci.plugins.repoproxy.config.RepoProxyConfiguration;
 import org.jenkinsci.plugins.repoproxy.config.BomSourceCache;
 import org.jenkinsci.plugins.repoproxy.config.BomSourceProvider;
 import org.jenkinsci.plugins.repoproxy.netty.AgentNettyStopCallable;
@@ -161,7 +161,8 @@ public class RepoProxyStepExecution extends StepExecution {
 					continue;
 				}
 
-				final ProxyConfig config = RepoProxyConfigurationProvider.findConfigByName(run, configKey);
+				final ProxyConfig config = RepoProxyConfiguration.getResolver()
+						.findEntryByName(run.getParent(), configKey);
 				if (config == null)
 					log.println("[ RepoProxy ] Proxy unavailable! Name: " + configKey);
 				else

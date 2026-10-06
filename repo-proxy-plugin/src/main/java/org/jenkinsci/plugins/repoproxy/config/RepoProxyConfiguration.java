@@ -21,20 +21,25 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.artifact.lifecycle.config.AGlobalNameResolver;
+import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifiedByUUID;
 import org.jenkinsci.plugins.artifact.lifecycle.config.IdentifierUtils;
+import org.jenkinsci.plugins.artifact.lifecycle.config.NameResolver;
 import org.jenkinsci.plugins.artifact.lifecycle.ui.GlobalArtifactLifecycleConfigLink.ArtifactLifecycleCategory;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest2;
 
-import com.google.inject.Inject;
-
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
-import hudson.model.Run;
+import hudson.ExtensionList;
+import hudson.model.Item;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
 import net.sf.json.JSONObject;
@@ -43,11 +48,13 @@ import net.sf.json.JSONObject;
 @Symbol("globalRepoProxyConfig")
 public class RepoProxyConfiguration extends GlobalConfiguration {
 
+	protected transient final GlobalProxyResolver resolver;
 	protected transient final Map<UUID, ProxyConfig> proxyMap = new LinkedHashMap<>();
 
 	private Collection<ProxyConfig> configs = new LinkedList<>();
 
 	public RepoProxyConfiguration() {
+		this.resolver = new GlobalProxyResolver(this);
 		load();
 	}
 
@@ -63,19 +70,19 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 		return this.proxyMap.get(id);
 	}
 
-	public ProxyConfig getConfigByName(final String name) {
-		if (name == null)
-			return null;
-		return this.proxyMap.values()
-				.stream()
-				.filter(s -> name.equals(s.getName()))
-				.findFirst()
-				.orElse(null);
+	public boolean containsConfigId(final UUID uuid) {
+		return this.proxyMap.containsKey(uuid);
 	}
 
 	// used by jelly & JCasC
 	public List<ProxyConfig> getConfigs() {
 		return new ArrayList<ProxyConfig>(this.proxyMap.values());
+	}
+
+	// used by jelly
+	public List<ProxyConfig> getConfigs(final Item context) {
+		// TODO actually check the owner Item!
+		return new ArrayList<>(this.proxyMap.values());
 	}
 
 	@DataBoundSetter
@@ -88,13 +95,12 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 	public void setConfigMap(final Map<UUID, ProxyConfig> repos) {
 		// TODO consider using a read-write-lock
 		IdentifierUtils.updateMapEntries(this.proxyMap, repos);
-		this.proxyMap.putAll(repos);
 	}
 
 	@Override
 	public boolean configure(final StaplerRequest2 req, final JSONObject json) throws FormException {
-		this.setConfigMap(IdentifierUtils.bindIdentifiedEntries(req, json, ProxyConfig.class,
-				this.proxyMap::containsKey, "configs", ProxyConfig.JSON_ID_FIELD_NAME, null));
+		this.setConfigMap(IdentifierUtils.bindIdentifiedEntries(req, json, ProxyConfig.class, this::containsConfigId,
+				"configs", IdentifiedByUUID.JSON_ID_FIELD_NAME, null));
 		save();
 		return true;
 	}
@@ -103,12 +109,6 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 	public synchronized void save() {
 		this.configs = getConfigs();
 		super.save();
-	}
-
-	protected FormException verifyPostBind(final UUID uuid, final ProxyConfig config) {
-		if (!uuid.equals(config.uuid))
-			return new FormException("UUID mismatch after binding", "configs");
-		return null;
 	}
 
 	@Override
@@ -122,21 +122,34 @@ public class RepoProxyConfiguration extends GlobalConfiguration {
 				.getInstance(RepoProxyConfiguration.class);
 	}
 
-	// provides the global fallback values
-	@Extension(ordinal = -10000)
-	public static final class GlobalRepoProxyConfigurationProvider implements RepoProxyConfigurationProvider {
+	public static GlobalProxyResolver getResolver() {
+		return get().resolver;
+	}
 
-		@Inject
-		private RepoProxyConfiguration cnf;
+	public static class GlobalProxyResolver extends AGlobalNameResolver<ProxyConfig, NamedProxyConfigRef> {
 
-		@Override
-		public ProxyConfig getConfigById(final Run<?, ?> run, final UUID id) {
-			return this.cnf.getConfigById(id);
+		private final RepoProxyConfiguration idx;
+
+		protected GlobalProxyResolver(final RepoProxyConfiguration idx) {
+			this.idx = idx;
 		}
 
 		@Override
-		public ProxyConfig getConfigByName(final Run<?, ?> run, final String name) {
-			return this.cnf.getConfigByName(name);
+		protected ExtensionList<? extends NameResolver<NamedProxyConfigRef>> allResolvers() {
+			return ProxyNameResolver.all();
+		}
+
+		@Override
+		public ProxyConfig getEntryById(final UUID uuid) {
+			return this.idx.getConfigById(uuid);
+		}
+
+		@Override
+		public Stream<ProxyConfig> getEntriesAsStream(final Item context) {
+			// TODO actually check the owner Item!
+			return this.idx.proxyMap.values()
+					.parallelStream()
+					.filter(Objects::nonNull);
 		}
 	}
 }
