@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core">
-	<h1>${%Dashboard}</h1>
-	<p>Welcome to the Artifact Lifecycle Dashboard</p>
-	<p>Select an item from the left navigation.YYY</p>
-</j:jelly>

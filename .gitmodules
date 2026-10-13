@@ -1,0 +1,28 @@
+[submodule "artifact-bundle-plugin"]
+	path = artifact-bundle-plugin
+	url = ssh://git@github.com/VenaNocta/jenkins-artifact-bundle-plugin.git
+	branch = master
+[submodule "artifact-deployment-plugin"]
+	path = artifact-deployment-plugin
+	url = ssh://git@github.com/VenaNocta/jenkins-artifact-deployment-plugin.git
+	branch = master
+[submodule "artifact-signing-plugin"]
+	path = artifact-signing-plugin
+	url = ssh://git@github.com/VenaNocta/jenkins-artifact-signing-plugin.git
+	branch = master
+[submodule "isolation-context-plugin"]
+	path = isolation-context-plugin
+	url = ssh://git@github.com/VenaNocta/jenkins-isolation-context-plugin.git
+	branch = master
+[submodule "pgpcredentials-plugin"]
+	path = pgpcredentials-plugin
+	url = ssh://git@github.com/VenaNocta/jenkins-pgpcredentials-plugin.git
+	branch = master
+[submodule "repo-proxy-plugin"]
+	path = repo-proxy-plugin
+	url = ssh://git@github.com/VenaNocta/jenkins-repo-proxy-plugin.git
+	branch = master
+[submodule "artifact-lifecycle-plugin"]
+	path = artifact-lifecycle-plugin
+	url = ssh://git@github.com/VenaNocta/jenkins-artifact-lifecycle-plugin.git
+	branch = master

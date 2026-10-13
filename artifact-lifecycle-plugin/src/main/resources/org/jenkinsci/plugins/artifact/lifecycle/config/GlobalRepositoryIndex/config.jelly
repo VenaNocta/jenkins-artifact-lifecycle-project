@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form"
-	xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
-	<f:repeatableHeteroProperty field="repos"
-		hasHeader="true" />
-</j:jelly>

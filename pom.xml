@@ -40,7 +40,6 @@
 	<modules>
 		<module>sbom</module>
 		<module>artifact-lifecycle-plugin</module>
-		<module>artifact-lifecycle-maven-api</module>
 		<module>pgpcredentials-plugin</module>
 		<module>artifact-signing-plugin</module>
 		<module>artifact-bundle-plugin</module>
