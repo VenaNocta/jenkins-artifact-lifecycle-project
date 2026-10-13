@@ -26,21 +26,20 @@
 		<version>6.2152.ve00a_731c3ce9</version>
 	</parent>
 
-	<groupId>org.jenkins-ci.plugins.artifact-signing</groupId>
-	<artifactId>artifact-signing-parent</artifactId>
+	<groupId>org.jenkins-ci.plugins</groupId>
+	<artifactId>artifact-lifecycle-project</artifactId>
 	<version>1.0.0</version>
 	<packaging>pom</packaging>
 
-	<name>Jenkins Artifact Signing Plugin - Parent</name>
-	<description>Jenkins Plugin providing GPG signing capabilities for archived
-		Artifacts </description>
-	<url>https://github.com/RunedUniverse/jenkins-artifact-signing-plugin</url>
+	<name>Jenkins Artifact Lifecycle Project</name>
+	<description>Jenkins Plugin Collection for the Artifact Lifecycle</description>
+	<url>https://github.com/RunedUniverse/jenkins-artifact-lifecycle-project</url>
 	<inceptionYear>2025</inceptionYear>
 
 	<modules>
 		<module>sbom</module>
 		<module>artifact-lifecycle-plugin</module>
-		<module>pgpcredentials-plugin</module>
+		<module>pgp-credentials-plugin</module>
 		<module>artifact-signing-plugin</module>
 		<module>artifact-bundle-plugin</module>
 		<module>artifact-deployment-plugin</module>
@@ -78,19 +77,19 @@
 
 	<scm>
 		<url>
-			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin
+			https://github.com/RunedUniverse/jenkins-artifact-lifecycle-project
 		</url>
 		<connection>
-			scm:git:https://github.com/RunedUniverse/jenkins-artifact-signing-plugin.git
+			scm:git:https://github.com/RunedUniverse/jenkins-artifact-lifecycle-project.git
 		</connection>
 		<developerConnection>
-			scm:git:git@github.com:RunedUniverse/jenkins-artifact-signing-plugin.git
+			scm:git:git@github.com:RunedUniverse/jenkins-artifact-lifecycle-project.git
 		</developerConnection>
 	</scm>
 	<issueManagement>
 		<system>GitHub Issues</system>
 		<url>
-			https://github.com/RunedUniverse/jenkins-artifact-signing-plugin/issues
+			https://github.com/RunedUniverse/jenkins-artifact-lifecycle-project/issues
 		</url>
 	</issueManagement>
 
@@ -115,10 +114,6 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<root-dir>${basedir}</root-dir>
-		<!-- VERSIONS -->
-		<major-version>1</major-version>
-		<minor-version>0</minor-version>
-		<artifact-version>0</artifact-version>
 		<!-- ARTIFACT VERSIONS -->
 		<jenkins.version>2.541.1</jenkins.version>
 		<!-- ARTIFACT VERSIONS - COMPILER -->
