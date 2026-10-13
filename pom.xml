@@ -37,7 +37,6 @@
 	<inceptionYear>2025</inceptionYear>
 
 	<modules>
-		<module>sbom</module>
 		<module>artifact-lifecycle-plugin</module>
 		<module>pgp-credentials-plugin</module>
 		<module>artifact-signing-plugin</module>

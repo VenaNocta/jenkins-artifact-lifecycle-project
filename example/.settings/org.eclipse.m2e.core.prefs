@@ -1,4 +1,4 @@
-activeProfiles=jenkins,repo-releases,repo-development
+activeProfiles=repo-releases, repo-development, jenkins-release, repo-development, jenkins
 eclipse.preferences.version=1
 resolveWorkspaceProjects=true
 version=1
