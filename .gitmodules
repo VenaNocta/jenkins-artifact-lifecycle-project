@@ -1,6 +1,6 @@
-[submodule "identified-data-api"]
-	path = identified-data-api
-	url = ssh://git@github.com/VenaNocta/jenkins-identified-data-api.git
+[submodule "identified-data-api-plugin"]
+	path = identified-data-api-plugin
+	url = ssh://git@github.com/VenaNocta/jenkins-identified-data-api-plugin.git
 	branch = master
 [submodule "artifact-lifecycle-plugin"]
 	path = artifact-lifecycle-plugin
