@@ -46,8 +46,8 @@
 		<artifact-signing-version>1.0-v0</artifact-signing-version>
 		<artifact-deployment-version>1.0-v0</artifact-deployment-version>
 		<!-- ARTIFACT VERSIONS - BOMs -->
-		<jenkins-tools-bom-version>2.555.x</jenkins-tools-bom-version>
-		<jenkins-tools-bom-patch>6269.v7a_159d68a_366</jenkins-tools-bom-patch>
+		<jenkins-tools-bom-version>2.580.x</jenkins-tools-bom-version>
+		<jenkins-tools-bom-patch>7169.vb_32a_cfd93fa_6</jenkins-tools-bom-patch>
 	</properties>
 
 	<licenses>
