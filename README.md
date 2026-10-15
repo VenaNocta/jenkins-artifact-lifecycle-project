@@ -21,15 +21,15 @@ Should you wish to use the plugins beforehand you can build them as shown in the
 
 ### Rework - Open Tasks
 
-- `[artifact-deployment-plugin]` Transition from **Direct Repo-Upload** to **Deployment Pipelines**
+- [ ] `[artifact-deployment-plugin]` Transition from **Direct Repo-Upload** to **Deployment Pipelines**
 <br>With this change the sequential Artifact Validation (Malware Scan, ...) & Deployment to multiple Repos can be configured and modified without having to change any Pipelines.
-- `[repo-proxy-plugin]` Split off Maven Repo-Proxy from generic `repo-proxy-plugin` to `repo-proxy-maven-plugin`
-- `[repo-proxy-plugin]` Switch to repackaged Netty hpi package.
-- Dependency Cleanup (some projects currently have more dependencies than they actually need)
-- Update all Deplendencies
+- [x] `[repo-proxy-plugin]` Split off Maven Repo-Proxy from generic `repo-proxy-plugin` to `repo-proxy-maven-plugin`
+- [ ] `[repo-proxy-plugin]` Switch to repackaged Netty hpi package.
+- [ ] Dependency Cleanup (some projects currently have more dependencies than they actually need)
+- [ ] Update all Deplendencies
 - Upstream Deplendencies:
-  - `[maven-repo-project]` Release
-  - `[maven-jenkins-workflow]` Release
+  - [ ] `[maven-repo-project]` Release
+  - [ ] `[maven-jenkins-workflow]` Release
 
 ## Building
 
