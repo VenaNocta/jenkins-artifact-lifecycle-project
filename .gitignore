@@ -1,8 +1,15 @@
 .mvn/repo/
+/target/
 **/target/
 **/*.log
-
-# mvn hpi:run
-work
 archive
+
+/work/
+/**/work/
+
+java_pid*.hprof
+
+# mvn hpi:run | example project has preconfigured configs for testing!
+!/example/work/
+!/example/work/.gitignore
 
