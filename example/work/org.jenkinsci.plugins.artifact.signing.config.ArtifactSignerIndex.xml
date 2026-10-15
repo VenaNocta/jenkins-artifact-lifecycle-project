@@ -1,0 +1,12 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<org.jenkinsci.plugins.artifact.signing.config.ArtifactSignerIndex plugin="artifact-signing@1.0-v0">
+  <signers class="list">
+    <org.jenkinsci.plugins.artifact.signing.config.EmbeddedPGPSignerConfig>
+      <uuid>788b778a-3b92-44ba-9913-9feb6e435766</uuid>
+      <name>test-team-123</name>
+      <credentialId>pgp-credentials_test-key</credentialId>
+    </org.jenkinsci.plugins.artifact.signing.config.EmbeddedPGPSignerConfig>
+  </signers>
+  <secureLabelExpression>secure</secureLabelExpression>
+  <secureWorkspaceSuffix>secure</secureWorkspaceSuffix>
+</org.jenkinsci.plugins.artifact.signing.config.ArtifactSignerIndex>

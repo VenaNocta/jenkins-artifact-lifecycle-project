@@ -1,0 +1,40 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<com.cloudbees.hudson.plugins.folder.Folder plugin="cloudbees-folder@6.1079.vc0975c2de294">
+  <actions/>
+  <description></description>
+  <properties>
+    <org.jenkinsci.plugins.artifact.deployment.config.DeploymentPipeFolderProperty plugin="artifact-deployment@1.0.0">
+      <inheritPipes>true</inheritPipes>
+      <nameMappings/>
+    </org.jenkinsci.plugins.artifact.deployment.config.DeploymentPipeFolderProperty>
+    <org.jenkinsci.plugins.artifact.signing.config.ArtifactSignerFolderProperty plugin="artifact-signing@1.0.0">
+      <inheritSigners>true</inheritSigners>
+      <defaultSignerId>788b778a-3b92-44ba-9913-9feb6e435766</defaultSignerId>
+      <nameMappings/>
+    </org.jenkinsci.plugins.artifact.signing.config.ArtifactSignerFolderProperty>
+    <org.jenkinsci.plugins.repoproxy.config.RepoProxyFolderProperty plugin="repo-proxy-plugin@1.0.0">
+      <inheritNameMappings>true</inheritNameMappings>
+      <nameMappings>
+        <org.jenkinsci.plugins.repoproxy.config.NamedProxyConfigRef>
+          <uuidValue>f434369f-f3b6-4293-83ba-46ad8adcfe37</uuidValue>
+          <readonly>false</readonly>
+          <name>maven&gt;runeduniverse&gt;maven-thesis-testing</name>
+        </org.jenkinsci.plugins.repoproxy.config.NamedProxyConfigRef>
+      </nameMappings>
+    </org.jenkinsci.plugins.repoproxy.config.RepoProxyFolderProperty>
+  </properties>
+  <folderViews class="com.cloudbees.hudson.plugins.folder.views.DefaultFolderViewHolder">
+    <views>
+      <hudson.model.AllView>
+        <owner class="com.cloudbees.hudson.plugins.folder.Folder" reference="../../../.."/>
+        <name>All</name>
+        <filterExecutors>false</filterExecutors>
+        <filterQueue>false</filterQueue>
+        <properties class="hudson.model.View$PropertyList"/>
+      </hudson.model.AllView>
+    </views>
+    <tabBar class="hudson.views.DefaultViewsTabBar"/>
+  </folderViews>
+  <healthMetrics/>
+  <icon class="com.cloudbees.hudson.plugins.folder.icons.StockFolderIcon"/>
+</com.cloudbees.hudson.plugins.folder.Folder>

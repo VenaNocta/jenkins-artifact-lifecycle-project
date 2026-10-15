@@ -1,0 +1,27 @@
+# ignore all by default
+*
+
+# keep - generics
+!jobs/
+!jobs/**
+!**/jobs/
+!**/jobs/**
+!/secrets/
+!/secrets/**
+!config.xml
+!credentials.xml
+!identity.key.enc
+!secret.key
+!secret.key.not-so-secret
+
+# remove - generated
+/jobs/**/branches/**
+/jobs/**/indexing/**
+
+# keep - specific
+!org.jenkinsci.plugins.artifact.deployment.config.DeploymentPipeIndex.xml
+!org.jenkinsci.plugins.artifact.lifecycle.config.GlobalRepositoryIndex.xml
+!org.jenkinsci.plugins.artifact.signing.config.ArtifactSignerIndex.xml
+!org.jenkinsci.plugins.repoproxy.config.GlobalBomIndexConfiguration.xml
+!org.jenkinsci.plugins.repoproxy.config.RepoProxyConfiguration.xml
+

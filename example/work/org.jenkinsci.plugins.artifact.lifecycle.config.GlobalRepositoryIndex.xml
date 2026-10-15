@@ -1,0 +1,17 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<org.jenkinsci.plugins.artifact.lifecycle.config.GlobalRepositoryIndex plugin="artifact-lifecycle@1.0-v0">
+  <repos class="list">
+    <org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusRepository plugin="artifact-deployment@1.0-v0">
+      <uuid>83766c89-09c9-420a-8dec-e1219193c323</uuid>
+      <name>thesis&gt;testing</name>
+      <uri>http://repo.cache.srv.lan</uri>
+      <repo>maven-thesis-testing</repo>
+      <credentialId>nexus-ci-test-user</credentialId>
+    </org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusRepository>
+    <org.jenkinsci.plugins.artifact.lifecycle.maven.config.DefaultMaven2Repository plugin="artifact-lifecycle-maven-api@1.0-v0">
+      <uuid>f893c820-dcb9-42d1-adcc-030f69d9953e</uuid>
+      <name>maven&gt;central</name>
+      <uri>https://repo1.maven.org/maven2/</uri>
+    </org.jenkinsci.plugins.artifact.lifecycle.maven.config.DefaultMaven2Repository>
+  </repos>
+</org.jenkinsci.plugins.artifact.lifecycle.config.GlobalRepositoryIndex>

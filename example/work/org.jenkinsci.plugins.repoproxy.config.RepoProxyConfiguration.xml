@@ -1,0 +1,58 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<org.jenkinsci.plugins.repoproxy.config.RepoProxyConfiguration plugin="repo-proxy@1.0-v0">
+  <configs class="list">
+    <org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig plugin="repo-proxy-maven@1.0-v0">
+      <uuid>7a55863c-e5c5-4096-a48c-9bfc564210b7</uuid>
+      <name>maven&gt;central</name>
+      <description></description>
+      <sourceMap class="linked-hash-map">
+        <entry>
+          <string>central</string>
+          <org.jenkinsci.plugins.repoproxy.maven.config.HttpRepoSourceConfig>
+            <key>central</key>
+            <repoId>f893c820-dcb9-42d1-adcc-030f69d9953e</repoId>
+            <maxRedirects>3</maxRedirects>
+            <maxRetries>10</maxRetries>
+          </org.jenkinsci.plugins.repoproxy.maven.config.HttpRepoSourceConfig>
+        </entry>
+      </sourceMap>
+      <validators class="linked-hash-set">
+        <org.jenkinsci.plugins.repoproxy.maven.config.CyclonedxArtifactValidatorConfig>
+          <sourceIds class="linked-hash-set">
+            <org.jenkinsci.plugins.repoproxy.maven.config.ACyclonedxValidatorConfig_-IdRef>
+              <uuidValue>f6c76009-14f9-4b71-af95-fc6472d4160d</uuidValue>
+            </org.jenkinsci.plugins.repoproxy.maven.config.ACyclonedxValidatorConfig_-IdRef>
+            <org.jenkinsci.plugins.repoproxy.maven.config.ACyclonedxValidatorConfig_-IdRef>
+              <uuidValue>59e4c59f-367b-4def-b7ab-2afdf03734a8</uuidValue>
+            </org.jenkinsci.plugins.repoproxy.maven.config.ACyclonedxValidatorConfig_-IdRef>
+          </sourceIds>
+          <ignoreExcludedComponents>true</ignoreExcludedComponents>
+          <ignoreTestComponents>false</ignoreTestComponents>
+          <skipMissingArtifacts>false</skipMissingArtifacts>
+          <skipMissingPomArtifacts>true</skipMissingPomArtifacts>
+          <enableKeyserverOpenPgp>true</enableKeyserverOpenPgp>
+          <enableKeyserverUbuntu>true</enableKeyserverUbuntu>
+          <enableKeyserverMit>true</enableKeyserverMit>
+        </org.jenkinsci.plugins.repoproxy.maven.config.CyclonedxArtifactValidatorConfig>
+        <org.jenkinsci.plugins.repoproxy.maven.config.DefaultPomArtifactValidatorConfig/>
+      </validators>
+    </org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig>
+    <org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig plugin="repo-proxy-maven@1.0-v0">
+      <uuid>f434369f-f3b6-4293-83ba-46ad8adcfe37</uuid>
+      <name># maven&gt;runeduniverse&gt;maven-thesis-testing</name>
+      <description></description>
+      <sourceMap class="linked-hash-map">
+        <entry>
+          <string>nexus</string>
+          <org.jenkinsci.plugins.repoproxy.maven.config.HttpRepoSourceConfig>
+            <key>nexus</key>
+            <repoId>83766c89-09c9-420a-8dec-e1219193c323</repoId>
+            <maxRedirects>3</maxRedirects>
+            <maxRetries>10</maxRetries>
+          </org.jenkinsci.plugins.repoproxy.maven.config.HttpRepoSourceConfig>
+        </entry>
+      </sourceMap>
+      <validators class="linked-hash-set"/>
+    </org.jenkinsci.plugins.repoproxy.maven.config.MvnProxyConfig>
+  </configs>
+</org.jenkinsci.plugins.repoproxy.config.RepoProxyConfiguration>

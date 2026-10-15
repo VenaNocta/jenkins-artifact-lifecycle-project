@@ -1,0 +1,9 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<org.jenkinsci.plugins.artifact.deployment.config.DeploymentPipeIndex plugin="artifact-deployment@1.0.0">
+  <pipes class="list">
+    <org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
+      <uuid>bbaa625e-8024-4111-842d-8dca0c75a4fd</uuid>
+      <name>release</name>
+    </org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
+  </pipes>
+</org.jenkinsci.plugins.artifact.deployment.config.DeploymentPipeIndex>
