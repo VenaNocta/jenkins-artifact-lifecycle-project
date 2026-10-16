@@ -22,7 +22,7 @@ Should you wish to use the plugins beforehand you can build them as shown in the
 ### Rework - Open Tasks
 
 - [x] `[identified-data-api-plugin]` Move UUID-ref classes to it's own hpi package.
-- [ ] `[runeduniverse-utils-api-plugin]` Create & Switch to repackaged runeduniverse-utils hpi package.
+- [x] `[runeduniverse-utils-api-plugin]` Create & Switch to repackaged runeduniverse-utils hpi package.
 - [ ] `[artifact-deployment-plugin]` Transition from **Direct Repo-Upload** to **Deployment Pipelines**
 <br>With this change the sequential Artifact Validation (Malware Scan, ...) & Deployment to multiple Repos can be configured and modified without having to change any Pipelines.
 - [x] `[repo-proxy-plugin]` Split off Maven Repo-Proxy from generic `repo-proxy-plugin` to `repo-proxy-maven-plugin`
