@@ -1,7 +1,7 @@
 <?xml version='1.1' encoding='UTF-8'?>
 <hudson>
   <disabledAdministrativeMonitors/>
-  <version>2.541.1</version>
+  <version>2.568.3</version>
   <numExecutors>1</numExecutors>
   <mode>NORMAL</mode>
   <authorizationStrategy class="hudson.security.AuthorizationStrategy$Unsecured"/>
@@ -27,9 +27,7 @@
   <primaryView>all</primaryView>
   <slaveAgentPort>0</slaveAgentPort>
   <label>linux x86</label>
-  <crumbIssuer class="hudson.security.csrf.DefaultCrumbIssuer">
-    <excludeClientIPFromCrumb>false</excludeClientIPFromCrumb>
-  </crumbIssuer>
+  <crumbIssuer class="hudson.security.csrf.DefaultCrumbIssuer"/>
   <nodeProperties>
     <org.jenkinsci.plugins.isolationctx.config.NodeIsolationProperty plugin="isolation-context-plugin@1.0-v0">
       <disabled>false</disabled>
