@@ -1,3 +1,7 @@
+[submodule "runeduniverse-utils-api-plugin"]
+	path = runeduniverse-utils-api-plugin
+	url = ssh://git@github.com/VenaNocta/jenkins-runeduniverse-utils-api-plugin.git
+	branch = master
 [submodule "identified-data-api-plugin"]
 	path = identified-data-api-plugin
 	url = ssh://git@github.com/VenaNocta/jenkins-identified-data-api-plugin.git
@@ -30,4 +34,3 @@
 	path = repo-proxy-plugin
 	url = ssh://git@github.com/VenaNocta/jenkins-repo-proxy-plugin.git
 	branch = master
-

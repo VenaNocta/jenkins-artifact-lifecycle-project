@@ -37,6 +37,7 @@
 	<inceptionYear>2025</inceptionYear>
 
 	<modules>
+		<module>runeduniverse-utils-api-plugin</module>
 		<module>identified-data-api-plugin</module>
 		<module>artifact-lifecycle-plugin</module>
 		<module>pgp-credentials-plugin</module>
