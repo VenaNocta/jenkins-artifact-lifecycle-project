@@ -4,10 +4,10 @@
     <org.jenkinsci.plugins.repoproxy.config.ScmBomSource>
       <uuid>f6c76009-14f9-4b71-af95-fc6472d4160d</uuid>
       <name>runeduniverse&gt;sbom-collection</name>
-      <version>master</version>
+      <version>sbom-collection</version>
       <scm class="jenkins.plugins.git.GitSCMSource" plugin="git@5.10.1">
         <id></id>
-        <remote>git@github.com:RunedUniverse/sbom-collection.git</remote>
+        <remote>https://github.com/VenaNocta/mis-thesis-pipe-1.git</remote>
         <credentialsId></credentialsId>
         <traits>
           <jenkins.plugins.git.traits.BranchDiscoveryTrait/>
