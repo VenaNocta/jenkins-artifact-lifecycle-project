@@ -23,8 +23,9 @@ Should you wish to use the plugins beforehand you can build them as shown in the
 
 - [x] `[identified-data-api-plugin]` Move UUID-ref classes to it's own hpi package.
 - [x] `[runeduniverse-utils-api-plugin]` Create & Switch to repackaged runeduniverse-utils hpi package.
-- [ ] `[artifact-deployment-plugin]` Transition from **Direct Repo-Upload** to **Deployment Pipelines**
+- [x] `[artifact-deployment-plugin]` Transition from **Direct Repo-Upload** to **Deployment Pipelines**
 <br>With this change the sequential Artifact Validation (Malware Scan, ...) & Deployment to multiple Repos can be configured and modified without having to change any Pipelines.
+- [ ] `[artifact-deployment-plugin]` Add Deployment-Task: **IF on Base Branch**
 - [x] `[repo-proxy-plugin]` Split off Maven Repo-Proxy from generic `repo-proxy-plugin` to `repo-proxy-maven-plugin`
 - [x] `[repo-proxy-plugin]` Switch to repackaged Netty hpi package.
 - [ ] `repo-proxy-maven-plugin` Fix Agent-sided Port in use BUG!
