@@ -14,7 +14,7 @@ Please be adviced that we are currently reworking the project for the public rel
 The rework currently focuses on clear improvements in configurability and modularity.
 The core functionality will stay mostly AS-IS, prior to the migration.
 
-The Rework is roughly 80% completed.
+The Rework is roughly 90% completed.
 
 Once our Rework-Tasks are completet we will open the Review Process with the Jenkins Community to migrate the Plugins.
 Should you wish to use the plugins beforehand you can build them as shown in the [Building Section](#building).
@@ -25,7 +25,7 @@ Should you wish to use the plugins beforehand you can build them as shown in the
 - [x] `[runeduniverse-utils-api-plugin]` Create & Switch to repackaged runeduniverse-utils hpi package.
 - [x] `[artifact-deployment-plugin]` Transition from **Direct Repo-Upload** to **Deployment Pipelines**
 <br>With this change the sequential Artifact Validation (Malware Scan, ...) & Deployment to multiple Repos can be configured and modified without having to change any Pipelines.
-- [ ] `[artifact-deployment-plugin]` Add Deployment-Task: **IF on Base Branch**
+- [x] `[artifact-deployment-plugin]` Add Deployment-Tasks & Checks (They provide a bunch of security measures!)
 - [x] `[repo-proxy-plugin]` Split off Maven Repo-Proxy from generic `repo-proxy-plugin` to `repo-proxy-maven-plugin`
 - [x] `[repo-proxy-plugin]` Switch to repackaged Netty hpi package.
 - [ ] `repo-proxy-maven-plugin` Fix Agent-sided Port in use BUG!

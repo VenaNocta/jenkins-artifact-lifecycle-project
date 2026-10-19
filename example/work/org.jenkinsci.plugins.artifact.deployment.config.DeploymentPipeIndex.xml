@@ -10,5 +10,67 @@
         </org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusUploadTask>
       </tasks>
     </org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
+    <org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
+      <uuid>9ec53693-310a-47c8-a386-da820f8a54ce</uuid>
+      <name>release</name>
+      <tasks class="linked-list">
+        <org.jenkinsci.plugins.artifact.deployment.tasks.SectionTask>
+          <name>Production Deploy</name>
+          <requirements class="linked-list">
+            <org.jenkinsci.plugins.artifact.deployment.tasks.BlockReplayedCpsCheck/>
+            <org.jenkinsci.plugins.artifact.deployment.tasks.MatchBranchDefaultCpsCheck/>
+            <org.jenkinsci.plugins.artifact.deployment.tasks.ResultCpsCheck>
+              <matchType>equal</matchType>
+              <value>SUCCESS</value>
+            </org.jenkinsci.plugins.artifact.deployment.tasks.ResultCpsCheck>
+          </requirements>
+          <skipOnFailedCheck>true</skipOnFailedCheck>
+          <tasks class="linked-list">
+            <org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusUploadTask>
+              <repoId>83766c89-09c9-420a-8dec-e1219193c323</repoId>
+            </org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusUploadTask>
+            <org.jenkinsci.plugins.artifact.deployment.tasks.GitTagPushTask>
+              <entries>
+                <org.jenkinsci.plugins.artifact.deployment.tasks.MetadataFileExtensionEntry>
+                  <key>ext</key>
+                </org.jenkinsci.plugins.artifact.deployment.tasks.MetadataFileExtensionEntry>
+                <org.jenkinsci.plugins.artifact.deployment.tasks.CustomMetadataEntry>
+                  <key>groupId</key>
+                  <metakeys class="java.util.ImmutableCollections$ListN" resolves-to="java.util.CollSer" serialization="custom">
+                    <java.util.CollSer>
+                      <default>
+                        <tag>4</tag>
+                      </default>
+                      <int>1</int>
+                      <string>groupId</string>
+                    </java.util.CollSer>
+                  </metakeys>
+                </org.jenkinsci.plugins.artifact.deployment.tasks.CustomMetadataEntry>
+                <org.jenkinsci.plugins.artifact.deployment.tasks.CustomMetadataEntry>
+                  <key>artifactId</key>
+                  <metakeys class="java.util.ImmutableCollections$ListN" resolves-to="java.util.CollSer" serialization="custom">
+                    <java.util.CollSer>
+                      <default>
+                        <tag>4</tag>
+                      </default>
+                      <int>1</int>
+                      <string>artifactId</string>
+                    </java.util.CollSer>
+                  </metakeys>
+                </org.jenkinsci.plugins.artifact.deployment.tasks.CustomMetadataEntry>
+                <org.jenkinsci.plugins.artifact.deployment.tasks.MetadataVersionEntry>
+                  <key>version</key>
+                </org.jenkinsci.plugins.artifact.deployment.tasks.MetadataVersionEntry>
+              </entries>
+              <triggerKey>ext</triggerKey>
+              <triggerValueRegex>txt</triggerValueRegex>
+              <tag>${ ext }/v${ version }</tag>
+              <comment>[artifact] ${ groupId }:${ artifactId }:${ version }</comment>
+              <force>true</force>
+            </org.jenkinsci.plugins.artifact.deployment.tasks.GitTagPushTask>
+          </tasks>
+        </org.jenkinsci.plugins.artifact.deployment.tasks.SectionTask>
+      </tasks>
+    </org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
   </pipes>
 </org.jenkinsci.plugins.artifact.deployment.config.DeploymentPipeIndex>
