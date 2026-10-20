@@ -59,7 +59,7 @@ Build with:
 mvn -Pdev-install
 ```
 
-Additionally, you will need to have the jdk-toolchain for version `openjdk-17` configured:
+Additionally, you will need to have the jdk-toolchain for version `openjdk-21` configured:
 
 Toolchain config example, for fedora: `~/.m2/toolchains.xml`
 ```xml
@@ -70,10 +70,10 @@ Toolchain config example, for fedora: `~/.m2/toolchains.xml`
 	<toolchain>
 		<type>jdk</type>
 		<provides>
-			<version>openjdk-17</version>
+			<version>openjdk-21</version>
 		</provides>
 		<configuration>
-			<jdkHome>/usr/lib/jvm/java-17-openjdk</jdkHome>
+			<jdkHome>/usr/lib/jvm/java-21-openjdk</jdkHome>
 		</configuration>
 	</toolchain>
 </toolchains>
