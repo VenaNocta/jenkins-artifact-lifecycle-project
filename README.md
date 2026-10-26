@@ -28,7 +28,10 @@ Should you wish to use the plugins beforehand you can build them as shown in the
 - [x] `[artifact-deployment-plugin]` Add Deployment-Tasks & Checks (They provide a bunch of security measures!)
 - [x] `[repo-proxy-plugin]` Split off Maven Repo-Proxy from generic `repo-proxy-plugin` to `repo-proxy-maven-plugin`
 - [x] `[repo-proxy-plugin]` Switch to repackaged Netty hpi package.
-- [ ] `repo-proxy-maven-plugin` Fix Agent-sided Port in use BUG!
+- [ ] `[repo-proxy-maven-plugin]` Fix Agent-sided Port in use BUG!
+- [x] `[isolation-context-plugin]` Fix Broken Remoting-Channel BUG!
+- [ ] `[isolation-context-plugin]` Implment planned support for multiple isolation handler.
+- [ ] `[isolation-context-plugin]` Implment planned support for disabled isolation.
 - [ ] Dependency Cleanup (some projects currently have more dependencies than they actually need)
 - [x] Update all Deplendencies
 - Upstream Deplendencies:
