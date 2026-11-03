@@ -14,7 +14,7 @@ Please be adviced that we are currently reworking the project for the public rel
 The rework currently focuses on clear improvements in configurability and modularity.
 The core functionality will stay mostly AS-IS, prior to the migration.
 
-The Rework is roughly 90% completed.
+The Rework is roughly 95% completed.
 
 Once our Rework-Tasks are completet we will open the Review Process with the Jenkins Community to migrate the Plugins.
 Should you wish to use the plugins beforehand you can build them as shown in the [Building Section](#building).
@@ -28,7 +28,7 @@ Should you wish to use the plugins beforehand you can build them as shown in the
 - [x] `[artifact-deployment-plugin]` Add Deployment-Tasks & Checks (They provide a bunch of security measures!)
 - [x] `[repo-proxy-plugin]` Split off Maven Repo-Proxy from generic `repo-proxy-plugin` to `repo-proxy-maven-plugin`
 - [x] `[repo-proxy-plugin]` Switch to repackaged Netty hpi package.
-- [ ] `[repo-proxy-maven-plugin]` Fix Agent-sided Port in use BUG!
+- [x] `[repo-proxy-maven-plugin]` Fix Agent-sided Port in use BUG!
 - [x] `[isolation-context-plugin]` Fix Broken Remoting-Channel BUG!
 - [ ] `[isolation-context-plugin]` Implment planned support for multiple isolation handler.
 - [ ] `[isolation-context-plugin]` Implment planned support for disabled isolation.
