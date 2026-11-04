@@ -2,15 +2,6 @@
 <org.jenkinsci.plugins.artifact.deployment.config.DeploymentPipeIndex plugin="artifact-deployment@1.0-v0">
   <pipes class="list">
     <org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
-      <uuid>bbaa625e-8024-4111-842d-8dca0c75a4fd</uuid>
-      <name>thesis&gt;testing</name>
-      <tasks class="linked-list">
-        <org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusUploadTask>
-          <repoId>83766c89-09c9-420a-8dec-e1219193c323</repoId>
-        </org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusUploadTask>
-      </tasks>
-    </org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
-    <org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
       <uuid>9ec53693-310a-47c8-a386-da820f8a54ce</uuid>
       <name>release</name>
       <tasks class="linked-list">
@@ -26,6 +17,12 @@
           </requirements>
           <skipOnFailedCheck>true</skipOnFailedCheck>
           <tasks class="linked-list">
+            <org.jenkinsci.plugins.artifact.deployment.tasks.CreateCompressedArchiveTask>
+              <archiveName>${ override.archive.name }</archiveName>
+              <flattenFileTree>true</flattenFileTree>
+              <tarXz>true</tarXz>
+              <zip>true</zip>
+            </org.jenkinsci.plugins.artifact.deployment.tasks.CreateCompressedArchiveTask>
             <org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusUploadTask>
               <repoId>83766c89-09c9-420a-8dec-e1219193c323</repoId>
             </org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusUploadTask>
@@ -70,6 +67,21 @@
             </org.jenkinsci.plugins.artifact.deployment.tasks.GitTagPushTask>
           </tasks>
         </org.jenkinsci.plugins.artifact.deployment.tasks.SectionTask>
+      </tasks>
+    </org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
+    <org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
+      <uuid>bbaa625e-8024-4111-842d-8dca0c75a4fd</uuid>
+      <name>thesis&gt;testing</name>
+      <tasks class="linked-list">
+        <org.jenkinsci.plugins.artifact.deployment.tasks.CreateCompressedArchiveTask>
+          <archiveName>artifacts</archiveName>
+          <flattenFileTree>true</flattenFileTree>
+          <tarXz>true</tarXz>
+          <zip>true</zip>
+        </org.jenkinsci.plugins.artifact.deployment.tasks.CreateCompressedArchiveTask>
+        <org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusUploadTask>
+          <repoId>83766c89-09c9-420a-8dec-e1219193c323</repoId>
+        </org.jenkinsci.plugins.artifact.deployment.repos.SonatypeNexusUploadTask>
       </tasks>
     </org.jenkinsci.plugins.artifact.deployment.config.PipeConfig>
   </pipes>
